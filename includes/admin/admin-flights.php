@@ -408,14 +408,21 @@ $total_pages = ceil($total_items / $per_page);
 								<td>
 									<strong>Lot w tandemie</strong>
 									<?php 
-									// Pokaż opcje lotu w zielonym kolorze
+									// Pokaż opcje lotu - zawsze wyświetl status filmowania i akrobacji
 									$opcje_tekst = array();
-									if (!empty($lot['ma_filmowanie'])) $opcje_tekst[] = 'Filmowanie';
-									if (!empty($lot['ma_akrobacje'])) $opcje_tekst[] = 'Akrobacje';
-
-									if (!empty($opcje_tekst)) {
-										echo '<br><small style="color: #46b450; font-weight: bold;">' . implode(',&nbsp;', $opcje_tekst) . '</small>';
+									if (!empty($lot['ma_filmowanie'])) {
+										$opcje_tekst[] = '<span style="color: #46b450;">z filmowaniem</span>';
+									} else {
+										$opcje_tekst[] = '<span style="color: #d63638;">bez filmowania</span>';
 									}
+
+									if (!empty($lot['ma_akrobacje'])) {
+										$opcje_tekst[] = '<span style="color: #46b450;">z akrobacjami</span>';
+									} else {
+										$opcje_tekst[] = '<span style="color: #d63638;">bez akrobacji</span>';
+									}
+
+									echo '<br><small style="font-weight: bold;">' . implode(',&nbsp;', $opcje_tekst) . '</small>';
 									?>
 								</td>
 								
