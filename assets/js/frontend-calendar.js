@@ -25,45 +25,91 @@ jQuery(document).ready(function($) {
     // ==========================================================================
     
     function aktualizujWybranyLotInfo() {
-		var aktualnyLot = wybranyLot || window.wybranyLot;
-        var aktualneDane = daneKlienta || window.daneKlienta;
+    var aktualnyLot = wybranyLot || window.wybranyLot;
+    var aktualneDane = daneKlienta || window.daneKlienta;
+    
+    if (!aktualnyLot || !aktualneDane || !aktualneDane.dostepne_loty) return;
+    
+    var lot = aktualneDane.dostepne_loty.find(function(l) {
+        return l.id == aktualnyLot;
+    });
+    
+    if (lot) {
+        // Usuń wariant z nazwy produktu i ujednolic na "Lot w tandemie"
+        var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
         
-        if (!aktualnyLot || !aktualneDane || !aktualneDane.dostepne_loty) return;
-        
-        var lot = aktualneDane.dostepne_loty.find(function(l) {
-            return l.id == aktualnyLot;
-        });
-        
-        if (lot) {
-            // Usuń wariant z nazwy produktu i ujednolic na "Lot w tandemie"
-            var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
-            
-            // Ujednolic wszystkie nazwy na "Lot w tandemie"
-            if (nazwaBezWariantu.toLowerCase().includes('voucher') || 
-                nazwaBezWariantu.toLowerCase().includes('lot') ||
-                nazwaBezWariantu.toLowerCase().includes('tandem')) {
-                nazwaBezWariantu = 'Lot w tandemie';
-            }
-            
-            // Dodaj informacje o opcjach w tej samej linii
-            var opcje_tekst = [];
-            if (lot.ma_filmowanie && lot.ma_filmowanie != '0') opcje_tekst.push('+ filmowanie');
-            if (lot.ma_akrobacje && lot.ma_akrobacje != '0') opcje_tekst.push('+ akrobacje');
-            
-            var html = '<strong>Lot #' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
-            if (opcje_tekst.length > 0) {
-                html += ' <span style="color: #46b450; font-weight: bold;">' + opcje_tekst.join(' ') + '</span>';
-            }
-            html += '</strong>';
-            
-            // Dodaj informacje o voucherze
-            if (lot.kod_vouchera) {
-                html += '<br><small style="color:#d63638; font-weight:bold;">🎁 Z vouchera: ' + escapeHtml(lot.kod_vouchera) + '</small>';
-            }
-            
-            $('#srl-wybrany-lot-szczegoly').html(html);
+        // Ujednolic wszystkie nazwy na "Lot w tandemie"
+        if (nazwaBezWariantu.toLowerCase().includes('voucher') || 
+            nazwaBezWariantu.toLowerCase().includes('lot') ||
+            nazwaBezWariantu.toLowerCase().includes('tandem')) {
+            nazwaBezWariantu = 'Lot w tandemie';
         }
+        
+        // Sprawdź status opcji
+        var maFilmowanie = lot.ma_filmowanie && lot.ma_filmowanie != '0';
+        var maAkrobacje = lot.ma_akrobacje && lot.ma_akrobacje != '0';
+        
+        // Dodaj informacje o opcjach w tej samej linii - zawsze wyświetl status
+        var opcje_tekst = [];
+        if (maFilmowanie) {
+            opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+        } else {
+            opcje_tekst.push('<span style="color: #d63638;">brak filmowania</span>');
+        }
+
+        if (maAkrobacje) {
+            opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+        } else {
+            opcje_tekst.push('<span style="color: #d63638;">brak akrobacji</span>');
+        }
+        
+        var html = '<strong>Lot #' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
+        html += ' <span style="font-weight: bold;">' + opcje_tekst.join(', ') + '</span>';
+        html += '</strong>';
+        
+        // Dodaj informacje o voucherze
+        if (lot.kod_vouchera) {
+            // html += '<br><small style="color:#d63638; font-weight:bold;">🎁 Z vouchera: ' + escapeHtml(lot.kod_vouchera) + '</small>';
+        }
+        
+        // Dodaj sekcję promocji opcji jeśli brakuje którejś
+        if (!maFilmowanie || !maAkrobacje) {
+            html += '<div style="background: #f0f8ff; border: 2px solid #46b450; border-radius: 8px; padding: 20px; margin-top: 15px;">';
+            
+            if (!maFilmowanie && !maAkrobacje) {
+                // Brak obu opcji
+                html += '<h4 style="margin-top: 0; color: #46b450;">🌟 Czy wiesz, że Twój lot może być jeszcze ciekawszy?</h4>';
+                html += '<p>Nie masz dodanego <strong>filmowania</strong> ani <strong>akrobacji</strong> – to dwie opcje, które często wybierają nasi pasażerowie.</p>';
+                html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br>A <strong>akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
+                html += '<p>Możesz dodać je do swojego zamówienia online albo zdecydować się na miejscu.</p>';
+                html += '<div style="text-align: center; margin-top: 15px;">';
+                html += '<button id="srl-opcja-' + lot.id + '-116" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="116" onclick="srlDodajOpcjeLotu(' + lot.id + ', 116, \'Filmowanie lotu\')">👉 Dodaj filmowanie</button>';
+                html += '<button id="srl-opcja-' + lot.id + '-117" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="117" onclick="srlDodajOpcjeLotu(' + lot.id + ', 117, \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje</button>';
+                html += '</div>';
+            } else if (!maFilmowanie) {
+                // Brak filmowania
+                html += '<h4 style="margin-top: 0; color: #46b450;">📸 Nie masz dodanego filmowania do swojego lotu?</h4>';
+                html += '<p>To nic, ale warto wiedzieć, że to bardzo lubiana opcja wśród pasażerów.</p>';
+                html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę. Możesz dodać filmowanie teraz lub dopisać je na miejscu, już na lotnisku.</p>';
+                html += '<div style="text-align: center; margin-top: 15px;">';
+                html += '<button id="srl-opcja-' + lot.id + '-116" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="116" onclick="srlDodajOpcjeLotu(' + lot.id + ', 116, \'Filmowanie lotu\')">👉 Dodaj filmowanie do koszyka</button>';
+                html += '</div>';
+            } else if (!maAkrobacje) {
+                // Brak akrobacji
+                html += '<h4 style="margin-top: 0; color: #46b450;">🎢 Nie wybrałeś akrobacji?</h4>';
+                html += '<p>To oczywiście nie jest obowiązkowe – ale jeśli lubisz odrobinę adrenaliny, to może być coś dla Ciebie!</p>';
+                html += '<p>🎢 <strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo. Możesz dodać je teraz online lub zdecydować się na miejscu przed startem.</p>';
+                html += '<div style="text-align: center; margin-top: 15px;">';
+                html += '<button id="srl-opcja-' + lot.id + '-117" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="117" onclick="srlDodajOpcjeLotu(' + lot.id + ', 117, \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje do koszyka</button>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+        }
+        
+        $('#srl-wybrany-lot-szczegoly').html(html);
     }
+}
 	
 	
     // ==========================================================================
@@ -243,17 +289,23 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
         html += '<td class="srl-kolumna-nazwa">';
         html += '<div class="srl-nazwa-lotu">Lot w tandemie (#' + lot.id + ')</div>';
 
-        // Pokaż opcje lotu jako płatne dodatki
-        var opcje_tekst = [];
-        if (lot.ma_filmowanie && lot.ma_filmowanie != '0') opcje_tekst.push('Filmowanie');
-        if (lot.ma_akrobacje && lot.ma_akrobacje != '0') opcje_tekst.push('Akrobacje');
+		var opcje_tekst = [];
+		if (lot.ma_filmowanie && lot.ma_filmowanie != '0') {
+			opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+		} else {
+			opcje_tekst.push('<span style="color: #d63638;">bez filmowania</span>');
+		}
 
-        if (opcje_tekst.length > 0) {
-            html += '<div class="srl-opcje-lotu">+ ' + opcje_tekst.join(', ') + '</div>';
-        }
+		if (lot.ma_akrobacje && lot.ma_akrobacje != '0') {
+			opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+		} else {
+			opcje_tekst.push('<span style="color: #d63638;">bez akrobacji</span>');
+		}
+
+		html += '<div class="srl-opcje-lotu">' + opcje_tekst.join(', ') + '</div>';
 
         if (lot.kod_vouchera) {
-            html += '<div class="srl-voucher-info">🎁 Z vouchera: ' + escapeHtml(lot.kod_vouchera) + '</div>';
+            //html += '<div class="srl-voucher-info">🎁 Z vouchera: ' + escapeHtml(lot.kod_vouchera) + '</div>';
         }
         
         // Data ważności mniejszą czcionką
@@ -766,7 +818,7 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
     
 	function pokazKrok5() {
 		var html = '<div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">';
-		html += '<h3 style="margin-top:0; color:#0073aa;">📋 Podsumowanie rezerwacji</h3>';
+		html += '<h3 style="margin-top:0; color:#0073aa;text-transform: uppercase;">Podsumowanie rezerwacji</h3>';
 		
 		// Znajdź dane wybranego lotu
 		var lot = daneKlienta.dostepne_loty.find(function(l) {
@@ -788,26 +840,33 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
             nazwaBezWariantu = 'Lot w tandemie';
         }
         var opcje_tekst = [];
-        if (lot.ma_filmowanie && lot.ma_filmowanie != '0') opcje_tekst.push('+ filmowanie');
-        if (lot.ma_akrobacje && lot.ma_akrobacje != '0') opcje_tekst.push('+ akrobacje');
+		if (lot.ma_filmowanie && lot.ma_filmowanie != '0') {
+			opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+		} else {
+			opcje_tekst.push('<span style="color: #d63638;">bez filmowania</span>');
+		}
+
+		if (lot.ma_akrobacje && lot.ma_akrobacje != '0') {
+			opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+		} else {
+			opcje_tekst.push('<span style="color: #d63638;">bez akrobacji</span>');
+		}
+
+		var lotOpis = '#' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
+		lotOpis += ' <span style="font-weight: bold;">' + opcje_tekst.join(',&nbsp;') + '</span>';
         
-        var lotOpis = '#' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
-        if (opcje_tekst.length > 0) {
-            lotOpis += ' <span style="color: #46b450; font-weight: bold;">' + opcje_tekst.join(' ') + '</span>';
-        }
-        
-        html += '<div><strong>🎫 Wybrany lot:</strong><br>' + lotOpis + '</div>';
-		html += '<div><strong>📅 Data lotu:</strong><br>' + formatujDate(wybranaDana) + '</div>';
-		
+		html += '<div><strong>🎫 Wybrany lot:</strong><br>' + lotOpis + '</div>';
+
 		if (slotInfo) {
-			html += '<div><strong>⏰ Godzina:</strong><br>' + slotInfo.godzina_start.substring(0, 5) + ' - ' + slotInfo.godzina_koniec.substring(0, 5) + '</div>';
-			html += '<div></div>'; // Pusta komórka
+			html += '<div><strong>📅 Data i godzina lotu:</strong><br>' + formatujDate(wybranaDana) + ', godz. ' + slotInfo.godzina_start.substring(0, 5) + ' - ' + slotInfo.godzina_koniec.substring(0, 5) + '</div>';
+		} else {
+			html += '<div><strong>📅 Data lotu:</strong><br>' + formatujDate(wybranaDana) + '</div>';
 		}
 		
 		html += '</div>';
 		
 		html += '<div class="srl-dane-pasazera-box" style="background:#f8f9fa; padding-top:30px; border-radius:8px; margin-top:20px;">';
-		html += '<h3 style="margin-top:0; color:#0073aa;">🪪 Dane pasażera</h3>';
+		html += '<h3 style="margin-top:0; color:#0073aa;text-transform: uppercase;">Dane pasażera</h3>';
 		html += '<p><strong>Imię i nazwisko:</strong> ' + $('#srl-imie').val() + ' ' + $('#srl-nazwisko').val() + '</p>';
 		html += '<p><strong>Rok urodzenia:</strong> ' + $('#srl-rok-urodzenia').val() + '</p>';
 		html += '<p><strong>Wiek:</strong> ' + (new Date().getFullYear() - $('#srl-rok-urodzenia').val()) + ' lat</p>';
@@ -884,7 +943,7 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
     
     function pokazKomunikatSukcesu() {
         var html = '<div class="srl-komunikat srl-komunikat-success" style="text-align:center; padding:40px;">';
-        html += '<h2 style="color:#46b450; margin-bottom:20px;">🎉 Rezerwacja potwierdzona!</h2>';
+        html += '<h2 style="color:#46b450; margin-bottom:20px;text-transform: uppercase;">Rezerwacja potwierdzona!</h2>';
         html += '<p style="font-size:18px; margin-bottom:30px;">Twój lot tandemowy został zarezerwowany na <strong>' + formatujDate(wybranaDana) + '</strong></p>';
         html += '<p>Na podany adres email została wysłana informacja z szczegółami rezerwacji.</p>';
         html += '<div style="margin-top:30px;">';
