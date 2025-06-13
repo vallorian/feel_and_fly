@@ -119,6 +119,13 @@ function srl_zapisz_dane_pasazera() {
 		return;
 	}
 
+	// Walidacja numeru telefonu
+	$telefon_clean = str_replace([' ', '-', '(', ')', '+48'], '', $dane['telefon']);
+	if (strlen($telefon_clean) < 9) {
+		wp_send_json_error('Numer telefonu musi mieć minimum 9 cyfr.');
+		return;
+	}
+
 	// Sprawdź akceptację regulaminu
 	if (!$dane['akceptacja_regulaminu']) {
 		wp_send_json_error('Musisz zaakceptować Regulamin.');
@@ -130,10 +137,10 @@ function srl_zapisz_dane_pasazera() {
 		wp_send_json_error('Nie można dokonać rezerwacji z kategorią wagową 120kg+');
 		return;
 	}    
-    // Sprawdź wiek (min 16 lat)
+    // Sprawdź wiek (min 10 lat)
     $wiek = date('Y') - $dane['rok_urodzenia'];
-    if ($wiek < 16) {
-        wp_send_json_error('Musisz mieć co najmniej 16 lat aby dokonać rezerwacji.');
+    if ($wiek < 10) {
+        wp_send_json_error('Pasażer jest zbyt młody, aby polecieć w tandemie.');
         return;
     }
     

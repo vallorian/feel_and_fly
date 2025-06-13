@@ -164,6 +164,94 @@ jQuery(document).ready(function($) {
 		}, 300);
 	}
     
+	function pokazKrok5() {
+    // Znajdź dane wybranego lotu
+    var lot = daneKlienta.dostepne_loty.find(function(l) {
+        return l.id == wybranyLot;
+    });
+    
+    // Znajdź dane wybranego slotu
+    var slotInfo = tymczasowaBlokada ? tymczasowaBlokada.slot : null;
+    
+    if (lot) {
+        // Przygotuj opis lotu
+        var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
+        if (nazwaBezWariantu.toLowerCase().includes('voucher') || 
+            nazwaBezWariantu.toLowerCase().includes('lot') ||
+            nazwaBezWariantu.toLowerCase().includes('tandem')) {
+            nazwaBezWariantu = 'Lot w tandemie';
+        }
+        
+        var opcje_tekst = [];
+        if (lot.ma_filmowanie && lot.ma_filmowanie != '0') {
+            opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+        } else {
+            opcje_tekst.push('<span style="color: #d63638;">brak filmowania</span>');
+        }
+
+        if (lot.ma_akrobacje && lot.ma_akrobacje != '0') {
+            opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+        } else {
+            opcje_tekst.push('<span style="color: #d63638;">brak akrobacji</span>');
+        }
+        
+        var lotOpis = '#' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
+        lotOpis += ' <span style="font-weight: bold;">' + opcje_tekst.join(', ') + '</span>';
+        
+        // Dodaj informacje o voucherze
+        if (lot.kod_vouchera) {
+            // lotOpis += '<br><small style="color:#d63638; font-weight:bold;">🎁 Z vouchera: ' + escapeHtml(lot.kod_vouchera) + '</small>';
+        }
+        
+        $('#srl-lot-details').html(lotOpis);
+    }
+    
+    // Wyświetl datę i godzinę
+    if (slotInfo) {
+        var dataGodzina = formatujDate(wybranaDana) + ', godz. ' + slotInfo.godzina_start.substring(0, 5) + ' - ' + slotInfo.godzina_koniec.substring(0, 5);
+        $('#srl-datetime-details').html(dataGodzina);
+    }
+    
+    // Wypełnij dane pasażera
+    var daneHtml = '';
+    daneHtml += '<p><strong>Imię i nazwisko:</strong> ' + $('#srl-imie').val() + ' ' + $('#srl-nazwisko').val() + '</p>';
+    daneHtml += '<p><strong>Rok urodzenia:</strong> ' + $('#srl-rok-urodzenia').val() + '</p>';
+    daneHtml += '<p><strong>Wiek:</strong> ' + (new Date().getFullYear() - $('#srl-rok-urodzenia').val()) + ' lat</p>';
+    daneHtml += '<p><strong>Telefon:</strong> ' + $('#srl-telefon').val() + '</p>';
+    daneHtml += '<p><strong>Sprawność fizyczna:</strong> ' + $('#srl-sprawnosc-fizyczna option:selected').text() + '</p>';
+    daneHtml += '<p><strong>Kategoria wagowa:</strong> ' + $('#srl-kategoria-wagowa').val() + '</p>';
+
+    // Dodaj komunikat wagowy jeśli istnieje
+    var kategoriaWagowa = $('#srl-kategoria-wagowa').val();
+    if (kategoriaWagowa === '91-120kg') {
+        daneHtml += '<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:15px; margin:15px 0;">';
+        daneHtml += '<p style="margin:0;">Loty z pasażerami powyżej 90 kg mogą być krótsze, brak możliwości wykonania akrobacji. Pilot ma prawo odmówić wykonania lotu jeśli uzna, że zagraża to bezpieczeństwu.</p>';
+        daneHtml += '</div>';
+    } else if (kategoriaWagowa === '120kg+') {
+        daneHtml += '<div class="srl-uwaga" style="background:#fdeaea; border:2px solid #d63638; border-radius:8px; padding:15px; margin:15px 0;">';
+        daneHtml += '<h4 style="margin-top:0; color:#721c24;">❌ Błąd wagowy:</h4>';
+        daneHtml += '<p style="margin:0;">Brak możliwości wykonania lotu z pasażerem powyżej 120 kg.</p>';
+        daneHtml += '</div>';
+    }
+
+    var uwagi = $('#srl-uwagi').val();
+    if (uwagi) {
+        daneHtml += '<p><strong>Uwagi:</strong> ' + escapeHtml(uwagi) + '</p>';
+    }
+    
+    $('#srl-dane-pasazera-podsumowanie').html(daneHtml);
+}
+
+// ZACHOWAJ override pokazKrok:
+var originalPokaz = pokazKrok;
+pokazKrok = function(nrKroku) {
+    originalPokaz(nrKroku);
+    if (nrKroku === 5) {
+        pokazKrok5();
+    }
+};
+	
+	
     function podlaczNasluchy() {
         // Kliknięcie w progress bar
         $('.srl-step').on('click', function() {
@@ -812,101 +900,6 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
         });
     }
     
-    // ==========================================================================
-    // Krok 4: Potwierdzenie
-    // ==========================================================================
-    
-	function pokazKrok5() {
-		var html = '<div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">';
-		html += '<h3 style="margin-top:0; color:#0073aa;text-transform: uppercase;">Podsumowanie rezerwacji</h3>';
-		
-		// Znajdź dane wybranego lotu
-		var lot = daneKlienta.dostepne_loty.find(function(l) {
-			return l.id == wybranyLot;
-		});
-		
-		// Znajdź dane wybranego slotu
-		var slotInfo = tymczasowaBlokada ? tymczasowaBlokada.slot : null;
-		
-		html += '<div class="srl-podsumowanie-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0;">';
-		
-		// Usuń wariant z nazwy produktu i ujednolic na "Lot w tandemie"
-        var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
-        
-        // Ujednolic wszystkie nazwy na "Lot w tandemie"
-        if (nazwaBezWariantu.toLowerCase().includes('voucher') || 
-            nazwaBezWariantu.toLowerCase().includes('lot') ||
-            nazwaBezWariantu.toLowerCase().includes('tandem')) {
-            nazwaBezWariantu = 'Lot w tandemie';
-        }
-        var opcje_tekst = [];
-		if (lot.ma_filmowanie && lot.ma_filmowanie != '0') {
-			opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
-		} else {
-			opcje_tekst.push('<span style="color: #d63638;">bez filmowania</span>');
-		}
-
-		if (lot.ma_akrobacje && lot.ma_akrobacje != '0') {
-			opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
-		} else {
-			opcje_tekst.push('<span style="color: #d63638;">bez akrobacji</span>');
-		}
-
-		var lotOpis = '#' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
-		lotOpis += ' <span style="font-weight: bold;">' + opcje_tekst.join(',&nbsp;') + '</span>';
-        
-		html += '<div><strong>🎫 Wybrany lot:</strong><br>' + lotOpis + '</div>';
-
-		if (slotInfo) {
-			html += '<div><strong>📅 Data i godzina lotu:</strong><br>' + formatujDate(wybranaDana) + ', godz. ' + slotInfo.godzina_start.substring(0, 5) + ' - ' + slotInfo.godzina_koniec.substring(0, 5) + '</div>';
-		} else {
-			html += '<div><strong>📅 Data lotu:</strong><br>' + formatujDate(wybranaDana) + '</div>';
-		}
-		
-		html += '</div>';
-		
-		html += '<div class="srl-dane-pasazera-box" style="background:#f8f9fa; padding-top:30px; border-radius:8px; margin-top:20px;">';
-		html += '<h3 style="margin-top:0; color:#0073aa;text-transform: uppercase;">Dane pasażera</h3>';
-		html += '<p><strong>Imię i nazwisko:</strong> ' + $('#srl-imie').val() + ' ' + $('#srl-nazwisko').val() + '</p>';
-		html += '<p><strong>Rok urodzenia:</strong> ' + $('#srl-rok-urodzenia').val() + '</p>';
-		html += '<p><strong>Wiek:</strong> ' + (new Date().getFullYear() - $('#srl-rok-urodzenia').val()) + ' lat</p>';
-		html += '<p><strong>Telefon:</strong> ' + $('#srl-telefon').val() + '</p>';
-		html += '<p><strong>Sprawność fizyczna:</strong> ' + $('#srl-sprawnosc-fizyczna option:selected').text() + '</p>';
-		html += '<p><strong>Kategoria wagowa:</strong> ' + $('#srl-kategoria-wagowa').val() + '</p>';
-
-		// Dodaj komunikat wagowy jeśli istnieje
-		var kategoriaWagowa = $('#srl-kategoria-wagowa').val();
-		if (kategoriaWagowa === '91-120kg') {
-			html += '<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:15px; margin:15px 0;">';
-			html += '<p style="margin:0;">Loty z pasażerami powyżej 90 kg mogą być krótsze, brak możliwości wykonania akrobacji. Pilot ma prawo odmówić wykonania lotu jeśli uzna, że zagraża to bezpieczeństwu.</p>';
-			html += '</div>';
-		} else if (kategoriaWagowa === '120kg+') {
-			html += '<div class="srl-uwaga" style="background:#fdeaea; border:2px solid #d63638; border-radius:8px; padding:15px; margin:15px 0;">';
-			html += '<h4 style="margin-top:0; color:#721c24;">❌ Błąd wagowy:</h4>';
-			html += '<p style="margin:0;">Brak możliwości wykonania lotu z pasażerem powyżej 120 kg.</p>';
-			html += '</div>';
-		}
-
-		var uwagi = $('#srl-uwagi').val();
-		if (uwagi) {
-			html += '<p><strong>Uwagi:</strong> ' + escapeHtml(uwagi) + '</p>';
-		}
-
-		html += '</div>';
-		
-		html += '<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:20px;">';
-		html += '<h4 style="margin-top:0; color:#f57c00;">⚠️ Ważne informacje:</h4>';
-		html += '<ul style="margin:0; padding-left:20px;">';
-		html += '<li>Zgłoś się 30 minut przed godziną lotu</li>';
-		html += '<li>Weź ze sobą dokument tożsamości</li>';
-		html += '<li>Ubierz się stosownie do warunków pogodowych</li>';
-		html += '<li>Rezerwację można anulować do 48h przed lotem</li>';
-		html += '</ul></div>';
-		
-		html += '</div>';
-		
-		$('#srl-podsumowanie-rezerwacji').html(html);
-	}
     
     function dokonajRezerwacji() {
         if (!wybranySlot || !wybranyLot) {
@@ -959,18 +952,33 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
     // ==========================================================================
     // Funkcje pomocnicze
     // ==========================================================================
-    
-    function pokazKomunikat(tekst, typ) {
-        var klasa = 'srl-komunikat-' + typ;
-        var html = '<div class="srl-komunikat ' + klasa + '">' + tekst + '</div>';
-        
-        $('#srl-komunikaty').html(html);
-        
-        // Auto-ukryj po 5 sekundach
-        setTimeout(function() {
-            $('#srl-komunikaty').fadeOut();
-        }, 5000);
-    }
+    function ukryjKomunikaty() {
+		$('#srl-komunikaty').empty().hide();
+	}
+	
+	
+	function pokazKomunikat(tekst, typ) {
+		var klasa = 'srl-komunikat-' + typ;
+		var html = '<div class="srl-komunikat ' + klasa + '">' + tekst + '</div>';
+		
+		var komunikatyElement = $('#srl-komunikaty');
+		
+		if (komunikatyElement.length === 0) {
+			// Jeśli element nie istnieje, stwórz go
+			$('#srl-formularz-pasazera').prepend('<div id="srl-komunikaty"></div>');
+			komunikatyElement = $('#srl-komunikaty');
+		}
+		
+		// Dodaj nowy komunikat zamiast zastępować
+		komunikatyElement.append(html).show();
+		
+		// Auto-ukryj po 5 sekundach
+		setTimeout(function() {
+			komunikatyElement.fadeOut(function() {
+				komunikatyElement.empty(); // Wyczyść po ukryciu
+			});
+		}, 15000);
+	}
     
     function ukryjKomunikat() {
         $('#srl-komunikaty').empty();
@@ -1016,15 +1024,7 @@ function formatujDateICzas(dataStr, czasStr) {
         return div.innerHTML;
     }
     
-    // Override pokazKrok dla kroku 5
-    var originalPokaz = pokazKrok;
-    pokazKrok = function(nrKroku) {
-        originalPokaz(nrKroku);
-        if (nrKroku === 5) {
-            pokazKrok5();
-        }
-    };
-   
+
 	// ==========================================================================
 // Walidacja kategorii wagowej i sprawdzenie kompatybilności z akrobacjami
 // ==========================================================================
@@ -1101,32 +1101,55 @@ function sprawdzKompatybilnoscZAkrobacjami() {
 }
 
 // Podłącz nasłuchy
-$(document).on('change', '#srl-kategoria-wagowa', function() {
-    sprawdzKategorieWagowaWiekowa();
-    sprawdzKompatybilnoscZAkrobacjami();
-});
+	$(document).on('change', '#srl-kategoria-wagowa', function() {
+		sprawdzKategorieWagowaWiekowa();
+		sprawdzKompatybilnoscZAkrobacjami();
+	});
 
-// Zmodyfikuj funkcję zapiszDanePasazera
-var originalZapiszDane = zapiszDanePasazera;
-zapiszDanePasazera = function() {
-    // Sprawdź akceptację regulaminu
-    if (!$('#srl-akceptacja-regulaminu').is(':checked')) {
-        pokazKomunikat('Musisz zaakceptować Regulamin.', 'error');
-        return;
-    }
+	// Zmodyfikuj funkcję zapiszDanePasazera
+	var originalZapiszDane = zapiszDanePasazera;
+	zapiszDanePasazera = function() {
+
     
-    // Sprawdź kategorię wagową
-    var kategoria = $('#srl-kategoria-wagowa').val();
-    if (kategoria === '120kg+') {
-        pokazKomunikat('Nie można dokonać rezerwacji z kategorią wagową 120kg+', 'error');
-        return;
-    }
-    
-    // Sprawdź kompatybilność z akrobacjami
-    if (!sprawdzKompatybilnoscZAkrobacjami()) {
-        return;
-    }
-    
+	// Wyczyść poprzednie komunikaty
+	ukryjKomunikaty();
+
+	// Zbierz wszystkie błędy walidacji
+	var bledy = [];
+
+	// Walidacja akceptacji regulaminu
+	if (!$('#srl-akceptacja-regulaminu').is(':checked')) {
+		bledy.push('Musisz zaakceptować Regulamin.');
+	}
+
+	// Walidacja kategorii wagowej
+	var kategoria = $('#srl-kategoria-wagowa').val();
+	if (kategoria === '120kg+') {
+		bledy.push('Nie można dokonać rezerwacji z kategorią wagową 120kg+');
+	}
+
+	// Walidacja numeru telefonu
+	var telefon = $('#srl-telefon').val().trim();
+	if (telefon) {
+		var telefonClean = telefon.replace(/[\s\-\(\)\+48]/g, '');
+		if (telefonClean.length < 9) {
+			bledy.push('Numer telefonu musi mieć minimum 9 cyfr.');
+		}
+	}
+
+	// Sprawdź kompatybilność z akrobacjami
+	if (!sprawdzKompatybilnoscZAkrobacjami()) {
+		bledy.push('Wybrana kategoria wagowa nie jest dostępna dla lotów z akrobacjami.');
+	}
+
+	// Wyświetl wszystkie błędy
+	if (bledy.length > 0) {
+		bledy.forEach(function(blad) {
+			pokazKomunikat(blad, 'error');
+		});
+		return;
+	}
+	
     // Jeśli wszystko OK, kontynuuj normalnie
     originalZapiszDane();
 };
@@ -1250,6 +1273,8 @@ jQuery(document).ready(function($) {
             }
         };
     }
+	
+
 });
 
 console.log('🎯 [DEBUG] System walidacji i opcji lotów zainicjalizowany');

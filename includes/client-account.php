@@ -168,10 +168,18 @@ function srl_informacje_o_mnie_tresc() {
 		$bledy = array();
 		if (empty($dane['imie'])) $bledy[] = 'Imię jest wymagane';
 		if (empty($dane['nazwisko'])) $bledy[] = 'Nazwisko jest wymagane';
-		if ($dane['rok_urodzenia'] < 1920 || $dane['rok_urodzenia'] > 2010) $bledy[] = 'Nieprawidłowy rok urodzenia';
+		if ($dane['rok_urodzenia'] < 1920 || $dane['rok_urodzenia'] > 2020) $bledy[] = 'Nieprawidłowy rok urodzenia';
 		if (empty($dane['kategoria_wagowa'])) $bledy[] = 'Kategoria wagowa jest wymagana';
 		if (empty($dane['sprawnosc_fizyczna'])) $bledy[] = 'Sprawność fizyczna jest wymagana';
-		if (empty($dane['telefon'])) $bledy[] = 'Numer telefonu jest wymagany';
+		if (empty($dane['telefon'])) {
+			$bledy[] = 'Numer telefonu jest wymagany';
+		} else {
+			// Walidacja długości telefonu (bez +48)
+			$telefon_clean = str_replace([' ', '-', '(', ')', '+48'], '', $dane['telefon']);
+			if (strlen($telefon_clean) < 9) {
+				$bledy[] = 'Numer telefonu musi mieć minimum 9 cyfr';
+			}
+		}
         
         if (empty($bledy)) {
             // Zapisz dane
@@ -215,7 +223,7 @@ function srl_informacje_o_mnie_tresc() {
 			
 			<p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
 				<label for="srl_rok_urodzenia">Rok urodzenia <span class="required">*</span></label>
-				<input type="number" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_rok_urodzenia" id="srl_rok_urodzenia" value="<?php echo esc_attr($rok_urodzenia); ?>" min="1920" max="2010" required />
+				<input type="number" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_rok_urodzenia" id="srl_rok_urodzenia" value="<?php echo esc_attr($rok_urodzenia); ?>" min="1920" max="2020" required />
 			</p>
 			
 			<p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">

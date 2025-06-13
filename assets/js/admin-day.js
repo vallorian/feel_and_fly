@@ -1212,7 +1212,7 @@ function pokazFormularzDanychPrywatnych(terminId) {
                 </div>
                 <div>
                     <label>Rok urodzenia *</label>
-                    <input type="number" name="rok_urodzenia" min="1920" max="2010" required style="width:100%; padding:8px; margin-top:5px;">
+                    <input type="number" name="rok_urodzenia" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px;">
                 </div>
                 <div>
                     <label>Telefon *</label>
@@ -1413,7 +1413,7 @@ function pokazUjednoliconyModalDanych(dane, tytul, moznaEdytowac, terminId) {
         contentHtml += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">';
         contentHtml += '<div><label><strong>Imię *</strong></label><input type="text" name="imie" value="' + (dane.imie || '') + '" required style="width:100%; padding:8px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px;"></div>';
         contentHtml += '<div><label><strong>Nazwisko *</strong></label><input type="text" name="nazwisko" value="' + (dane.nazwisko || '') + '" required style="width:100%; padding:8px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px;"></div>';
-        contentHtml += '<div><label><strong>Rok urodzenia *</strong></label><input type="number" name="rok_urodzenia" value="' + (dane.rok_urodzenia || '') + '" min="1920" max="2010" required style="width:100%; padding:8px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px;"></div>';
+        contentHtml += '<div><label><strong>Rok urodzenia *</strong></label><input type="number" name="rok_urodzenia" value="' + (dane.rok_urodzenia || '') + '" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px;"></div>';
         contentHtml += '<div><label><strong>Telefon *</strong></label><input type="tel" name="telefon" value="' + (dane.telefon || '') + '" required style="width:100%; padding:8px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px;"></div>';
         contentHtml += '<div><label><strong>Sprawność fizyczna *</strong></label><select name="sprawnosc_fizyczna" required style="width:100%; padding:8px; margin-top:5px; border: 1px solid #ddd; border-radius: 4px;">';
         contentHtml += '<option value="">Wybierz...</option>';
@@ -1616,7 +1616,7 @@ function pokazModalPrzypisaniaSlotu(terminId) {
                     </div>
                     <div>
                         <label>Rok urodzenia *</label>
-                        <input type="number" name="rok_urodzenia" min="1920" max="2010" required style="width:100%; padding:8px; margin-top:5px;">
+                        <input type="number" name="rok_urodzenia" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px;">
                     </div>
                     <div>
                         <label>Numer telefonu *</label>

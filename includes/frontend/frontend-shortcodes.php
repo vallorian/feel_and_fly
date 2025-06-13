@@ -226,11 +226,13 @@ function srl_shortcode_kalendarz() {
 						</div>
 						<div class="srl-form-group">
 							<label for="srl-rok-urodzenia">Rok urodzenia *</label>
-							<input type="number" id="srl-rok-urodzenia" name="rok_urodzenia" min="1920" max="2010" required>
+							<input type="number" id="srl-rok-urodzenia" name="rok_urodzenia" min="1920" max="2020" required>
 						</div>
 						<div class="srl-form-group">
 							<label for="srl-telefon">Numer telefonu *</label>
-							<input type="tel" id="srl-telefon" name="telefon" required>
+							<input type="tel" id="srl-telefon" name="telefon" required 
+							   pattern="(\+48\s?)?[0-9\s\-\(\)]{9,}" 
+							   title="Numer telefonu musi mieć minimum 9 cyfr">
 						</div>
 						<div class="srl-form-group">
 							<label for="srl-sprawnosc-fizyczna">Sprawność fizyczna *</label>
@@ -324,7 +326,34 @@ function srl_shortcode_kalendarz() {
 		<!-- Krok 5: Potwierdzenie -->
 		<div id="srl-krok-5" class="srl-krok">
 			<h2 style="text-transform: uppercase;">✅ Potwierdzenie rezerwacji</h2>
-			<div id="srl-podsumowanie-rezerwacji"></div>
+			
+			<div id="srl-podsumowanie-rezerwacji">
+				<div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">
+					<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Podsumowanie rezerwacji</h3>
+					
+					<div class="srl-podsumowanie-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0;">
+						<div id="srl-wybrany-lot-podsumowanie"><strong>🎫 Wybrany lot:</strong><br><span id="srl-lot-details">Ładowanie...</span></div>
+						<div id="srl-data-godzina-podsumowanie"><strong>📅 Data i godzina lotu:</strong><br><span id="srl-datetime-details">Ładowanie...</span></div>
+					</div>
+					
+					<div class="srl-dane-pasazera-box" style="background:#f8f9fa; padding-top:30px; border-radius:8px; margin-top:20px;">
+						<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Dane pasażera</h3>
+						<div id="srl-dane-pasazera-podsumowanie">
+							<!-- Dane będą wypełnione przez JS -->
+						</div>
+					</div>
+					
+					<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:20px;">
+						<h4 style="margin-top:0; color:#f57c00;">⚠️ Ważne informacje:</h4>
+						<ul style="margin:0; padding-left:20px;">
+							<li>Zgłoś się 30 minut przed godziną lotu</li>
+							<li>Weź ze sobą dokument tożsamości</li>
+							<li>Ubierz się stosownie do warunków pogodowych</li>
+							<li>Rezerwację można anulować do 48h przed lotem</li>
+						</ul>
+					</div>
+				</div>
+			</div>
 			
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-4" class="srl-btn srl-btn-secondary">← Zmień godzinę</button>

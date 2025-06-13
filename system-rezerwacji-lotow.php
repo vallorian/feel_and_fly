@@ -1065,10 +1065,17 @@ function srl_ajax_zapisz_dane_prywatne() {
     $uwagi = sanitize_textarea_field($_POST['uwagi']);
     
     // Walidacja
-    if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
-        wp_send_json_error('Wypełnij wszystkie wymagane pola.');
-        return;
-    }
+	if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
+		wp_send_json_error('Wypełnij wszystkie wymagane pola.');
+		return;
+	}
+
+	// Walidacja numeru telefonu
+	$telefon_clean = str_replace([' ', '-', '(', ')', '+48'], '', $telefon);
+	if (strlen($telefon_clean) < 9) {
+		wp_send_json_error('Numer telefonu musi mieć minimum 9 cyfr.');
+		return;
+	}
     
     // Przygotuj dane do zapisu
     $dane_pasazera = array(
@@ -1311,9 +1318,17 @@ function srl_ajax_zapisz_lot_prywatny() {
     $uwagi = sanitize_textarea_field($_POST['uwagi']);
     
     // Walidacja
-    if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
-        wp_send_json_error('Wypełnij wszystkie wymagane pola.');
-    }
+	if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
+		wp_send_json_error('Wypełnij wszystkie wymagane pola.');
+		return;
+	}
+
+	// Walidacja numeru telefonu
+	$telefon_clean = str_replace([' ', '-', '(', ')', '+48'], '', $telefon);
+	if (strlen($telefon_clean) < 9) {
+		wp_send_json_error('Numer telefonu musi mieć minimum 9 cyfr.');
+		return;
+	}
     
     // Przygotuj dane do zapisu
     $dane_pasazera = array(
