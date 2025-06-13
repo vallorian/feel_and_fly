@@ -91,16 +91,23 @@ function srl_moje_loty_tresc() {
         echo '<div class="srl-nazwa-lotu">Lot w tandemie (#' . esc_html($lot['id']) . ')</div>';
         
         // Pokaż opcje lotu
-        $opcje_tekst = array();
-        if (!empty($lot['ma_filmowanie'])) $opcje_tekst[] = 'Filmowanie';
-        if (!empty($lot['ma_akrobacje'])) $opcje_tekst[] = 'Akrobacje';
+		$opcje_tekst = array();
+		if (!empty($lot['ma_filmowanie'])) {
+			$opcje_tekst[] = '<span style="color: #46b450;">z filmowaniem</span>';
+		} else {
+			$opcje_tekst[] = '<span style="color: #d63638;">bez filmowania</span>';
+		}
 
-        if (!empty($opcje_tekst)) {
-            echo '<div class="srl-opcje-lotu">+ ' . implode(', ', $opcje_tekst) . '</div>';
-        }
+		if (!empty($lot['ma_akrobacje'])) {
+			$opcje_tekst[] = '<span style="color: #46b450;">z akrobacjami</span>';
+		} else {
+			$opcje_tekst[] = '<span style="color: #d63638;">bez akrobacji</span>';
+		}
+
+		echo '<div class="srl-opcje-lotu">' . implode(', ', $opcje_tekst) . '</div>';
 
         if (!empty($lot['kod_vouchera'])) {
-            echo '<div class="srl-voucher-info">🎁 Z vouchera: ' . esc_html($lot['kod_vouchera']) . '</div>';
+            // echo '<div class="srl-voucher-info">🎁 Z vouchera: ' . esc_html($lot['kod_vouchera']) . '</div>';
         }
         
         // Data ważności
