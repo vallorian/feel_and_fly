@@ -1,0 +1,163 @@
+
+/* Style dla funkcji grupowych */
+.srl-grupowe-funkcje {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.srl-grupowe-funkcje label {
+    font-weight: 500;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.srl-grupowa-zmiana-statusu {
+    min-width: 150px;
+    padding: 4px 8px;
+    border: 1px solid #ccd0d4;
+    border-radius: 3px;
+}
+
+.srl-grupowe-usun {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.srl-grupowe-usun:hover {
+    background: #c82333;
+}
+
+/* Style dla checkboxów w tabeli */
+.srl-slot-checkbox, .srl-zaznacz-wszystkie, .srl-zaznacz-wszystkie-naglowek {
+    cursor: pointer;
+    transform: scale(1.1);
+}
+
+/* Style dla konfliktu czasowego */
+tr[style*="background-color: rgb(255, 221, 221)"] {
+    animation: pulse-red 5s infinite;
+}
+
+@keyframes pulse-red {
+    0% { background-color: #fdd; }
+    50% { background-color: #fcc; }
+    100% { background-color: #fdd; }
+}
+
+/* Style dla autocomplete */
+.srl-wyniki-klientow {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    max-width: 250px;
+}
+
+.srl-wyniki-klientow div:hover {
+    background: #f0f0f0;
+}
+
+/* Style dla loaderów */
+.srl-ajax-loader {
+    font-size: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive design dla funkcji grupowych */
+@media (max-width: 768px) {
+    .srl-grupowe-funkcje {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    
+    .srl-grupowa-zmiana-statusu {
+        width: 100%;
+    }
+}
+
+/* Style dla tabeli pilotów */
+.srl-pilot-container {
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.srl-pilot-container h2 {
+    background: #0073aa;
+    color: white;
+    margin: 0;
+    padding: 12px 15px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+/* Poprawione style dla przycisków generowania */
+#srl-generuj-sloty:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Style dla statusów */
+.srl-status-existing {
+    min-width: 120px;
+}
+
+.srl-klient-info a {
+    color: #0073aa;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.srl-klient-info a:hover {
+    text-decoration: underline;
+}
+
+/* Style dla statusów slotu */
+.status-available {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-private {
+    background: #e2e3e5;
+    color: #495057;
+}
+
+.status-reserved {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-cancelled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-unknown {
+    background: #f8f9fa;
+    color: #6c757d;
+}

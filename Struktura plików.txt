@@ -1,0 +1,29 @@
+System-rezerwacji-lotow/
+├── system-rezerwacji-lotow.php                 ← Główny plik wtyczki (nagłówki, aktywacja, podstawowe AJAX)
+├── includes/
+│   ├── admin/
+│   │   ├── admin-menu.php                      ← Rejestruje menu admina + enqueue skryptów frontend/backend
+│   │   ├── admin-calendar.php                  ← Strona „Kalendarz" - przegląd miesięczny terminów
+│   │   ├── admin-day.php                       ← Strona „Dzień tygodnia" - planowanie slotów, harmonogram
+│   │   ├── admin-voucher.php                   ← Strona „Oczekujące na potwierdzenie" - zarządzanie voucherami (starymi)
+│   │   ├── admin-flights.php                   ← Strona „Wykupione loty" - tabela wszystkich lotów + synchronizacja
+│   │   └── admin-vouchers.php                  ← Strona „Zakupione Vouchery" - zarządzanie voucherami upominkowymi Feel&Fly
+│   ├── frontend/
+│   │   ├── frontend-shortcodes.php             ← Shortcode [srl_kalendarz] - 4-etapowy proces rezerwacji + vouchery
+│   │   └── frontend-reservation.php            ← AJAX frontend (dane klienta, kalendarz, rezerwacje, vouchery)
+│   ├── woocommerce-integration.php             ← Integracja WooCommerce (hooking statusów, loty + vouchery)
+│   ├── voucher-functions.php                   ← Generowanie kodów voucherów (starych)
+│   ├── voucher-gift-functions.php              ← Funkcje voucherów upominkowych (Feel&Fly)
+│   ├── flight-options.php                      ← Zarządzanie opcjami lotów (filmowanie, akrobacje, przedłużanie)
+│   ├── cart-flight-options.php                 ← Obsługa koszyka dla opcji lotów
+│   ├── product-flight-options.php              ← Obsługa stron produktów opcji lotów (formularz wyboru lotu)
+│   └── client-account.php                      ← Zakładki w koncie klienta (Moje loty + Dane pasażera + opcje) - ZAKTUALIZOWANE
+└── assets/
+    ├── js/
+    │   ├── admin-calendar.js                   ← Skrypty kalendarza adminowego (tooltips, interakcje)
+    │   ├── admin-day.js                        ← Skrypty planowania dni (dodawanie slotów, harmonogram, grupowe akcje)
+    │   ├── frontend-calendar.js                ← Skrypty procesu rezerwacji (4 kroki, AJAX, progress bar, walidacja wieku)
+    │   └── flight-options-unified.js           ← Ujednolicony system obsługi opcji lotów (dodawanie/usuwanie z koszyka)
+    └── css/
+        ├── style.css                           ← Style panelu administratora (tabele, harmonogram)
+        └── frontend-style.css                  ← Style procesu rezerwacji + opcji lotów (progress bar, kalendarz, formularze, vouchery) - ROZSZERZONE
