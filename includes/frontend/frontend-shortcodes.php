@@ -189,7 +189,7 @@ function srl_shortcode_kalendarz() {
             
             <!-- Aktualne rezerwacje i wykupione loty -->
             <div id="srl-aktualne-rezerwacje">
-                <h3>Twoje aktualne rezerwacje i wykupione loty</h3>
+                <h3 style="text-transform: uppercase;">Twoje aktualne rezerwacje i wykupione loty</h3>
                 <div id="srl-lista-rezerwacji">
                     <div class="srl-loader">Ładowanie...</div>
                 </div>
@@ -203,17 +203,17 @@ function srl_shortcode_kalendarz() {
 
 		<!-- Krok 2: Twoje dane -->
 		<div id="srl-krok-2" class="srl-krok">
-			<h2>🪪 Twoje dane</h2>
+			<h2 style="text-transform: uppercase;">Twoje dane</h2>
 			
 			<!-- Wybrany lot do rezerwacji -->
-			<div id="srl-wybrany-lot-info" style="background:#f0f8ff; padding:20px; border-radius:8px; margin-bottom:30px; border:2px solid #0073aa;">
-				<h3 style="margin-top:0; color:#0073aa;">🎫 Wybrany lot do rezerwacji:</h3>
+			<div id="srl-wybrany-lot-info" style="margin-bottom:30px; /*padding:20px; border-radius:8px; border:2px solid #0073aa; background:#f0f8ff; */">
+				<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Wybrany lot do rezerwacji:</h3>
 				<div id="srl-wybrany-lot-szczegoly"></div>
 			</div>
 			
 			<!-- Formularz danych pasażera -->
 			<div id="srl-dane-pasazera">
-				<h3>🪪 Dane pasażera</h3>
+				<h3  style="text-transform: uppercase;">Dane pasażera</h3>
 				<form id="srl-formularz-pasazera">
 					<div class="srl-form-grid">
 						<div class="srl-form-group">
@@ -282,7 +282,7 @@ function srl_shortcode_kalendarz() {
 
 		<!-- Krok 3: Wybór dnia -->
 		<div id="srl-krok-3" class="srl-krok">
-			<h2>📅 Wybierz dzień lotu</h2>
+			<h2 style="text-transform: uppercase;">Wybierz dzień lotu</h2>
 			<div id="srl-kalendarz-frontend">
 				<div class="srl-kalendarz-nawigacja">
 					<button id="srl-poprzedni-miesiac" class="srl-btn srl-btn-secondary">← Poprzedni</button>
@@ -309,7 +309,7 @@ function srl_shortcode_kalendarz() {
 
 		<!-- Krok 4: Wybór godziny -->
 		<div id="srl-krok-4" class="srl-krok">
-			<h2>⏰ Wybierz godzinę lotu</h2>
+			<h2 style="text-transform: uppercase;">Wybierz godzinę lotu</h2>
 			<div id="srl-wybrany-dzien-info"></div>
 			<div id="srl-harmonogram-frontend"></div>
 			
@@ -323,7 +323,7 @@ function srl_shortcode_kalendarz() {
 
 		<!-- Krok 5: Potwierdzenie -->
 		<div id="srl-krok-5" class="srl-krok">
-			<h2>✅ Potwierdzenie rezerwacji</h2>
+			<h2 style="text-transform: uppercase;">✅ Potwierdzenie rezerwacji</h2>
 			<div id="srl-podsumowanie-rezerwacji"></div>
 			
 			<div class="srl-form-actions">
@@ -356,7 +356,7 @@ function srl_komunikat_niezalogowany() {
     ?>
     <div id="srl-auth-container">
         <div class="srl-auth-header">
-            <h3>🔐 Logowanie wymagane</h3>
+            <h3  style="text-transform: uppercase;">Logowanie wymagane</h3>
             <p>Aby dokonać rezerwacji lotu lub wykorzystać voucher, musisz być zalogowany.</p>
         </div>
         
@@ -522,7 +522,7 @@ function srl_komunikat_brak_lotow() {
     ob_start();
     ?>
     <div class="srl-komunikat srl-komunikat-info">
-        <h3>🎫 Brak dostępnych lotów</h3>
+        <h3>Brak dostępnych lotów</h3>
         <p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p>
     </div>
     
