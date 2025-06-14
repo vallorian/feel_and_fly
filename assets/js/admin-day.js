@@ -161,17 +161,18 @@ jQuery(document).ready(function($) {
         }
 
         var slot = lista[index];
-        $.ajax({
-            url: ajaxurl,
-            method: 'POST',
-            data: {
-                action: 'srl_dodaj_godzine',
-                data: dataDnia,
-                pilot_id: pilotId,
-                godzina_start: slot.start,
-                godzina_koniec: slot.koniec,
-                status: 'Wolny'
-            },
+		$.ajax({
+			url: ajaxurl,
+			method: 'POST',
+			data: {
+				action: 'srl_dodaj_godzine',
+				data: dataDnia,
+				pilot_id: pilotId,
+				godzina_start: slot.start,
+				godzina_koniec: slot.koniec,
+				status: 'Wolny',
+				nonce: srlAdmin.nonce
+			},
             success: function(response) {
                 if (response.success) {
                     srlIstniejaceGodziny = response.data.godziny_wg_pilota;
@@ -204,7 +205,7 @@ jQuery(document).ready(function($) {
             // Funkcje grupowe
             var grupoweFunkcje = $('<div class="srl-grupowe-funkcje" style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:6px; padding:12px; margin-bottom:15px; display:flex; align-items:center; gap:15px; flex-wrap:wrap;"></div>');
             grupoweFunkcje.append('<label style="font-weight:500; margin:0; display:flex; align-items:center; gap:5px;"><input type="checkbox" class="srl-zaznacz-wszystkie" data-pilot="' + pid + '"> Zaznacz wszystkie</label>');
-            grupoweFunkcje.append('<select class="srl-grupowa-zmiana-statusu" data-pilot="' + pid + '" style="min-width:150px; padding:4px 8px; border:1px solid #ccd0d4; border-radius:3px;"><option value="">-- Zmień status --</option><option value="Wolny">Wolny</option><option value="Prywatny">Prywatny</option><option value="Zrealizowany">Zrealizowany</option><option value="Odwołany przez klienta">Odwołany przez klienta</option></select>');
+            grupoweFunkcje.append('<select class="srl-grupowa-zmiana-statusu" data-pilot="' + pid + '" style="min-width:150px; padding:4px 8px; border:1px solid #ccd0d4; border-radius:3px;"><option value="">-- Zmień status --</option><option value="Wolny">Wolny</option><option value="Prywatny">Prywatny</option><option value="Zrealizowany">Zrealizowany</option><option value="Odwołany przez organizatora">Odwołany przez organizatora</option></select>');
             grupoweFunkcje.append('<button class="button srl-grupowe-usun" data-pilot="' + pid + '" style="background:#dc3545; color:white; border:none; padding:6px 12px; border-radius:3px; cursor:pointer; font-size:13px;">Usuń zaznaczone</button>');
             divaPilota.append(grupoweFunkcje);
 
@@ -666,39 +667,41 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
     // 8. Funkcje pomocnicze do obsługi AJAX
     // ------------------------------
     function zmienStatusSlotu(terminId, status, klientId, notatka, selectElement, callback, grupowa) {
-        $.post(ajaxurl, {
-            action: 'srl_zmien_status_godziny',
-            termin_id: terminId,
-            status: status,
-            klient_id: klientId || 0,
-            notatka: notatka || ''
-        }, function(response) {
-            if (response.success) {
-                srlIstniejaceGodziny = response.data.godziny_wg_pilota;
-                if (callback) {
-                    callback();
-                } else if (!grupowa) {
-                    generujTabelePilotow();
-                }
-            } else {
-                alert('Błąd zmiany statusu: ' + response.data);
-                if (selectElement) {
-                    selectElement.val(selectElement.data('poprzedni'));
-                }
-            }
-        }).fail(function() {
-            alert('Błąd połączenia z serwerem');
-            if (selectElement) {
-                selectElement.val(selectElement.data('poprzedni'));
-            }
-        });
-    }
+		$.post(ajaxurl, {
+			action: 'srl_zmien_status_godziny',
+			termin_id: terminId,
+			status: status,
+			klient_id: klientId || 0,
+			notatka: notatka || '',
+			nonce: srlAdmin.nonce
+		}, function(response) {
+			if (response.success) {
+				srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+				if (callback) {
+					callback();
+				} else if (!grupowa) {
+					generujTabelePilotow();
+				}
+			} else {
+				alert('Błąd zmiany statusu: ' + response.data);
+				if (selectElement) {
+					selectElement.val(selectElement.data('poprzedni'));
+				}
+			}
+		}).fail(function() {
+			alert('Błąd połączenia z serwerem');
+			if (selectElement) {
+				selectElement.val(selectElement.data('poprzedni'));
+			}
+		});
+	}
 
     function anulujLotPrzezOrganizatora(terminId, selectElement) {
-        $.post(ajaxurl, {
-            action: 'srl_anuluj_lot_przez_organizatora',
-            termin_id: terminId
-        }, function(response) {
+		$.post(ajaxurl, {
+			action: 'srl_anuluj_lot_przez_organizatora',
+			termin_id: terminId,
+			nonce: srlAdmin.nonce
+		}, function(response) {
             if (response.success) {
                 srlIstniejaceGodziny = response.data.godziny_wg_pilota;
                 generujTabelePilotow();
@@ -1124,7 +1127,6 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
             {status: 'Prywatny', label: 'Prywatny'},
             {status: 'Zarezerwowany', label: 'Zarezerwowany'},
             {status: 'Zrealizowany', label: 'Zrealizowany'},
-            {status: 'Odwołany przez klienta', label: 'Odwołany przez klienta'},
             {status: 'Odwołany przez organizatora', label: 'Odwołany przez organizatora'}
         ];
 
@@ -1526,7 +1528,7 @@ function zapiszEdytowaneDanePrywatne(terminId, formData, modal) {
     });
 }
 	
-
+/*
 
 // Dodaj również odświeżanie po każdej zmianie statusu
 function zmienStatusSlotu(terminId, status, klientId, notatka, selectElement, callback, grupowa) {
@@ -1535,7 +1537,8 @@ function zmienStatusSlotu(terminId, status, klientId, notatka, selectElement, ca
         termin_id: terminId,
         status: status,
         klient_id: klientId || 0,
-        notatka: notatka || ''
+        notatka: notatka || '',
+        nonce: srlAdmin.nonce
     }, function(response) {
         if (response.success) {
             srlIstniejaceGodziny = response.data.godziny_wg_pilota;
@@ -1557,7 +1560,7 @@ function zmienStatusSlotu(terminId, status, klientId, notatka, selectElement, ca
         }
     });
 }
-
+*/
 
 
 /// Modal przypisywania slotu - POPRAWIONA WERSJA

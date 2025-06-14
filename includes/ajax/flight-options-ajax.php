@@ -17,7 +17,6 @@ add_action('wp_ajax_nopriv_woocommerce_add_to_cart', 'srl_ajax_add_to_cart');
 
 function srl_ajax_sprawdz_opcje_w_koszyku() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -51,8 +50,7 @@ function srl_ajax_sprawdz_opcje_w_koszyku() {
 }
 
 function srl_ajax_usun_opcje_z_koszyka() {
-    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true); 
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -88,7 +86,6 @@ function srl_ajax_usun_opcje_z_koszyka() {
 
 function srl_ajax_sprawdz_i_dodaj_opcje() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -150,6 +147,7 @@ function srl_ajax_sprawdz_i_dodaj_opcje() {
 }
 
 function srl_ajax_add_to_cart() {
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!isset($_POST['product_id'])) {
         wp_send_json_error('Brak ID produktu');
         return;

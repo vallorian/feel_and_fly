@@ -28,7 +28,7 @@ function srl_wyswietl_kalendarz() {
                 SUM(CASE WHEN status = 'Zarezerwowany' THEN 1 ELSE 0 END) AS ilosc_zarezerwowanych,
                 SUM(CASE WHEN status = 'Prywatny' THEN 1 ELSE 0 END) AS ilosc_prywatnych,
                 SUM(CASE WHEN status = 'Zrealizowany' THEN 1 ELSE 0 END) AS ilosc_zrealizowanych,
-                SUM(CASE WHEN status IN ('Odwołany przez klienta', 'Odwołany przez organizatora') THEN 1 ELSE 0 END) AS ilosc_odwolanych
+                SUM(CASE WHEN status = 'Odwołany przez organizatora' THEN 1 ELSE 0 END) AS ilosc_odwolanych
            FROM $tabela
           WHERE data BETWEEN %s AND %s
           GROUP BY data",

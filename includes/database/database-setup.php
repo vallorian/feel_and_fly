@@ -18,7 +18,7 @@ function srl_aktywacja_wtyczki() {
         pilot_id tinyint(2) NOT NULL,
         godzina_start TIME NOT NULL,
         godzina_koniec TIME NOT NULL,
-        status ENUM('Wolny','Prywatny','Zarezerwowany','Zrealizowany','Odwołany przez klienta','Odwołany przez organizatora') DEFAULT 'Wolny' NOT NULL,
+        status ENUM('Wolny','Prywatny','Zarezerwowany','Zrealizowany','Odwołany przez organizatora') DEFAULT 'Wolny' NOT NULL,
         klient_id bigint(20) NULL,
         PRIMARY KEY  (id),
         KEY data (data),
@@ -83,9 +83,7 @@ function srl_aktualizuj_baze() {
     
     if (version_compare($current_version, '1.1', '<')) {
         $tabela_terminy = $wpdb->prefix . 'srl_terminy';
-        
-        $wpdb->query("ALTER TABLE $tabela_terminy MODIFY COLUMN status ENUM('Wolny','Prywatny','Zarezerwowany','Zrealizowany','Odwołany przez klienta','Odwołany przez organizatora') DEFAULT 'Wolny' NOT NULL");
-        
+        $wpdb->query("ALTER TABLE $tabela_terminy MODIFY COLUMN status ENUM('Wolny','Prywatny','Zarezerwowany','Zrealizowany','Odwołany przez organizatora') DEFAULT 'Wolny' NOT NULL");
         update_option('srl_db_version', '1.1');
     }
     

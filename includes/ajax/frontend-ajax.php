@@ -19,7 +19,6 @@ add_action('wp_ajax_nopriv_srl_ajax_register', 'srl_ajax_register');
 
 function srl_pobierz_dane_klienta() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -82,8 +81,7 @@ function srl_pobierz_dane_klienta() {
 }
 
 function srl_zapisz_dane_pasazera() {
-    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -121,7 +119,6 @@ function srl_zapisz_dane_pasazera() {
 
 function srl_pobierz_dostepne_dni() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -163,7 +160,6 @@ function srl_pobierz_dostepne_dni() {
 
 function srl_pobierz_dostepne_godziny() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -197,8 +193,7 @@ function srl_pobierz_dostepne_godziny() {
 }
 
 function srl_zablokuj_slot_tymczasowo() {
-    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -229,8 +224,7 @@ function srl_zablokuj_slot_tymczasowo() {
 }
 
 function srl_dokonaj_rezerwacji() {
-    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -334,8 +328,7 @@ function srl_dokonaj_rezerwacji() {
 }
 
 function srl_anuluj_rezerwacje_klient() {
-    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -414,24 +407,43 @@ function srl_anuluj_rezerwacje_klient() {
     }
 }
 
+
+
+
 function srl_ajax_login() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+   
+    // Sprawdź czy nie za dużo prób logowania
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $attempts_key = 'login_attempts_' . md5($ip);
+    $attempts = get_transient($attempts_key) ?: 0;
     
-    $username = sanitize_user($_POST['username']);
-    $password = $_POST['password'];
-    $remember = isset($_POST['remember']) && $_POST['remember'];
+    if ($attempts >= 5) {
+        wp_send_json_error('Za dużo nieudanych prób logowania. Spróbuj ponownie za 15 minut.');
+        return;
+    }
     
-    if (empty($username) || empty($password)) {
+    // Walidacja danych
+    if (empty($_POST['username']) || empty($_POST['password'])) {
         wp_send_json_error('Wprowadź nazwę użytkownika i hasło.');
         return;
     }
     
+    $username = sanitize_user(wp_unslash($_POST['username']));
+    $password = wp_unslash($_POST['password']); // Nie sanityzuj hasła!
+    $remember = filter_var($_POST['remember'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    
+    // Próba logowania
     $user = wp_authenticate($username, $password);
     
     if (is_wp_error($user)) {
+        // Zwiększ licznik nieudanych prób
+        set_transient($attempts_key, $attempts + 1, 15 * MINUTE_IN_SECONDS);
         wp_send_json_error('Nieprawidłowe dane logowania.');
         return;
     }
+    
+    // Wyczyść licznik po udanym logowaniu
+    delete_transient($attempts_key);
     
     wp_set_current_user($user->ID);
     wp_set_auth_cookie($user->ID, $remember);
@@ -440,30 +452,44 @@ function srl_ajax_login() {
 }
 
 function srl_ajax_register() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
+    // Sprawdź czy rejestracja jest włączona
     if (!get_option('users_can_register')) {
         wp_send_json_error('Rejestracja nowych użytkowników jest wyłączona.');
         return;
     }
     
-    $email = sanitize_email($_POST['email']);
-    $password = $_POST['password'];
-    $first_name = sanitize_text_field($_POST['first_name']);
-    $last_name = sanitize_text_field($_POST['last_name']);
+    // Rate limiting dla rejestracji
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $register_key = 'register_attempts_' . md5($ip);
+    $attempts = get_transient($register_key) ?: 0;
     
+    if ($attempts >= 3) {
+        wp_send_json_error('Za dużo prób rejestracji. Spróbuj ponownie za 30 minut.');
+        return;
+    }
+    
+    // Walidacja i sanityzacja danych
+    $email = sanitize_email(wp_unslash($_POST['email'] ?? ''));
+    $password = wp_unslash($_POST['password'] ?? ''); // Nie sanityzuj hasła!
+    $first_name = sanitize_text_field(wp_unslash($_POST['first_name'] ?? ''));
+    $last_name = sanitize_text_field(wp_unslash($_POST['last_name'] ?? ''));
+    
+    // Walidacja
     if (empty($email) || !is_email($email)) {
         wp_send_json_error('Wprowadź prawidłowy adres email.');
         return;
     }
     
     if (email_exists($email)) {
+        // Zwiększ licznik prób (ochrona przed brute force)
+        set_transient($register_key, $attempts + 1, 30 * MINUTE_IN_SECONDS);
         wp_send_json_error('Użytkownik z tym adresem email już istnieje.');
         return;
     }
     
-    if (strlen($password) < 6) {
-        wp_send_json_error('Hasło musi mieć co najmniej 6 znaków.');
+    if (strlen($password) < 8) { // Zwiększ wymagania
+        wp_send_json_error('Hasło musi mieć co najmniej 8 znaków.');
         return;
     }
     
@@ -472,13 +498,23 @@ function srl_ajax_register() {
         return;
     }
     
+    // Dodatkowa walidacja hasła
+    if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/', $password)) {
+        wp_send_json_error('Hasło musi zawierać małą literę, wielką literę i cyfrę.');
+        return;
+    }
+    
+    // Tworzenie użytkownika
     $user_id = wp_create_user($email, $password, $email);
     
     if (is_wp_error($user_id)) {
+        // Zwiększ licznik przy błędzie
+        set_transient($register_key, $attempts + 1, 30 * MINUTE_IN_SECONDS);
         wp_send_json_error('Błąd podczas tworzenia konta: ' . $user_id->get_error_message());
         return;
     }
     
+    // Aktualizuj dane użytkownika
     wp_update_user(array(
         'ID' => $user_id,
         'first_name' => $first_name,
@@ -486,8 +522,12 @@ function srl_ajax_register() {
         'display_name' => $first_name . ' ' . $last_name
     ));
     
+    // Automatyczne logowanie
     wp_set_current_user($user_id);
     wp_set_auth_cookie($user_id);
+    
+    // Wyczyść licznik po udanej rejestracji
+    delete_transient($register_key);
     
     wp_send_json_success('Konto zostało utworzone i zalogowano automatycznie!');
 }

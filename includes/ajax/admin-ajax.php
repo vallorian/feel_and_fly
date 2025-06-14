@@ -24,6 +24,7 @@ add_action('wp_ajax_srl_przypisz_wykupiony_lot', 'srl_ajax_przypisz_wykupiony_lo
 add_action('wp_ajax_srl_zapisz_lot_prywatny', 'srl_ajax_zapisz_lot_prywatny');
 
 function srl_dodaj_godzine() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -76,6 +77,7 @@ function srl_dodaj_godzine() {
 }
 
 function srl_zmien_slot() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -129,6 +131,7 @@ function srl_zmien_slot() {
 }
 
 function srl_usun_godzine() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -180,6 +183,7 @@ function srl_usun_godzine() {
 }
 
 function srl_zmien_status_godziny() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -212,7 +216,7 @@ function srl_zmien_status_godziny() {
         return;
     }
 
-    $dozwolone_statusy = ['Wolny', 'Prywatny', 'Zarezerwowany', 'Zrealizowany', 'Odwołany przez klienta'];
+    $dozwolone_statusy = ['Wolny', 'Prywatny', 'Zarezerwowany', 'Zrealizowany', 'Odwołany przez organizatora'];
     if (!in_array($status, $dozwolone_statusy)) {
         wp_send_json_error('Nieprawidłowy status.');
         return;
@@ -271,7 +275,7 @@ function srl_zmien_status_godziny() {
                     );
                     break;
                     
-                case 'Odwołany przez klienta':
+                case 'Odwołany przez organizatora':
                     $nowy_status_lotu = 'wolny';
                     $dane_lotu_update = array(
                         'status' => $nowy_status_lotu,
@@ -306,6 +310,7 @@ function srl_zmien_status_godziny() {
 }
 
 function srl_anuluj_lot_przez_organizatora() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -376,12 +381,11 @@ function srl_anuluj_lot_przez_organizatora() {
 }
 
 function srl_wyszukaj_klientow_loty() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-	
+    check_ajax_referer('srl_admin_nonce', 'nonce', true); //było fronted
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
-    }
+    } 
 
     if (!isset($_GET['q'])) {
         wp_send_json_error('Brak frazy wyszukiwania.');
@@ -477,11 +481,11 @@ function srl_ajax_dodaj_voucher_recznie() {
 }
 
 function srl_ajax_wyszukaj_dostepnych_klientow() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    check_ajax_referer('srl_admin_nonce', 'nonce', true); //było fronted
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
-    }
+    } 
     
     $query = sanitize_text_field($_POST['query']);
     
@@ -528,11 +532,11 @@ function srl_ajax_wyszukaj_dostepnych_klientow() {
 }
 
 function srl_ajax_przypisz_klienta_do_slotu() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    check_ajax_referer('srl_admin_nonce', 'nonce', true); //było fronted
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
-    }
+    } 
     
     $termin_id = intval($_POST['termin_id']);
     $lot_id = intval($_POST['lot_id']);
@@ -615,6 +619,7 @@ function srl_ajax_przypisz_klienta_do_slotu() {
 }
 
 function srl_ajax_zapisz_dane_prywatne() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -673,6 +678,7 @@ function srl_ajax_zapisz_dane_prywatne() {
 }
 
 function srl_ajax_pobierz_dane_prywatne() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;

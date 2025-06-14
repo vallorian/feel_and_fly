@@ -92,7 +92,6 @@ function srl_formatuj_status_slotu($status) {
         'Prywatny' => 'Prywatny',
         'Zarezerwowany' => 'Zarezerwowany',
         'Zrealizowany' => 'Zrealizowany',
-        'Odwołany przez klienta' => 'Odwołany przez klienta',
         'Odwołany przez organizatora' => 'Odwołany przez organizatora'
     );
     
