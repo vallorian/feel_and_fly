@@ -206,7 +206,7 @@ function srl_shortcode_kalendarz() {
 			<h2 style="text-transform: uppercase;">Twoje dane</h2>
 			
 			<!-- Wybrany lot do rezerwacji -->
-			<div id="srl-wybrany-lot-info" style="margin-bottom:30px; /*padding:20px; border-radius:8px; border:2px solid #0073aa; background:#f0f8ff; */">
+			<div id="srl-wybrany-lot-info" style="margin-bottom:30px;">
 				<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Wybrany lot do rezerwacji:</h3>
 				<div id="srl-wybrany-lot-szczegoly"></div>
 			</div>
@@ -246,12 +246,12 @@ function srl_shortcode_kalendarz() {
 						<div class="srl-form-group">
 							<label for="srl-kategoria-wagowa">Kategoria wagowa *</label>
 							<select id="srl-kategoria-wagowa" name="kategoria_wagowa" required>
-								<option value="">Wybierz kategorię wagową</option>
-								<option value="25-40kg">25-40kg</option>
-								<option value="41-60kg">41-60kg</option>
-								<option value="61-90kg">61-90kg</option>
-								<option value="91-120kg">91-120kg</option>
-								<option value="120kg+">120kg+</option>
+							<option value="">Wybierz kategorię wagową</option>
+							<option value="25-40kg">25-40kg</option>
+							<option value="41-60kg">41-60kg</option>
+							<option value="61-90kg">61-90kg</option>
+							<option value="91-120kg">91-120kg</option>
+							<option value="120kg+">120kg+</option>
 							</select>
 						</div>
 						

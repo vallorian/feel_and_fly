@@ -67,6 +67,8 @@ function srl_dodaj_vouchery_po_zakupie($order_id) {
     // Pobierz dane billing
     $imie = $order->get_billing_first_name();
     $nazwisko = $order->get_billing_last_name();
+    $email_odbiorcy = $order->get_billing_email();
+    $buyer_name = trim($imie . ' ' . $nazwisko);
     
     $dodane_vouchery = 0;
     
@@ -101,8 +103,19 @@ function srl_dodaj_vouchery_po_zakupie($order_id) {
                 if ($result !== false) {
                     $dodane_vouchery++;
                     
-                    // Wyślij email z kodem vouchera
-                    srl_wyslij_email_voucher($order, $kod_vouchera, $nazwa_produktu);
+                    // Wyślij email z kodem vouchera - NOWA FUNKCJA
+                    $email_sent = srl_wyslij_email_voucher(
+                        $email_odbiorcy,
+                        $kod_vouchera,
+                        $nazwa_produktu,
+                        $data_waznosci,
+                        $buyer_name
+                    );
+                    
+                    // Loguj jeśli email się nie wysłał
+                    if (!$email_sent) {
+                        error_log("SRL: Nie udało się wysłać emaila z voucherem {$kod_vouchera} do {$email_odbiorcy}");
+                    }
                 }
             }
         }
@@ -242,28 +255,7 @@ function srl_wykorzystaj_voucher($kod_vouchera, $user_id) {
     }
 }
 
-/**
- * Wysyła email z kodem vouchera
- */
-function srl_wyslij_email_voucher($order, $kod_vouchera, $nazwa_produktu) {
-    $to = $order->get_billing_email();
-    $subject = 'Twój voucher upominkowy na lot tandemowy';
-    
-    $message = "Dzień dobry " . $order->get_billing_first_name() . ",\n\n";
-    $message .= "Dziękujemy za zakup vouchera upominkowego!\n\n";
-    $message .= "Szczegóły vouchera:\n";
-    $message .= "🎁 Produkt: {$nazwa_produktu}\n";
-    $message .= "🎫 Kod vouchera: {$kod_vouchera}\n";
-    $message .= "📅 Ważny do: " . date('d.m.Y', strtotime('+1 year')) . "\n\n";
-    $message .= "Aby wykorzystać voucher:\n";
-    $message .= "1. Przejdź na stronę: " . site_url('/rezerwuj-lot/') . "\n";
-    $message .= "2. Zaloguj się lub załóż konto\n";
-    $message .= "3. Wpisz kod vouchera: {$kod_vouchera}\n";
-    $message .= "4. Zarezerwuj swój lot!\n\n";
-    $message .= "Pozdrawiamy,\nZespół Feel&Fly";
-    
-    wp_mail($to, $subject, $message);
-}
+
 
 /**
  * Oznacz przeterminowane vouchery
