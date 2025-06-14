@@ -147,20 +147,16 @@ jQuery(document).ready(function($) {
         console.log('🔄 [DEBUG] Przywracanie przycisku do oryginalnego stanu:', {lotId, productId});
         
 		// Określ krótką nazwę opcji na podstawie productId
-        var optionName = '';
-        switch(productId.toString()) {
-            case '116':
-                optionName = 'Filmowanie';
-                break;
-            case '117':
-                optionName = 'Akrobacje';
-                break;
-            case '115':
-                optionName = 'Przedłużenie';
-                break;
-            default:
-                optionName = 'Opcja lotu';
-        }
+		var optionName = '';
+		if (productId == srlFrontend.productIds.filmowanie) {
+			optionName = 'Filmowanie';
+		} else if (productId == srlFrontend.productIds.akrobacje) {
+			optionName = 'Akrobacje';
+		} else if (productId == srlFrontend.productIds.przedluzenie) {
+			optionName = 'Przedłużenie';
+		} else {
+			optionName = 'Opcja lotu';
+		}
         
         // Przywróć oryginalne klasy i style
         button.removeClass('srl-btn-warning')
@@ -178,10 +174,10 @@ jQuery(document).ready(function($) {
         button.prop('disabled', false);
         
 		// Przywróć onclick handler z pełną nazwą dla backend
-        var pelnaName = optionName;
-        if (productId == 116) pelnaName = 'Filmowanie lotu';
-        if (productId == 117) pelnaName = 'Akrobacje podczas lotu'; 
-        if (productId == 115) pelnaName = 'Przedłużenie ważności';
+		var pelnaName = optionName;
+		if (productId == srlFrontend.productIds.filmowanie) pelnaName = 'Filmowanie lotu';
+		if (productId == srlFrontend.productIds.akrobacje) pelnaName = 'Akrobacje podczas lotu'; 
+		if (productId == srlFrontend.productIds.przedluzenie) pelnaName = 'Przedłużenie ważności';
         
         button.attr('onclick', 'srlDodajOpcjeLotu(' + lotId + ', ' + productId + ', \'' + pelnaName + '\')');
         
@@ -224,47 +220,53 @@ jQuery(document).ready(function($) {
     // ==========================================================================
     
     function sprawdzOpcjeWKoszyku() {
-        console.log('🔍 [DEBUG] Sprawdzanie opcji w koszyku...');
-        
-        var ajaxUrl = (typeof srlFrontend !== 'undefined') ? srlFrontend.ajaxurl : ajaxurl;
-        var nonce = (typeof srlFrontend !== 'undefined') ? srlFrontend.nonce : '';
-        
-        if (!nonce) {
-            console.warn('⚠️ [WARNING] Brak nonce - pomijanie sprawdzania koszyka');
-            return;
-        }
-        
-        $.ajax({
-            url: ajaxUrl,
-            method: 'POST',
-            data: {
-                action: 'srl_sprawdz_opcje_w_koszyku',
-                nonce: nonce
-            },
-            success: function(response) {
-                console.log('📦 [DEBUG] Odpowiedź sprawdzania koszyka:', response);
-                
-                if (response.success && response.data) {
-                    $.each(response.data, function(lotId, opcje) {
-                        console.log('🎫 [DEBUG] Przetwarzanie opcji dla lotu:', {lotId, opcje});
-                        
-                        if (opcje.filmowanie) {
-                            oznaczOpcjeJakoWKoszyku(lotId, 116, 'Filmowanie lotu');
-                        }
-                        if (opcje.akrobacje) {
-                            oznaczOpcjeJakoWKoszyku(lotId, 117, 'Akrobacje podczas lotu');
-                        }
-                        if (opcje.przedluzenie) {
-                            oznaczOpcjeJakoWKoszyku(lotId, 115, 'Przedłużenie ważności');
-                        }
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('❌ [ERROR] Błąd sprawdzania koszyka:', {xhr, status, error});
-            }
-        });
-    }
+		console.log('🔍 [DEBUG] Sprawdzanie opcji w koszyku...');
+		
+		// Sprawdź czy produkty są dostępne
+		if (typeof srlFrontend === 'undefined' || typeof srlFrontend.productIds === 'undefined') {
+			console.error('❌ [ERROR] srlFrontend.productIds nie jest dostępne');
+			return;
+		}
+		
+		var ajaxUrl = (typeof srlFrontend !== 'undefined') ? srlFrontend.ajaxurl : ajaxurl;
+		var nonce = (typeof srlFrontend !== 'undefined') ? srlFrontend.nonce : '';
+		
+		if (!nonce) {
+			console.warn('⚠️ [WARNING] Brak nonce - pomijanie sprawdzania koszyka');
+			return;
+		}
+		
+		$.ajax({
+			url: ajaxUrl,
+			method: 'POST',
+			data: {
+				action: 'srl_sprawdz_opcje_w_koszyku',
+				nonce: nonce
+			},
+			success: function(response) {
+				console.log('📦 [DEBUG] Odpowiedź sprawdzania koszyka:', response);
+				
+				if (response.success && response.data) {
+					$.each(response.data, function(lotId, opcje) {
+						console.log('🎫 [DEBUG] Przetwarzanie opcji dla lotu:', {lotId, opcje});
+						
+						if (opcje.filmowanie) {
+							oznaczOpcjeJakoWKoszyku(lotId, srlFrontend.productIds.filmowanie, 'Filmowanie lotu');
+						}
+						if (opcje.akrobacje) {
+							oznaczOpcjeJakoWKoszyku(lotId, srlFrontend.productIds.akrobacje, 'Akrobacje podczas lotu');
+						}
+						if (opcje.przedluzenie) {
+							oznaczOpcjeJakoWKoszyku(lotId, srlFrontend.productIds.przedluzenie, 'Przedłużenie ważności');
+						}
+					});
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('❌ [ERROR] Błąd sprawdzania koszyka:', {xhr, status, error});
+			}
+		});
+	}
     
     // ==========================================================================
     // Oznaczanie opcji jako "w koszyku"

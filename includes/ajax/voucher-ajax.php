@@ -10,10 +10,7 @@ if (!defined('ABSPATH')) {
 add_action('wp_ajax_srl_wykorzystaj_voucher', 'srl_ajax_wykorzystaj_voucher');
 
 function srl_ajax_wykorzystaj_voucher() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');

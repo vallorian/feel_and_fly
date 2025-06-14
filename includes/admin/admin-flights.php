@@ -764,9 +764,11 @@ function srl_wyswietl_synchronizacje() {
 // AJAX: Usuń pojedynczy lot
 add_action('wp_ajax_srl_usun_lot', 'srl_ajax_usun_lot');
 function srl_ajax_usun_lot() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $lot_id = intval($_POST['lot_id']);
     
@@ -844,9 +846,11 @@ function srl_synchronizuj_loty_z_zamowieniami() {
 // AJAX: Zmień status lotu przez admina
 add_action('wp_ajax_srl_admin_zmien_status_lotu', 'srl_ajax_admin_zmien_status_lotu');
 function srl_ajax_admin_zmien_status_lotu() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $lot_id = intval($_POST['lot_id']);
     $nowy_status = sanitize_text_field($_POST['nowy_status']);
@@ -974,9 +978,11 @@ function srl_ajax_admin_zmien_status_lotu() {
 // AJAX: Pobierz szczegóły lotu
 add_action('wp_ajax_srl_pobierz_szczegoly_lotu', 'srl_ajax_pobierz_szczegoly_lotu');
 function srl_ajax_pobierz_szczegoly_lotu() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $lot_id = intval($_POST['lot_id']);
     $user_id = intval($_POST['user_id']);

@@ -18,10 +18,7 @@ add_action('wp_ajax_nopriv_srl_ajax_login', 'srl_ajax_login');
 add_action('wp_ajax_nopriv_srl_ajax_register', 'srl_ajax_register');
 
 function srl_pobierz_dane_klienta() {
-    if (!wp_verify_nonce($_GET['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -85,10 +82,7 @@ function srl_pobierz_dane_klienta() {
 }
 
 function srl_zapisz_dane_pasazera() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -126,10 +120,7 @@ function srl_zapisz_dane_pasazera() {
 }
 
 function srl_pobierz_dostepne_dni() {
-    if (!wp_verify_nonce($_GET['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -171,10 +162,7 @@ function srl_pobierz_dostepne_dni() {
 }
 
 function srl_pobierz_dostepne_godziny() {
-    if (!wp_verify_nonce($_GET['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -209,10 +197,7 @@ function srl_pobierz_dostepne_godziny() {
 }
 
 function srl_zablokuj_slot_tymczasowo() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -244,10 +229,7 @@ function srl_zablokuj_slot_tymczasowo() {
 }
 
 function srl_dokonaj_rezerwacji() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -352,10 +334,7 @@ function srl_dokonaj_rezerwacji() {
 }
 
 function srl_anuluj_rezerwacje_klient() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -436,10 +415,7 @@ function srl_anuluj_rezerwacje_klient() {
 }
 
 function srl_ajax_login() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_auth_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     $username = sanitize_user($_POST['username']);
     $password = $_POST['password'];
@@ -464,10 +440,7 @@ function srl_ajax_login() {
 }
 
 function srl_ajax_register() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_auth_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!get_option('users_can_register')) {
         wp_send_json_error('Rejestracja nowych użytkowników jest wyłączona.');

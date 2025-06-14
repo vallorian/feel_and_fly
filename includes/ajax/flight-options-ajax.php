@@ -16,10 +16,7 @@ add_action('wp_ajax_woocommerce_add_to_cart', 'srl_ajax_add_to_cart');
 add_action('wp_ajax_nopriv_woocommerce_add_to_cart', 'srl_ajax_add_to_cart');
 
 function srl_ajax_sprawdz_opcje_w_koszyku() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -38,13 +35,14 @@ function srl_ajax_sprawdz_opcje_w_koszyku() {
                     $opcje_w_koszyku[$lot_id] = array('filmowanie' => false, 'akrobacje' => false);
                 }
                 
-                if ($product_id == 116) {
-                    $opcje_w_koszyku[$lot_id]['filmowanie'] = true;
-                } elseif ($product_id == 117) {
-                    $opcje_w_koszyku[$lot_id]['akrobacje'] = true;
-                } elseif ($product_id == 115) {
-                    $opcje_w_koszyku[$lot_id]['przedluzenie'] = true;
-                }
+                $opcje_produkty = srl_get_flight_option_product_ids();
+				if ($product_id == $opcje_produkty['filmowanie']) {
+					$opcje_w_koszyku[$lot_id]['filmowanie'] = true;
+				} elseif ($product_id == $opcje_produkty['akrobacje']) {
+					$opcje_w_koszyku[$lot_id]['akrobacje'] = true;
+				} elseif ($product_id == $opcje_produkty['przedluzenie']) {
+					$opcje_w_koszyku[$lot_id]['przedluzenie'] = true;
+				}
             }
         }
     }
@@ -53,10 +51,7 @@ function srl_ajax_sprawdz_opcje_w_koszyku() {
 }
 
 function srl_ajax_usun_opcje_z_koszyka() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
@@ -92,10 +87,7 @@ function srl_ajax_usun_opcje_z_koszyka() {
 }
 
 function srl_ajax_sprawdz_i_dodaj_opcje() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_frontend_nonce')) {
-        wp_send_json_error('Nieprawidłowe żądanie.');
-        return;
-    }
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');

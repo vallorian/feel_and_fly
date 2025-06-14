@@ -141,8 +141,6 @@ function srl_sprawdz_kompatybilnosc_z_akrobacjami($wiek, $sprawnosc_fizyczna, $k
 function srl_waliduj_dane_pasazera($dane) {
     $errors = array();
     
-    // Debug - loguj otrzymane dane
-    error_log('SRL DEBUG - Walidacja danych pasażera: ' . print_r($dane, true));
     
     $walidacja_imie = srl_waliduj_pole_tekstowe($dane['imie'] ?? '', 'Imię');
     if (!$walidacja_imie['valid']) {

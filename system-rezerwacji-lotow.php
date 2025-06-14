@@ -48,6 +48,7 @@ require_once SRL_PLUGIN_DIR . 'includes/ajax/frontend-ajax.php';
 require_once SRL_PLUGIN_DIR . 'includes/ajax/voucher-ajax.php';
 require_once SRL_PLUGIN_DIR . 'includes/ajax/flight-options-ajax.php';
 
+
 // Aktywacja/dezaktywacja wtyczki
 register_activation_hook(__FILE__, 'srl_aktywacja_wtyczki');
 register_deactivation_hook(__FILE__, 'srl_dezaktywacja_wtyczki');
@@ -82,5 +83,19 @@ function srl_utworz_strone_rezerwacji() {
         ));
         
         update_option('srl_strona_rezerwacji_id', $strona_id);
+    }
+}
+
+
+// Enqueue flight options script globally
+add_action('wp_enqueue_scripts', 'srl_enqueue_flight_options_globally');
+function srl_enqueue_flight_options_globally() {
+    if (is_user_logged_in()) {
+        wp_enqueue_script('srl-flight-options', SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js', array('jquery'), '1.0', true);
+        wp_localize_script('srl-flight-options', 'srlFrontend', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('srl_frontend_nonce'),
+            'productIds' => srl_get_flight_option_product_ids()
+        ));
     }
 }

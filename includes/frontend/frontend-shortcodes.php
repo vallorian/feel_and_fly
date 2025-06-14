@@ -148,12 +148,12 @@ function srl_shortcode_kalendarz() {
     wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), '1.0', true);
     wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), '1.0');
     
-    // Przekaż dane do JS
-    wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
-        'ajaxurl' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('srl_frontend_nonce'),
-        'user_id' => $user_id
-    ));
+    // Przekaż dane do JS	
+	wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
+		'ajaxurl' => admin_url('admin-ajax.php'),
+		'nonce' => wp_create_nonce('srl_frontend_nonce'),
+		'user_id' => $user_id
+	));
     
     ob_start();
     ?>
@@ -487,7 +487,7 @@ function srl_komunikat_niezalogowany() {
                 username: $('#srl-login-username').val(),
                 password: $('#srl-login-password').val(),
                 remember: $('#srl-login-remember').is(':checked'),
-                nonce: '<?php echo wp_create_nonce('srl_auth_nonce'); ?>'
+                nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
             };
             
             $.post('<?php echo admin_url('admin-ajax.php'); ?>', formData, function(response) {
@@ -525,7 +525,7 @@ function srl_komunikat_niezalogowany() {
                 password: password,
                 first_name: $('#srl-register-first-name').val(),
                 last_name: $('#srl-register-last-name').val(),
-                nonce: '<?php echo wp_create_nonce('srl_auth_nonce'); ?>'
+                nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
             };
             
             $.post('<?php echo admin_url('admin-ajax.php'); ?>', formData, function(response) {

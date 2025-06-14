@@ -376,6 +376,8 @@ function srl_anuluj_lot_przez_organizatora() {
 }
 
 function srl_wyszukaj_klientow_loty() {
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+	
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -422,9 +424,11 @@ function srl_wyszukaj_klientow_loty() {
 }
 
 function srl_ajax_dodaj_voucher_recznie() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $kod_vouchera = sanitize_text_field($_POST['kod_vouchera']);
     $data_waznosci = sanitize_text_field($_POST['data_waznosci']);
@@ -473,6 +477,7 @@ function srl_ajax_dodaj_voucher_recznie() {
 }
 
 function srl_ajax_wyszukaj_dostepnych_klientow() {
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -523,6 +528,7 @@ function srl_ajax_wyszukaj_dostepnych_klientow() {
 }
 
 function srl_ajax_przypisz_klienta_do_slotu() {
+	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
         wp_send_json_error('Brak uprawnień.');
         return;
@@ -590,12 +596,22 @@ function srl_ajax_przypisz_klienta_do_slotu() {
         }
         
         $wpdb->query('COMMIT');
-        wp_send_json_success('Klient został przypisany do slotu.');
-        
-    } catch (Exception $e) {
-        $wpdb->query('ROLLBACK');
-        wp_send_json_error('Błąd: ' . $e->getMessage());
-    }
+
+		// Pobierz datę ze slotu do odświeżenia harmonogramu
+		$slot_date = $wpdb->get_var($wpdb->prepare(
+			"SELECT data FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+			$termin_id
+		));
+		if ($slot_date) {
+			srl_zwroc_godziny_wg_pilota($slot_date);
+		} else {
+			wp_send_json_success('Klient został przypisany do slotu.');
+		}
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error('Błąd: ' . $e->getMessage());
+		}
 }
 
 function srl_ajax_zapisz_dane_prywatne() {
@@ -685,9 +701,11 @@ function srl_ajax_pobierz_dane_prywatne() {
 }
 
 function srl_ajax_pobierz_aktualne_godziny() {
-    if (!wp_verify_nonce($_POST['nonce'] ?? $_GET['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+	check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $data = sanitize_text_field($_GET['data'] ?? $_POST['data']);
     if (!$data) {
@@ -698,9 +716,11 @@ function srl_ajax_pobierz_aktualne_godziny() {
 }
 
 function srl_ajax_wyszukaj_wolne_loty() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $search_field = sanitize_text_field($_POST['search_field']);
     $query = sanitize_text_field($_POST['query']);
@@ -768,9 +788,11 @@ function srl_ajax_wyszukaj_wolne_loty() {
 }
 
 function srl_ajax_przypisz_wykupiony_lot() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $termin_id = intval($_POST['termin_id']);
     $lot_id = intval($_POST['lot_id']);
@@ -824,18 +846,30 @@ function srl_ajax_przypisz_wykupiony_lot() {
         );
         
         $wpdb->query('COMMIT');
-        wp_send_json_success('Lot został przypisany.');
-        
-    } catch (Exception $e) {
-        $wpdb->query('ROLLBACK');
-        wp_send_json_error($e->getMessage());
-    }
+
+		// Pobierz datę ze slotu do odświeżenia harmonogramu  
+		$slot_date = $wpdb->get_var($wpdb->prepare(
+			"SELECT data FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+			$termin_id
+		));
+		if ($slot_date) {
+			srl_zwroc_godziny_wg_pilota($slot_date);
+		} else {
+			wp_send_json_success('Lot został przypisany.');
+		}
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error($e->getMessage());
+		}
 }
 
 function srl_ajax_zapisz_lot_prywatny() {
-    if (!wp_verify_nonce($_POST['nonce'], 'srl_admin_nonce') || !current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-    }
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+	if (!current_user_can('manage_options')) {
+		wp_send_json_error('Brak uprawnień.');
+		return;
+	}
     
     $termin_id = intval($_POST['termin_id']);
     $imie = sanitize_text_field($_POST['imie']);

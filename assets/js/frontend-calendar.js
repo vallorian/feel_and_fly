@@ -80,27 +80,29 @@ jQuery(document).ready(function($) {
                 // Brak obu opcji
                 html += '<h4 style="margin-top: 0; color: #46b450;">🌟 Czy wiesz, że Twój lot może być jeszcze ciekawszy?</h4>';
                 html += '<p>Nie masz dodanego <strong>filmowania</strong> ani <strong>akrobacji</strong> – to dwie opcje, które często wybierają nasi pasażerowie.</p>';
-                html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br>A <strong>akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
-                html += '<p>Możesz dodać je do swojego zamówienia online albo zdecydować się na miejscu.</p>';
+                html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br><strong>Akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
+                html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
                 html += '<div style="text-align: center; margin-top: 15px;">';
-                html += '<button id="srl-opcja-' + lot.id + '-116" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="116" onclick="srlDodajOpcjeLotu(' + lot.id + ', 116, \'Filmowanie lotu\')">👉 Dodaj filmowanie</button>';
-                html += '<button id="srl-opcja-' + lot.id + '-117" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="117" onclick="srlDodajOpcjeLotu(' + lot.id + ', 117, \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje</button>';
+                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.filmowanie + '" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.filmowanie + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.filmowanie + ', \'Filmowanie lotu\')">👉 Dodaj filmowanie</button>';
+				html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.akrobacje + '" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.akrobacje + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.akrobacje + ', \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje</button>';
                 html += '</div>';
             } else if (!maFilmowanie) {
                 // Brak filmowania
-                html += '<h4 style="margin-top: 0; color: #46b450;">📸 Nie masz dodanego filmowania do swojego lotu?</h4>';
+                html += '<h4 style="margin-top: 0; color: #46b450;">Nie masz dodanego filmowania do swojego lotu?</h4>';
                 html += '<p>To nic, ale warto wiedzieć, że to bardzo lubiana opcja wśród pasażerów.</p>';
-                html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę. Możesz dodać filmowanie teraz lub dopisać je na miejscu, już na lotnisku.</p>';
+                html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę.</p>';
+                html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
                 html += '<div style="text-align: center; margin-top: 15px;">';
-                html += '<button id="srl-opcja-' + lot.id + '-116" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="116" onclick="srlDodajOpcjeLotu(' + lot.id + ', 116, \'Filmowanie lotu\')">👉 Dodaj filmowanie do koszyka</button>';
+                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.filmowanie + '" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.filmowanie + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.filmowanie + ', \'Filmowanie lotu\')">👉 Dodaj filmowanie do koszyka</button>';
                 html += '</div>';
             } else if (!maAkrobacje) {
                 // Brak akrobacji
-                html += '<h4 style="margin-top: 0; color: #46b450;">🎢 Nie wybrałeś akrobacji?</h4>';
+                html += '<h4 style="margin-top: 0; color: #46b450;">Nie wybrałeś akrobacji?</h4>';
                 html += '<p>To oczywiście nie jest obowiązkowe – ale jeśli lubisz odrobinę adrenaliny, to może być coś dla Ciebie!</p>';
-                html += '<p>🎢 <strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo. Możesz dodać je teraz online lub zdecydować się na miejscu przed startem.</p>';
+                html += '<p><strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo.</p>';
+                html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
                 html += '<div style="text-align: center; margin-top: 15px;">';
-                html += '<button id="srl-opcja-' + lot.id + '-117" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="117" onclick="srlDodajOpcjeLotu(' + lot.id + ', 117, \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje do koszyka</button>';
+                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.akrobacje + '" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.akrobacje + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.akrobacje + ', \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje do koszyka</button>';
                 html += '</div>';
             }
             
@@ -432,11 +434,11 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
             if (moznaModyfikowac) {
                 var dostepneOpcje = [];
                 if (!lot.ma_filmowanie || lot.ma_filmowanie == '0') {
-                    dostepneOpcje.push({nazwa: 'Filmowanie', id: 116});
-                }
-                if (!lot.ma_akrobacje || lot.ma_akrobacje == '0') {
-                    dostepneOpcje.push({nazwa: 'Akrobacje', id: 117});
-                }
+					dostepneOpcje.push({nazwa: 'Filmowanie', id: srlFrontend.productIds.filmowanie});
+				}
+				if (!lot.ma_akrobacje || lot.ma_akrobacje == '0') {
+					dostepneOpcje.push({nazwa: 'Akrobacje', id: srlFrontend.productIds.akrobacje});
+				}
                 
                 if (dostepneOpcje.length > 0) {
                     dostepneOpcje.forEach(function(opcja, index) {
@@ -457,17 +459,17 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
             // Opcje dla lotów czekających na rezerwację
             var dostepneOpcje = [];
             if (!lot.ma_filmowanie || lot.ma_filmowanie == '0') {
-                dostepneOpcje.push({nazwa: 'Filmowanie', id: 116});
-            }
-            if (!lot.ma_akrobacje || lot.ma_akrobacje == '0') {
-                dostepneOpcje.push({nazwa: 'Akrobacje', id: 117});
-            }
+				dostepneOpcje.push({nazwa: 'Filmowanie', id: srlFrontend.productIds.filmowanie});
+			}
+			if (!lot.ma_akrobacje || lot.ma_akrobacje == '0') {
+				dostepneOpcje.push({nazwa: 'Akrobacje', id: srlFrontend.productIds.akrobacje});
+			}
             
             // Sprawdź czy lot potrzebuje przedłużenia (mniej niż 390 dni do wygaśnięcia)
             if (lot.data_waznosci) {
                 var dniDoWaznosci = Math.floor((new Date(lot.data_waznosci).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
                 if (dniDoWaznosci <= 390) {
-                    dostepneOpcje.push({nazwa: 'Przedłużenie', id: 115});
+                    dostepneOpcje.push({nazwa: 'Przedłużenie', id: srlFrontend.productIds.przedluzenie});
                 }
             }
             
