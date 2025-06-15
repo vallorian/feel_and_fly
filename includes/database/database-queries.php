@@ -124,6 +124,9 @@ function srl_zwroc_godziny_wg_pilota($data) {
             $dane_prywatne = json_decode($w['notatka'], true);
             if ($dane_prywatne && isset($dane_prywatne['imie']) && isset($dane_prywatne['nazwisko'])) {
                 $klient_nazwa = $dane_prywatne['imie'] . ' ' . $dane_prywatne['nazwisko'];
+                
+                // Dodaj pełne dane prywatne do cache dla harmonogramu
+                $dane_pasazera_cache = $dane_prywatne;
             }
         }
         

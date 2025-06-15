@@ -297,3 +297,166 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
         width: auto;
     }
 }
+
+.status-cancelled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Dla harmonogramu czasowego */
+.srl-slot-harmonogram.status-cancelled {
+    background: #dc3545 !important;
+    border-color: #c82333 !important;
+    color: white !important;
+}
+
+
+/* Harmonogram czasowy */
+.srl-harmonogram {
+    position: relative;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.srl-harmonogram-header {
+    position: absolute;
+    top: 0;
+    left: 80px;
+    right: 0;
+    height: 40px;
+    background: #0073aa;
+    color: white;
+    display: flex;
+    z-index: 10;
+}
+
+.srl-harmonogram-pilot-col {
+    width: 300px;
+    text-align: center;
+    line-height: 40px;
+    font-weight: bold;
+    border-right: 1px solid rgba(255,255,255,0.3);
+}
+
+.srl-harmonogram-time-axis {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    width: 80px;
+    background: #f5f5f5;
+    border-right: 1px solid #ddd;
+}
+
+.srl-time-label-hour {
+    position: absolute;
+    left: 0;
+    width: 80px;
+    height: 20px;
+    text-align: center;
+    line-height: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,115,170,0.05);
+}
+
+.srl-time-label-minute {
+    position: absolute;
+    left: 10px;
+    width: 60px;
+    height: 16px;
+    text-align: center;
+    line-height: 16px;
+    font-size: 10px;
+    color: #666;
+}
+
+.srl-harmonogram-slots {
+    position: absolute;
+    top: 40px;
+    left: 80px;
+    right: 0;
+    background: white;
+}
+
+.srl-grid-line-hour {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #0073aa;
+    z-index: 2;
+    opacity: 0.3;
+}
+
+.srl-grid-line-minute {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #ccc;
+    z-index: 1;
+    opacity: 0.5;
+}
+
+.srl-pilot-column-line {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: #e0e0e0;
+    z-index: 1;
+}
+
+.srl-slot-harmonogram {
+    position: absolute;
+    border-radius: 3px;
+    z-index: 5;
+    cursor: pointer;
+    overflow: hidden;
+    justify-content: center;
+    text-align: center;
+    white-space: pre-line;
+    padding: 4px 2px;
+    box-sizing: border-box;
+    margin: 0;
+    line-height: 1.3;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.srl-slot-harmonogram:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.srl-harmonogram-legenda {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.srl-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.srl-legend-color {
+    width: 20px;
+    height: 20px;
+    border: 2px solid;
+    border-radius: 3px;
+}
+
+.srl-legend-label {
+    font-size: 12px;
+}

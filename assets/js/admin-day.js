@@ -37,7 +37,7 @@ jQuery(document).ready(function($) {
 	if (checkboxPlanowanie.is(':checked') && Object.keys(srlIstniejaceGodziny).length > 0) {
 		generujTabelePilotow();
 	}
-
+	
 	// Dodaj obsługę podstawowych kontrolek
 	checkboxPlanowanie.on('change', function() {
 		if ($(this).is(':checked')) {
@@ -65,7 +65,279 @@ jQuery(document).ready(function($) {
 		var nowaData = $(this).val();
 		window.location.href = addOrUpdateUrlParam('data', nowaData);
 	});
+	
+// ==========================================================================
+// Ujednolicona funkcja formatowania danych pasażera
+// ==========================================================================
 
+function srl_formatujDanePasazera(slot, dlugiFormat) {
+    var wynik = {
+        tekstSlotu: '',
+        maInformacje: false,
+        daneDoModalu: null
+    };
+    
+    var linie = [];
+    
+    // 1. SLOTY ZAREZERWOWANE/ZREALIZOWANE
+    if ((slot.status === 'Zarezerwowany' || slot.status === 'Zrealizowany') && slot.klient_nazwa) {
+        var pelneInfo = slot.dane_pasazera_cache || null;
+        var daneOdwolane = null;
+        
+        // Sprawdź czy to są dane z odwołanego lotu (nie powinno się zdarzyć, ale dla pewności)
+        if (slot.notatka) {
+            try {
+                var parsedNotatka = JSON.parse(slot.notatka);
+                if (parsedNotatka.typ === 'odwolany_przez_organizatora') {
+                    daneOdwolane = parsedNotatka;
+                }
+            } catch (e) {}
+        }
+        
+        if (pelneInfo || daneOdwolane) {
+            var dane = pelneInfo || daneOdwolane;
+            
+            // Linia 1: Status (dla odwołanych)
+            var statusTekst = slot.status === 'Zarezerwowany' ? '(ZAREZERWOWANY)' : 
+                             slot.status === 'Zrealizowany' ? '(ZREALIZOWANY)' : '';
+            if (statusTekst) {
+                linie.push(statusTekst);
+            }
+            
+            // Linia 2: Nazwa produktu + opcje
+            var nazwaProduktu = daneOdwolane ? daneOdwolane.nazwa_produktu : 'Lot w tandemie';
+            var opcjeTekst = srl_formatujOpcjeLotu(slot, daneOdwolane);
+            linie.push('#' + slot.lot_id + ' | ' + nazwaProduktu + ' ' + opcjeTekst);
+            
+            // Linia 3: Dane osobowe (imię, wiek, waga, sprawność)
+            var daneOsobowe = (dane.klient_nazwa || slot.klient_nazwa || '');
+            if (dane.rok_urodzenia) {
+                var wiek = new Date().getFullYear() - parseInt(dane.rok_urodzenia);
+                daneOsobowe += ' (' + wiek + ' lat)';
+            }
+            if (dane.kategoria_wagowa) {
+                daneOsobowe += ', ' + dane.kategoria_wagowa;
+            }
+            if (dane.sprawnosc_fizyczna) {
+                var sprawnoscMap = {
+                    'zdolnosc_do_marszu': 'Marsz',
+                    'zdolnosc_do_biegu': 'Bieg', 
+                    'sprinter': 'Sprinter'
+                };
+                daneOsobowe += ', ' + (sprawnoscMap[dane.sprawnosc_fizyczna] || dane.sprawnosc_fizyczna);
+            }
+            if (daneOsobowe.trim()) {
+                linie.push(daneOsobowe);
+            }
+            
+            // Linia 4: Telefon
+            if (dane.telefon) {
+                linie.push('Tel: ' + dane.telefon);
+            }
+            
+            // Linia 5: Uwagi (skrócone w harmonogramie)
+            if (dane.uwagi && dane.uwagi.trim()) {
+                var uwagi = dane.uwagi.trim();
+                if (!dlugiFormat && uwagi.length > 50) {
+                    uwagi = uwagi.substring(0, 47) + '...';
+                }
+                linie.push('Uwagi: ' + uwagi);
+            }
+            
+            wynik.daneDoModalu = dane;
+        } else {
+            // Fallback - podstawowe info
+            linie.push(slot.klient_nazwa);
+            if (slot.lot_id) {
+                linie.push('(ID: #' + slot.lot_id + ')');
+                if (dlugiFormat) {
+                    linie.push('[Kliknij INFO w tabeli]');
+                }
+            }
+        }
+        wynik.maInformacje = true;
+    }
+    
+    // 2. SLOTY PRYWATNE
+    else if (slot.status === 'Prywatny') {
+        if (slot.klient_nazwa) {
+            linie.push('(PRYWATNY)');
+            linie.push(slot.klient_nazwa);
+            wynik.maInformacje = true;
+        } else if (slot.notatka) {
+            try {
+                var danePrivate = JSON.parse(slot.notatka);
+                if (danePrivate.imie && danePrivate.nazwisko) {
+                    // Linia 1: Status
+                    linie.push('(PRYWATNY)');
+                    
+                    // Linia 2: Nazwa produktu (prywatne nie mają opcji)
+                    linie.push('Lot prywatny');
+                    
+                    // Linia 3: Dane osobowe
+                    var daneOsobowe = danePrivate.imie + ' ' + danePrivate.nazwisko;
+                    if (danePrivate.rok_urodzenia) {
+                        var wiek = new Date().getFullYear() - parseInt(danePrivate.rok_urodzenia);
+                        daneOsobowe += ' (' + wiek + ' lat)';
+                    }
+                    if (danePrivate.kategoria_wagowa) {
+                        daneOsobowe += ', ' + danePrivate.kategoria_wagowa;
+                    }
+                    if (danePrivate.sprawnosc_fizyczna) {
+                        var sprawnoscMap = {
+                            'zdolnosc_do_marszu': 'Marsz',
+                            'zdolnosc_do_biegu': 'Bieg', 
+                            'sprinter': 'Sprinter'
+                        };
+                        daneOsobowe += ', ' + (sprawnoscMap[danePrivate.sprawnosc_fizyczna] || danePrivate.sprawnosc_fizyczna);
+                    }
+                    linie.push(daneOsobowe);
+                    
+                    // Linia 4: Telefon
+                    if (danePrivate.telefon) {
+                        linie.push('Tel: ' + danePrivate.telefon);
+                    }
+                    
+                    // Linia 5: Uwagi
+                    if (danePrivate.uwagi && danePrivate.uwagi.trim()) {
+                        var uwagi = danePrivate.uwagi.trim();
+                        if (!dlugiFormat && uwagi.length > 50) {
+                            uwagi = uwagi.substring(0, 47) + '...';
+                        }
+                        linie.push('Uwagi: ' + uwagi);
+                    }
+                    
+                    wynik.daneDoModalu = danePrivate;
+                    wynik.maInformacje = true;
+                }
+            } catch (e) {
+                // Błąd parsowania JSON
+            }
+        }
+    }
+    
+    // 3. SLOTY ODWOŁANE
+    else if (slot.status === 'Odwołany przez organizatora' && slot.notatka) {
+        try {
+            var daneOdwolane = JSON.parse(slot.notatka);
+            if (daneOdwolane.klient_nazwa || (daneOdwolane.imie && daneOdwolane.nazwisko)) {
+                // Linia 1: Status odwołania
+                linie.push('(ODWOŁANY)');
+                
+                // Linia 2: Nazwa produktu + opcje z historii
+                //var nazwaProduktu = daneOdwolane.nazwa_produktu || 'Lot w tandemie';
+                var nazwaProduktu = 'Lot w tandemie';
+				var opcjeTekst = srl_formatujOpcjeLotu(null, daneOdwolane);
+                linie.push('#' + slot.lot_id + ' | ' + nazwaProduktu + ' ' + opcjeTekst);
+				
+               
+                // Linia 3: Dane osobowe
+                var nazwaKlienta = daneOdwolane.klient_nazwa || (daneOdwolane.imie + ' ' + daneOdwolane.nazwisko);
+                var daneOsobowe = nazwaKlienta;
+                if (daneOdwolane.rok_urodzenia) {
+                    var wiek = new Date().getFullYear() - parseInt(daneOdwolane.rok_urodzenia);
+                    daneOsobowe += ' (' + wiek + ' lat)';
+                }
+                if (daneOdwolane.kategoria_wagowa) {
+                    daneOsobowe += ', ' + daneOdwolane.kategoria_wagowa;
+                }
+                if (daneOdwolane.sprawnosc_fizyczna) {
+                    var sprawnoscMap = {
+                        'zdolnosc_do_marszu': 'Marsz',
+                        'zdolnosc_do_biegu': 'Bieg', 
+                        'sprinter': 'Sprinter'
+                    };
+                    daneOsobowe += ', ' + (sprawnoscMap[daneOdwolane.sprawnosc_fizyczna] || daneOdwolane.sprawnosc_fizyczna);
+                }
+                linie.push(daneOsobowe);
+                
+                // Linia 4: Telefon
+                if (daneOdwolane.telefon) {
+                    linie.push('Tel: ' + daneOdwolane.telefon);
+                }
+                
+                // Linia 5: Uwagi
+                if (daneOdwolane.uwagi && daneOdwolane.uwagi.trim()) {
+                    var uwagi = daneOdwolane.uwagi.trim();
+                    if (!dlugiFormat && uwagi.length > 50) {
+                        uwagi = uwagi.substring(0, 47) + '...';
+                    }
+                    linie.push('Uwagi: ' + uwagi);
+                }
+                               
+                // Przygotuj dane do modalu
+                wynik.daneDoModalu = {
+                    imie: daneOdwolane.imie || (daneOdwolane.klient_nazwa ? daneOdwolane.klient_nazwa.split(' ')[0] : ''),
+                    nazwisko: daneOdwolane.nazwisko || (daneOdwolane.klient_nazwa ? daneOdwolane.klient_nazwa.split(' ').slice(1).join(' ') : ''),
+                    rok_urodzenia: daneOdwolane.rok_urodzenia || '',
+                    telefon: daneOdwolane.telefon || '',
+                    kategoria_wagowa: daneOdwolane.kategoria_wagowa || '',
+                    sprawnosc_fizyczna: daneOdwolane.sprawnosc_fizyczna || '',
+                    uwagi: daneOdwolane.uwagi || ''
+                };
+                
+                wynik.maInformacje = true;
+            }
+        } catch (e) {
+            linie.push('(ODWOŁANY)');
+            linie.push('🚫 LOT ODWOŁANY');
+        }
+    }
+    
+    // Złóż tekst słotu
+    wynik.tekstSlotu = linie.join('\n');
+    
+    return wynik;
+}
+
+// ==========================================================================
+// Funkcja pomocnicza do formatowania opcji lotu
+// ==========================================================================
+
+function srl_formatujOpcjeLotu(slot, daneOdwolane) {
+    var opcje = [];
+    
+    // Sprawdź opcje z różnych źródeł
+    var maFilmowanie = false;
+    var maAkrobacje = false;
+    
+    if (daneOdwolane) {
+        // Dane z odwołanego lotu - sprawdź w danych pasażera lub lot info
+        if (daneOdwolane.dane_pasazera) {
+            try {
+                var danePassengerJson = JSON.parse(daneOdwolane.dane_pasazera);
+                maFilmowanie = danePassengerJson.ma_filmowanie || false;
+                maAkrobacje = danePassengerJson.ma_akrobacje || false;
+            } catch (e) {}
+        }
+        // Fallback - sprawdź bezpośrednio w danych odwołanych
+        if (!maFilmowanie && !maAkrobacje) {
+            maFilmowanie = daneOdwolane.ma_filmowanie || false;
+            maAkrobacje = daneOdwolane.ma_akrobacje || false;
+        }
+    } else if (slot && slot.dane_pasazera_cache) {
+        // Dane z cache
+        maFilmowanie = slot.dane_pasazera_cache.ma_filmowanie || false;
+        maAkrobacje = slot.dane_pasazera_cache.ma_akrobacje || false;
+    }
+    
+    // Formatuj opcje z kolorami (HTML dla harmonogramu)
+    if (maFilmowanie) {
+        opcje.push('<span style="color: #46b450; font-weight: bold;">z filmowaniem</span>');
+    } else {
+        opcje.push('<span style="color: #d63638;">bez filmowania</span>');
+    }
+    
+    if (maAkrobacje) {
+        opcje.push('<span style="color: #46b450; font-weight: bold;">z akrobacjami</span>');
+    } else {
+        opcje.push('<span style="color: #d63638;">bez akrobacji</span>');
+    }
+    
+    return opcje.join(', ');
+}
+	
+	
 	// Funkcja pomocnicza do dodawania/aktualizacji parametru URL
 	function addOrUpdateUrlParam(key, value) {
 		var url = new URL(window.location.href);
@@ -220,7 +492,6 @@ jQuery(document).ready(function($) {
 							'<th>ID lotu</th>' +
 							'<th>Dane pasażera</th>' +
 							'<th>Akcje</th>' +
-							'<th>Usuń</th>' +
                         '</tr>' +
                     '</thead>' +
                     '<tbody></tbody>' +
@@ -250,18 +521,19 @@ jQuery(document).ready(function($) {
 // POPRAWIONA funkcja dodajWierszDoTabeli z przeniesionym przyciskiem Edytuj i opcją Wypisz dla Prywatnych
 function dodajWierszDoTabeli(pilotId, numer, obiektGodziny, referencjaTabela) {
     var tr = $('<tr data-termin-id="' + obiektGodziny.id + '"></tr>');
-    tr.append('<td><input type="checkbox" class="srl-slot-checkbox" data-pilot="' + pilotId + '" data-termin-id="' + obiektGodziny.id + '"></td>');
-    tr.append('<td>' + numer + '</td>');
-    
-    // POPRAWIONA kolumna czasu - z przyciskiem Edytuj w tej samej linii
-    var startMin = zamienNaMinuty(obiektGodziny.start);
-    var endMin   = zamienNaMinuty(obiektGodziny.koniec);
-    var delta    = endMin - startMin;
-    var czasTxt  = obiektGodziny.start + ' - ' + obiektGodziny.koniec + ' (' + delta + 'min)';
-    
-    var czasTd = $('<td class="srl-czas-col"></td>');
-    czasTd.html(czasTxt + ' <button class="button button-small srl-edytuj-button" style="margin-left:10px; font-size:11px;">Edytuj godziny</button>');
-    tr.append(czasTd);
+	tr.append('<td><input type="checkbox" class="srl-slot-checkbox" data-pilot="' + pilotId + '" data-termin-id="' + obiektGodziny.id + '"></td>');
+	tr.append('<td>' + numer + '</td>');
+
+	// POPRAWIONA kolumna czasu - z przyciskiem Edytuj i Usuń w tej samej linii
+	var startMin = zamienNaMinuty(obiektGodziny.start);
+	var endMin   = zamienNaMinuty(obiektGodziny.koniec);
+	var delta    = endMin - startMin;
+	var czasTxt  = obiektGodziny.start + ' - ' + obiektGodziny.koniec + ' (' + delta + 'min)';
+
+	var czasTd = $('<td class="srl-czas-col"></td>');
+	czasTd.html(czasTxt + ' <button class="button button-small srl-edytuj-button" style="margin-left:10px; font-size:11px;">Edytuj godziny</button>' + 
+				 ' <button class="button button-secondary button-small srl-usun-button" style="margin-left:5px; font-size:11px;">Usuń</button>');
+	tr.append(czasTd);
 
     // Status slotu - tylko wyświetlanie, stylizowane jak w wykupionych lotach
     var statusTd = $('<td></td>');
@@ -298,67 +570,96 @@ function dodajWierszDoTabeli(pilotId, numer, obiektGodziny, referencjaTabela) {
     tr.append(statusTd);
     
     // Kolumna ID lotu
-    var lotIdTd = $('<td></td>');
-    if ((obiektGodziny.status === 'Zarezerwowany' || obiektGodziny.status === 'Zrealizowany') && obiektGodziny.lot_id) {
-        lotIdTd.html('<a href="' + srlAdmin.adminUrl + 'admin.php?page=srl-wykupione-loty&search_field=id_lotu&s=' + obiektGodziny.lot_id + '" target="_blank" style="color:#0073aa; font-weight:bold;">#' + obiektGodziny.lot_id + '</a>');
-    } else {
-        lotIdTd.html('—');
-    }
-    tr.append(lotIdTd);
+	var lotIdTd = $('<td></td>');
+	if ((obiektGodziny.status === 'Zarezerwowany' || obiektGodziny.status === 'Zrealizowany') && obiektGodziny.lot_id) {
+		lotIdTd.html('<a href="' + srlAdmin.adminUrl + 'admin.php?page=srl-wykupione-loty&search_field=id_lotu&s=' + obiektGodziny.lot_id + '" target="_blank" style="color:#0073aa; font-weight:bold;">#' + obiektGodziny.lot_id + '</a>');
+	} else if (obiektGodziny.status === 'Odwołany przez organizatora' && obiektGodziny.notatka) {
+		try {
+			var daneOdwolane = JSON.parse(obiektGodziny.notatka);
+			if (daneOdwolane.lot_id) {
+				lotIdTd.html('<a href="' + srlAdmin.adminUrl + 'admin.php?page=srl-wykupione-loty&search_field=id_lotu&s=' + daneOdwolane.lot_id + '" target="_blank" style="color:#dc3545; font-weight:bold;">#' + daneOdwolane.lot_id + ' (odwołany)</a>');
+			} else {
+				lotIdTd.html('—');
+			}
+		} catch (e) {
+			lotIdTd.html('—');
+		}
+	} else if (obiektGodziny.status === 'Prywatny' || (obiektGodziny.status === 'Zrealizowany' && !obiektGodziny.lot_id)) {
+		lotIdTd.html('<span style="color:#6c757d; font-weight:bold;">PRYWATNY</span>');
+	} else {
+		lotIdTd.html('—');
+	}
+	tr.append(lotIdTd);
 
-    // Kolumna Dane pasażera - POPRAWIONA OBSŁUGA DANYCH PRYWATNYCH
-    var danePasazeraTd = $('<td></td>');
-    if (obiektGodziny.status === 'Zarezerwowany' || obiektGodziny.status === 'Zrealizowany') {
-        if (obiektGodziny.lot_id && obiektGodziny.klient_nazwa) {
-            // Pokaż imię i nazwisko jako przycisk
-            danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-pasazera" data-lot-id="' + obiektGodziny.lot_id + '" data-user-id="' + obiektGodziny.klient_id + '">' + obiektGodziny.klient_nazwa + '</button>');
-        } else {
-            danePasazeraTd.html('<button class="button button-small srl-przypisz-klienta" data-termin-id="' + obiektGodziny.id + '">Przypisz klienta</button>');
-        }
-    } else if (obiektGodziny.status === 'Prywatny') {
-        // POPRAWIONA OBSŁUGA: sprawdź dane z notatki przekazanej z backend
-        if (obiektGodziny.klient_nazwa) {
-            // Jeśli klient_nazwa jest wypełniona, znaczy że dane są w notatce
-            danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">' + obiektGodziny.klient_nazwa + '</button>');
-        } else if (obiektGodziny.notatka) {
-            // Sprawdź czy w notatce są dane JSON
-            try {
-                var danePrivate = JSON.parse(obiektGodziny.notatka);
-                if (danePrivate.imie && danePrivate.nazwisko) {
-                    danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">' + danePrivate.imie + ' ' + danePrivate.nazwisko + '</button>');
-                } else {
-                    danePasazeraTd.html('<button class="button button-small srl-edytuj-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">Edytuj dane</button>');
+// Kolumna Dane pasażera - POPRAWIONA OBSŁUGA DANYCH PRYWATNYCH
+var danePasazeraTd = $('<td></td>');
+if (obiektGodziny.status === 'Zarezerwowany' || (obiektGodziny.status === 'Zrealizowany' && obiektGodziny.lot_id)) {
+    if (obiektGodziny.lot_id && obiektGodziny.klient_nazwa) {
+        danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-pasazera" data-lot-id="' + obiektGodziny.lot_id + '" data-user-id="' + obiektGodziny.klient_id + '">' + obiektGodziny.klient_nazwa + '</button>');
+    } else {
+        danePasazeraTd.html('<button class="button button-small srl-przypisz-klienta" data-termin-id="' + obiektGodziny.id + '">Przypisz klienta</button>');
+    }
+} else if (obiektGodziny.status === 'Prywatny' || (obiektGodziny.status === 'Zrealizowany' && obiektGodziny.notatka && !obiektGodziny.lot_id)) {
+    // Loty prywatne lub zrealizowane loty prywatne
+    if (obiektGodziny.notatka) {
+        try {
+            var danePrivate = JSON.parse(obiektGodziny.notatka);
+            if (danePrivate.imie && danePrivate.nazwisko) {
+                var buttonText = danePrivate.imie + ' ' + danePrivate.nazwisko;
+                if (obiektGodziny.status === 'Zrealizowany') {
+                    buttonText += ' (zrealizowany)';
                 }
-            } catch (e) {
-                danePasazeraTd.html('<button class="button button-small srl-edytuj-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">Edytuj dane</button>');
+                danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">' + buttonText + '</button>');
+            } else {
+                danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">Dane prywatne</button>');
             }
-        } else {
-            danePasazeraTd.html('<button class="button button-small srl-edytuj-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">Edytuj dane</button>');
+        } catch (e) {
+            danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">Dane prywatne</button>');
         }
     } else {
-        danePasazeraTd.html('—');
+        danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="' + obiektGodziny.id + '">Dane prywatne</button>');
     }
-    tr.append(danePasazeraTd);
-
-    // POPRAWIONA kolumna Akcje - bez przycisku Edytuj (jest już w kolumnie czasu)
-    var akcjeTd = $('<td></td>');
-
-    if (obiektGodziny.status === 'Wolny') {
-        akcjeTd.append('<button class="button button-primary srl-przypisz-slot" data-termin-id="' + obiektGodziny.id + '">Przypisz klienta</button>');
-    } else if ((obiektGodziny.status === 'Zarezerwowany' || obiektGodziny.status === 'Zrealizowany') && obiektGodziny.klient_id > 0) {
-        akcjeTd.append('<button class="button srl-wypisz-klienta">Wypisz klienta</button>');
-    } else if (obiektGodziny.status === 'Prywatny') {
-        // NOWA OPCJA: Wypisz dla slotów prywatnych
-        akcjeTd.append('<button class="button srl-wypisz-slot-prywatny" data-termin-id="' + obiektGodziny.id + '">Wyczyść slot</button>');
+} else if (obiektGodziny.status === 'Odwołany przez organizatora') {
+    // Obsługa odwołanych
+    if (obiektGodziny.notatka) {
+        try {
+            var daneOdwolane = JSON.parse(obiektGodziny.notatka);
+            if (daneOdwolane.klient_nazwa) {
+                danePasazeraTd.html('<button class="button button-small srl-pokaz-dane-odwolane" data-termin-id="' + obiektGodziny.id + '" style="background:#dc3545; color:white;">' + daneOdwolane.klient_nazwa + ' (odwołany)</button>');
+            } else {
+                danePasazeraTd.html('<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>');
+            }
+        } catch (e) {
+            danePasazeraTd.html('<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>');
+        }
     } else {
-        akcjeTd.html('—');
+        danePasazeraTd.html('<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>');
     }
-    tr.append(akcjeTd);
+} else {
+    danePasazeraTd.html('—');
+}
+tr.append(danePasazeraTd);
 
-    // Kolumna Usuń (nowa kolumna)
-    var usunTd = $('<td></td>');
-    usunTd.append('<button class="button button-secondary srl-usun-button">USUŃ SLOT</button>');
-    tr.append(usunTd);
+	// POPRAWIONA kolumna Akcje - z przyciskami Zrealizuj
+	var akcjeTd = $('<td></td>');
+
+	if (obiektGodziny.status === 'Wolny') {
+		akcjeTd.append('<button class="button button-primary srl-przypisz-slot" data-termin-id="' + obiektGodziny.id + '">Przypisz klienta</button>');
+	} else if (obiektGodziny.status === 'Zarezerwowany' && obiektGodziny.klient_id > 0) {
+		akcjeTd.append('<button class="button srl-wypisz-klienta">Wypisz klienta</button> ');
+		akcjeTd.append('<button class="button srl-zrealizuj-lot" data-termin-id="' + obiektGodziny.id + '" style="background:#28a745; color:white; margin-left:5px;">Zrealizuj</button> ');
+		akcjeTd.append('<button class="button srl-odwolaj-lot" data-termin-id="' + obiektGodziny.id + '" style="background:#dc3545; color:white; margin-left:5px;">Odwołaj</button>');
+	} else if (obiektGodziny.status === 'Prywatny') {
+		akcjeTd.append('<button class="button srl-zrealizuj-lot-prywatny" data-termin-id="' + obiektGodziny.id + '" style="background:#28a745; color:white; margin-right:5px;">Zrealizuj</button> ');
+		akcjeTd.append('<button class="button srl-wypisz-slot-prywatny" data-termin-id="' + obiektGodziny.id + '">Wyczyść slot</button>');
+	} else if (obiektGodziny.status === 'Zrealizowany') {
+		akcjeTd.append('<span style="color:#28a745; font-weight:bold;">✅ Zrealizowany</span>');
+	} else if (obiektGodziny.status === 'Odwołany przez organizatora') {
+		akcjeTd.append('<button class="button srl-przywroc-rezerwacje" data-termin-id="' + obiektGodziny.id + '" style="background:#28a745; color:white;">Przywróć rezerwację</button>');
+	} else {
+		akcjeTd.html('—');
+	}
+	tr.append(akcjeTd);
 
     referencjaTabela.find('tbody').append(tr);
     sprawdzNakladanie(referencjaTabela, pilotId);
@@ -416,82 +717,84 @@ function zaladujNasluchiwace() {
     });
 
     $('.srl-grupowe-usun').off('click').on('click', function() {
-        var pilot = $(this).data('pilot');
-        var zaznaczone = $('.srl-slot-checkbox[data-pilot="' + pilot + '"]:checked');
-        
-        if (zaznaczone.length === 0) {
-            alert('Nie zaznaczono żadnych slotów do usunięcia.');
-            return;
-        }
+		var pilot = $(this).data('pilot');
+		var zaznaczone = $('.srl-slot-checkbox[data-pilot="' + pilot + '"]:checked');
+		
+		if (zaznaczone.length === 0) {
+			alert('Nie zaznaczono żadnych slotów do usunięcia.');
+			return;
+		}
 
-        if (!confirm('Czy na pewno usunąć ' + zaznaczone.length + ' zaznaczonych slotów?')) {
-            return;
-        }
+		if (!confirm('Czy na pewno usunąć ' + zaznaczone.length + ' zaznaczonych slotów?')) {
+			return;
+		}
 
-        var usuniete = 0;
-        var doUsuniecia = zaznaczone.length;
+		var usuniete = 0;
+		var doUsuniecia = zaznaczone.length;
 
-        zaznaczone.each(function() {
-            var terminId = $(this).data('termin-id');
-            $.post(ajaxurl, {
-                action: 'srl_usun_godzine',
-                termin_id: terminId
-            }, function(response) {
-                usuniete++;
-                if (response.success) {
-                    srlIstniejaceGodziny = response.data.godziny_wg_pilota;
-                } else {
-                    console.error('Błąd usuwania slotu:', response.data);
-                }
-                
-                // Gdy wszystkie usunięte, odśwież tabelę
-                if (usuniete === doUsuniecia) {
-                    generujTabelePilotow();
-                }
-            }).fail(function() {
-                usuniete++;
-                console.error('Błąd połączenia przy usuwaniu slotu');
-                if (usuniete === doUsuniecia) {
-                    generujTabelePilotow();
-                }
-            });
-        });
-    });
+		zaznaczone.each(function() {
+			var terminId = $(this).data('termin-id');
+			$.post(ajaxurl, {
+				action: 'srl_usun_godzine',
+				termin_id: terminId,
+				nonce: srlAdmin.nonce
+			}, function(response) {
+				usuniete++;
+				if (response.success) {
+					srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+				} else {
+					console.error('Błąd usuwania slotu:', response.data);
+				}
+				
+				// Gdy wszystkie usunięte, odśwież tabelę
+				if (usuniete === doUsuniecia) {
+					generujTabelePilotow();
+				}
+			}).fail(function() {
+				usuniete++;
+				console.error('Błąd połączenia przy usuwaniu slotu');
+				if (usuniete === doUsuniecia) {
+					generujTabelePilotow();
+				}
+			});
+		});
+	});
 
     // 7.1. „Usuń" slot – AJAX z natychmiastowym odświeżaniem
-    $('.srl-usun-button').off('click').on('click', function() {
-        var wiersz    = $(this).closest('tr');
-        var terminId  = wiersz.data('termin-id');
-        var button    = $(this);
-        
-        if (!confirm('Czy na pewno usunąć ten slot?')) return;
+    // Używamy delegacji eventów dla dynamicznie dodawanych przycisków
+$(document).off('click', '.srl-usun-button').on('click', '.srl-usun-button', function() {
+    var wiersz    = $(this).closest('tr');
+    var terminId  = wiersz.data('termin-id');
+    var button    = $(this);
+    
+    if (!confirm('Czy na pewno usunąć ten slot?')) return;
 
-        // Zablokuj przycisk
-        button.prop('disabled', true).text('Usuwanie...');
+    // Zablokuj przycisk
+    button.prop('disabled', true).text('Usuwanie...');
 
-        $.post(ajaxurl, {
-            action: 'srl_usun_godzine',
-            termin_id: terminId
-        }, function(response) {
-            if (response.success) {
-                srlIstniejaceGodziny = response.data.godziny_wg_pilota;
-                // Natychmiast usuń wiersz z interfejsu
-                wiersz.fadeOut(300, function() {
-                    wiersz.remove();
-                    // Odśwież całą tabelę aby przenumerować wiersze
-                    generujTabelePilotow();
-                });
-            } else {
-                alert('Błąd usuwania: ' + response.data);
-                button.prop('disabled', false).text('Usuń');
-            }
-        }).fail(function() {
-            alert('Błąd połączenia z serwerem');
+    $.post(ajaxurl, {
+        action: 'srl_usun_godzine',
+        termin_id: terminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+            // Natychmiast usuń wiersz z interfejsu
+            wiersz.fadeOut(300, function() {
+                wiersz.remove();
+                // Odśwież całą tabelę aby przenumerować wiersze
+                generujTabelePilotow();
+            });
+        } else {
+            alert('Błąd usuwania: ' + response.data);
             button.prop('disabled', false).text('Usuń');
-        });
+        }
+    }).fail(function() {
+        alert('Błąd połączenia z serwerem');
+        button.prop('disabled', false).text('Usuń');
     });
+});
 
-// POPRAWIONA obsługa edycji godzin - zastąp w funkcji zaladujNasluchiwace()
 // 7.2. „Edytuj godziny" slot z natychmiastowym odświeżaniem
 $(document).off('click', '.srl-edytuj-button').on('click', '.srl-edytuj-button', function() {
     var btn = $(this);
@@ -602,12 +905,13 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
         
         if (!confirm('Czy na pewno wyczyścić ten slot prywatny i zmienić status na wolny?')) return;
         
-        $.post(ajaxurl, {
-            action: 'srl_zmien_status_godziny',
-            termin_id: terminId,
-            status: 'Wolny',
-            klient_id: 0,
-            notatka: '' // Wyczyść notatke
+		$.post(ajaxurl, {
+			action: 'srl_zmien_status_godziny',
+			termin_id: terminId,
+			status: 'Wolny',
+			klient_id: 0,
+			notatka: '', // Wyczyść notatke
+			nonce: srlAdmin.nonce  // ← DODAJ TĘ LINIĘ
         }, function(response) {
             if (response.success) {
                 srlIstniejaceGodziny = response.data.godziny_wg_pilota;
@@ -645,11 +949,6 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
         pokazFormularzPrzypisaniaKlienta(terminId);
     });
 
-    $(document).off('click', '.srl-edytuj-dane-prywatne').on('click', '.srl-edytuj-dane-prywatne', function() {
-        var terminId = $(this).data('termin-id');
-        pokazFormularzDanychPrywatnych(terminId);
-    });
-
     $(document).off('click', '.srl-pokaz-dane-prywatne').on('click', '.srl-pokaz-dane-prywatne', function() {
         var terminId = $(this).data('termin-id');
         pokazDanePrywatneModal(terminId);
@@ -661,6 +960,127 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
         console.log('terminId:', terminId); // Debug
         pokazModalPrzypisaniaSlotu(terminId);
     });
+	
+	// NOWY: Przycisk Odwołaj lot
+$(document).off('click', '.srl-odwolaj-lot').on('click', '.srl-odwolaj-lot', function() {
+    var terminId = $(this).data('termin-id');
+    
+    if (!confirm('Czy na pewno odwołać ten lot? Slot zostanie zachowany jako historia, a lot klienta będzie dostępny do ponownej rezerwacji.')) return;
+    
+    var button = $(this);
+    button.prop('disabled', true).text('Odwoływanie...');
+    
+    $.post(ajaxurl, {
+        action: 'srl_anuluj_lot_przez_organizatora',
+        termin_id: terminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+            generujTabelePilotow();
+            pokazKomunikatSukcesu('Lot został odwołany. Klient otrzymał powiadomienie, a lot jest dostępny do ponownej rezerwacji.');
+        } else {
+            alert('Błąd: ' + response.data);
+            button.prop('disabled', false).text('Odwołaj');
+        }
+    }).fail(function() {
+        alert('Błąd połączenia z serwerem');
+        button.prop('disabled', false).text('Odwołaj');
+    });
+});
+
+// POPRAWIONY: Przycisk przywróć rezerwację
+$(document).off('click', '.srl-przywroc-rezerwacje').on('click', '.srl-przywroc-rezerwacje', function() {
+    var terminId = $(this).data('termin-id');
+    
+    if (!confirm('Czy na pewno przywrócić rezerwację? Klient zostanie ponownie przypisany do tego terminu.')) return;
+    
+    var button = $(this);
+    button.prop('disabled', true).text('Przywracanie...');
+    
+    $.post(ajaxurl, {
+        action: 'srl_przywroc_rezerwacje',
+        termin_id: terminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+            generujTabelePilotow();
+            pokazKomunikatSukcesu('Rezerwacja została przywrócona. Klient otrzymał powiadomienie.');
+        } else {
+            alert('Błąd: ' + response.data);
+            button.prop('disabled', false).text('Przywróć rezerwację');
+        }
+    }).fail(function() {
+        alert('Błąd połączenia z serwerem');
+        button.prop('disabled', false).text('Przywróć rezerwację');
+    });
+});
+
+// NOWY: Pokaż dane odwołanego lotu
+$(document).off('click', '.srl-pokaz-dane-odwolane').on('click', '.srl-pokaz-dane-odwolane', function() {
+    var terminId = $(this).data('termin-id');
+    pokazDaneOdwolanegoLotu(terminId);
+});
+	
+	
+	// NOWY: Przycisk Zrealizuj lot wykupiony
+$(document).off('click', '.srl-zrealizuj-lot').on('click', '.srl-zrealizuj-lot', function() {
+    var terminId = $(this).data('termin-id');
+    
+    if (!confirm('Czy na pewno oznaczyć ten lot jako zrealizowany? Zachowane zostaną wszystkie dane pasażera i lotu.')) return;
+    
+    var button = $(this);
+    button.prop('disabled', true).text('Realizowanie...');
+    
+    $.post(ajaxurl, {
+        action: 'srl_zrealizuj_lot',
+        termin_id: terminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+            generujTabelePilotow();
+            pokazKomunikatSukcesu('Lot został oznaczony jako zrealizowany!');
+        } else {
+            alert('Błąd: ' + response.data);
+            button.prop('disabled', false).text('Zrealizuj');
+        }
+    }).fail(function() {
+        alert('Błąd połączenia z serwerem');
+        button.prop('disabled', false).text('Zrealizuj');
+    });
+});
+
+// NOWY: Przycisk Zrealizuj lot prywatny
+$(document).off('click', '.srl-zrealizuj-lot-prywatny').on('click', '.srl-zrealizuj-lot-prywatny', function() {
+    var terminId = $(this).data('termin-id');
+    
+    if (!confirm('Czy na pewno oznaczyć ten lot prywatny jako zrealizowany? Zachowane zostaną wszystkie dane pasażera.')) return;
+    
+    var button = $(this);
+    button.prop('disabled', true).text('Realizowanie...');
+    
+    $.post(ajaxurl, {
+        action: 'srl_zrealizuj_lot_prywatny',
+        termin_id: terminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+            generujTabelePilotow();
+            pokazKomunikatSukcesu('Lot prywatny został oznaczony jako zrealizowany!');
+        } else {
+            alert('Błąd: ' + response.data);
+            button.prop('disabled', false).text('Zrealizuj');
+        }
+    }).fail(function() {
+        alert('Błąd połączenia z serwerem');
+        button.prop('disabled', false).text('Zrealizuj');
+    });
+});
+	
+	
 }
 
     // ------------------------------
@@ -772,6 +1192,8 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
                 $('.srl-wyniki-klientow').remove();
             }
         });
+		
+	
     }
 
     // ------------------------------
@@ -835,310 +1257,401 @@ $(document).off('click', '.srl-anuluj-edycje-godzin').on('click', '.srl-anuluj-e
         return (n < 10) ? '0' + n : '' + n;
     }
 
-    // ------------------------------
-    // 12. Funkcja: Generuje harmonogram czasowy (timeline)
-    // ------------------------------
-    function generujHarmonogramCzasowy() {
-        var kontener = $('#srl-harmonogram-container');
-        kontener.empty();
+	// ==========================================================================
+// Prosta funkcja formatowania slotów w harmonogramie
+// ==========================================================================
 
-        // Sprawdź czy są jakieś sloty
-        var maSloty = Object.keys(srlIstniejaceGodziny).some(function(pid) {
-            return srlIstniejaceGodziny[pid] && srlIstniejaceGodziny[pid].length > 0;
-        });
-
-        if (!maSloty) {
-            kontener.html('<p style="text-align:center; color:#666; font-style:italic; padding:20px;">Brak zaplanowanych lotów na ten dzień</p>');
-            return;
-        }
-
-        var liczbaPilotow = parseInt(liczbaPilotowSelect.val());
-        
-        // Znajdź zakres godzin (najwcześniejsza i najpóźniejsza)
-        var najwczesniej = 24 * 60; // w minutach od 00:00
-        var najpozniej = 0;
-
-        for (var pid = 1; pid <= liczbaPilotow; pid++) {
-            var sloty = srlIstniejaceGodziny[pid] || [];
-            sloty.forEach(function(slot) {
-                var start = zamienNaMinuty(slot.start);
-                var koniec = zamienNaMinuty(slot.koniec);
-                najwczesniej = Math.min(najwczesniej, start);
-                najpozniej = Math.max(najpozniej, koniec);
-            });
-        }
-
-        // Dodaj margines (30 min przed i po)
-        najwczesniej = Math.max(0, najwczesniej - 30);
-        najpozniej = Math.min(24 * 60, najpozniej + 30);
-
-        // Zaokrąglij do pełnych godzin
-        najwczesniej = Math.floor(najwczesniej / 60) * 60;
-        najpozniej = Math.ceil(najpozniej / 60) * 60;
-
-        var czasTrwania = najpozniej - najwczesniej; // w minutach
-        var wysokoscRzadu = 240; // piksele na godzinę (zwiększone z 60 do 120)
-        var szerokoscKolumny = 300; // piksele na kolumnę pilota
-
-        // Utwórz kontener harmonogramu
-        var harmonogram = $('<div class="srl-harmonogram" style="position:relative; border:1px solid #ddd; background:white; border-radius:4px; overflow:hidden;"></div>');
-
-        // Wysokość całkowita
-        var wysokoscCalkowita = (czasTrwania / 60) * wysokoscRzadu + 40; // +40 na nagłówek
-
-        // Utwórz nagłówek z pilotami
-        var naglowek = $('<div class="srl-harmonogram-header" style="position:absolute; top:0; left:80px; right:0; height:40px; background:#0073aa; color:white; display:flex; z-index:10;"></div>');
-        
-        for (var pid = 1; pid <= liczbaPilotow; pid++) {
-            var kolumnaPilota = $('<div style="width:' + szerokoscKolumny + 'px; text-align:center; line-height:40px; font-weight:bold; border-right:1px solid rgba(255,255,255,0.3);">Pilot ' + pid + '</div>');
-            naglowek.append(kolumnaPilota);
-        }
-        harmonogram.append(naglowek);
-
-        // Utwórz oś czasu (lewa strona)
-        var osCzasu = $('<div class="srl-harmonogram-time-axis" style="position:absolute; top:40px; left:0; width:80px; height:' + (wysokoscCalkowita - 40) + 'px; background:#f5f5f5; border-right:1px solid #ddd;"></div>');
-        
-        // Dodaj znaczniki godzin z większymi odstępami
-        for (var godzina = Math.floor(najwczesniej / 60); godzina <= Math.ceil(najpozniej / 60); godzina++) {
-            var pozycjaY = ((godzina * 60 - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
-            // Etykieta godziny ma być na tej samej wysokości co linia, nie na środku bloku
-            var etykietaGodziny = $('<div style="position:absolute; top:' + (Math.round(pozycjaY) - 10) + 'px; left:0; width:80px; height:20px; text-align:center; line-height:20px; font-size:14px; font-weight:bold; display:flex; align-items:center; justify-content:center; background:rgba(0,115,170,0.05);">' + pad2(godzina) + ':00</div>');
-            osCzasu.append(etykietaGodziny);
+function srl_formatujSlotHarmonogram(slot) {
+    var linie = [];
+    
+    // Linia 1: Godzina i status (zawsze)
+    linie.push(slot.start + ' - ' + slot.koniec + ' (' + slot.status.toUpperCase() + ')');
+    
+	// Linia 2: ID lotu i typ
+	if (slot.lot_id) {
+		// Dla aktywnych lotów (zarezerwowane, zrealizowane)
+		linie.push('#' + slot.lot_id + ' - Lot w tandemie');
+	} else if (slot.status === 'Odwołany przez organizatora' && slot.notatka) {
+		// Dla lotów odwołanych - ID jest w notatce
+		try {
+			var daneOdwolane = JSON.parse(slot.notatka);
+			if (daneOdwolane.lot_id) {
+				linie.push('#' + daneOdwolane.lot_id + ' - Lot odwołany');
+			}
+		} catch (e) {
+			// Błąd parsowania JSON
+		}
+	} else if (slot.status === 'Prywatny' || (slot.status === 'Zrealizowany' && slot.notatka && !slot.lot_id)) {
+		// Loty prywatne lub zrealizowane loty prywatne
+		linie.push('Lot prywatny');
+	}
+    
+// Linia 3+: Dane pasażera w zależności od statusu
+if (slot.status === 'Prywatny' && slot.notatka) {
+    // Loty prywatne - dane z notatki
+    try {
+        var danePrivate = JSON.parse(slot.notatka);
+        if (danePrivate.imie && danePrivate.nazwisko) {
+            var daneOsobowe = danePrivate.imie + ' ' + danePrivate.nazwisko;
             
-            // Dodaj znaczniki co 15 minut dla lepszej orientacji
-            for (var minuta = 15; minuta < 60; minuta += 15) {
-                var pozycjaYMin = (((godzina * 60 + minuta) - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
-                var etykietaMinuty = $('<div style="position:absolute; top:' + (Math.round(pozycjaYMin) - 8) + 'px; left:10px; width:60px; height:16px; text-align:center; line-height:16px; font-size:10px; color:#666;">' + pad2(godzina) + ':' + pad2(minuta) + '</div>');
-                osCzasu.append(etykietaMinuty);
+            if (danePrivate.rok_urodzenia) {
+                var wiek = new Date().getFullYear() - parseInt(danePrivate.rok_urodzenia);
+                daneOsobowe += ' (' + wiek + ' lat)';
+            }
+            if (danePrivate.kategoria_wagowa) {
+                daneOsobowe += ', ' + danePrivate.kategoria_wagowa;
+            }
+            if (danePrivate.sprawnosc_fizyczna) {
+                var sprawnosci = {
+                    'zdolnosc_do_marszu': 'Marsz',
+                    'zdolnosc_do_biegu': 'Bieg', 
+                    'sprinter': 'Sprinter'
+                };
+                daneOsobowe += ', ' + (sprawnosci[danePrivate.sprawnosc_fizyczna] || danePrivate.sprawnosc_fizyczna);
+            }
+            
+            linie.push(daneOsobowe);
+            
+            if (danePrivate.telefon) {
+                linie.push('Tel: ' + danePrivate.telefon);
+            }
+            
+            if (danePrivate.uwagi && danePrivate.uwagi.trim()) {
+                var uwagi = danePrivate.uwagi.trim();
+                if (uwagi.length > 40) {
+                    uwagi = uwagi.substring(0, 37) + '...';
+                }
+                linie.push('Uwagi: ' + uwagi);
             }
         }
-        harmonogram.append(osCzasu);
-
-        // Utwórz obszar slotów
-        var obszarSlotow = $('<div class="srl-harmonogram-slots" style="position:absolute; top:40px; left:80px; right:0; height:' + (wysokoscCalkowita - 40) + 'px; background:white;"></div>');
-
-        // Dodaj linie godzinowe (siatka) z większymi odstępami
-        for (var godzina = Math.floor(najwczesniej / 60); godzina <= Math.ceil(najpozniej / 60); godzina++) {
-            var pozycjaY = ((godzina * 60 - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
-            var liniaGodzinowa = $('<div style="position:absolute; top:' + Math.round(pozycjaY) + 'px; left:0; right:0; height:2px; background:#0073aa; z-index:2; opacity:0.3;"></div>');
-            obszarSlotow.append(liniaGodzinowa);
+    } catch (e) {}
+} 
+else if (slot.status === 'Zrealizowany' && slot.notatka && !slot.lot_id) {
+    // NOWY: Zrealizowane loty prywatne - dane z notatki
+    try {
+        var danePrivate = JSON.parse(slot.notatka);
+        if (danePrivate.imie && danePrivate.nazwisko) {
+            var daneOsobowe = danePrivate.imie + ' ' + danePrivate.nazwisko;
             
-            // Dodaj subtelne linie co 15 minut
-            for (var minuta = 15; minuta < 60; minuta += 15) {
-                var pozycjaYMin = (((godzina * 60 + minuta) - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
-                var liniaMinutowa = $('<div style="position:absolute; top:' + Math.round(pozycjaYMin) + 'px; left:0; right:0; height:1px; background:#ccc; z-index:1; opacity:0.5;"></div>');
-                obszarSlotow.append(liniaMinutowa);
+            if (danePrivate.rok_urodzenia) {
+                var wiek = new Date().getFullYear() - parseInt(danePrivate.rok_urodzenia);
+                daneOsobowe += ' (' + wiek + ' lat)';
+            }
+            if (danePrivate.kategoria_wagowa) {
+                daneOsobowe += ', ' + danePrivate.kategoria_wagowa;
+            }
+            if (danePrivate.sprawnosc_fizyczna) {
+                var sprawnosci = {
+                    'zdolnosc_do_marszu': 'Marsz',
+                    'zdolnosc_do_biegu': 'Bieg', 
+                    'sprinter': 'Sprinter'
+                };
+                daneOsobowe += ', ' + (sprawnosci[danePrivate.sprawnosc_fizyczna] || danePrivate.sprawnosc_fizyczna);
+            }
+            
+            linie.push(daneOsobowe);
+            
+            if (danePrivate.telefon) {
+                linie.push('Tel: ' + danePrivate.telefon);
+            }
+            
+            if (danePrivate.uwagi && danePrivate.uwagi.trim()) {
+                var uwagi = danePrivate.uwagi.trim();
+                if (uwagi.length > 40) {
+                    uwagi = uwagi.substring(0, 37) + '...';
+                }
+                linie.push('Uwagi: ' + uwagi);
             }
         }
-
-        // Dodaj linie pionowe (kolumny pilotów)
-        for (var pid = 1; pid <= liczbaPilotow; pid++) {
-            var pozycjaX = (pid - 1) * szerokoscKolumny;
-            var liniaPilota = $('<div style="position:absolute; top:0; left:' + pozycjaX + 'px; width:1px; height:100%; background:#e0e0e0; z-index:1;"></div>');
-            obszarSlotow.append(liniaPilota);
-        }
-
-        // Dodaj sloty dla każdego pilota
-        for (var pid = 1; pid <= liczbaPilotow; pid++) {
-            var sloty = srlIstniejaceGodziny[pid] || [];
-            var pozycjaXKolumny = (pid - 1) * szerokoscKolumny;
-
-            sloty.forEach(function(slot) {
-                var startMin = zamienNaMinuty(slot.start);
-                var koniecMin = zamienNaMinuty(slot.koniec);
-                var czasSlotu = koniecMin - startMin;
-
-                // Pozycja Y (od góry) - precyzyjna pozycja bez nakładania
-                var pozycjaY = ((startMin - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
-                var wysokoscSlotu = (czasSlotu / czasTrwania) * (wysokoscCalkowita - 40);
-                
-                // Zaokrąglij do pełnych pikseli aby uniknąć nakładania
-                pozycjaY = Math.round(pozycjaY);
-                wysokoscSlotu = Math.round(wysokoscSlotu);
-                
-                // Dodaj 1px do wysokości, aby zniwelować wizualnie grubsze linie przy stykających się slotach
-                wysokoscSlotu += 1;
-                
-                // Zapewnij minimalną wysokość 3 piksele
-                if (wysokoscSlotu < 3) {
-                    wysokoscSlotu = 3;
-                }
-
-                // Kolor na podstawie statusu
-                var kolor = getKolorStatusu(slot.status);
-                
-                // Tekst na slocie
-                // Tekst na slocie - PEŁNE INFORMACJE O PASAŻERZE
-                var tekstSlotu = slot.start + ' - ' + slot.koniec;
-                var maInformacjeOPasazerze = false;
-                
-                if ((slot.status === 'Zarezerwowany' || slot.status === 'Zrealizowany') && slot.klient_nazwa) {
-                    // Dla przypisanych klientów - spróbuj pobrać pełne dane z cache lub wyświetl podstawowe
-                    var pelneInfoKlienta = slot.dane_pasazera_cache || null;
-                    
-                    if (pelneInfoKlienta) {
-                        // Jeśli mamy pełne dane z cache - wyświetl tak jak dla prywatnych
-                        var linia1 = slot.klient_nazwa;
-                        if (pelneInfoKlienta.rok_urodzenia) {
-                            var wiek = new Date().getFullYear() - parseInt(pelneInfoKlienta.rok_urodzenia);
-                            linia1 += ' (' + wiek + ' lat)';
-                        }
-                        if (pelneInfoKlienta.kategoria_wagowa) {
-                            linia1 += ', ' + pelneInfoKlienta.kategoria_wagowa;
-                        }
-                        if (pelneInfoKlienta.sprawnosc_fizyczna) {
-                            var sprawnoscMapKlient = {
-                                'zdolnosc_do_marszu': 'Marsz',
-                                'zdolnosc_do_biegu': 'Bieg', 
-                                'sprinter': 'Sprinter'
-                            };
-                            linia1 += ', ' + (sprawnoscMapKlient[pelneInfoKlienta.sprawnosc_fizyczna] || pelneInfoKlienta.sprawnosc_fizyczna);
-                        }
-                        tekstSlotu += '\n' + linia1;
-                        
-                        // Linia 2: Telefon
-                        if (pelneInfoKlienta.telefon) {
-                            tekstSlotu += '\nTel: ' + pelneInfoKlienta.telefon;
-                        }
-                        
-                        // Linia 3: Uwagi (jeśli są)
-                        if (pelneInfoKlienta.uwagi && pelneInfoKlienta.uwagi.trim()) {
-                            var uwagiKlient = pelneInfoKlienta.uwagi.trim();
-                            if (uwagiKlient.length > 50) {
-                                uwagiKlient = uwagiKlient.substring(0, 47) + '...';
-                            }
-                            tekstSlotu += '\nUwagi: ' + uwagiKlient;
-                        }
-                    } else {
-                        // Fallback - podstawowe info + oznaczenie że brak pełnych danych
-                        tekstSlotu += '\n' + slot.klient_nazwa;
-                        if (slot.lot_id) {
-                            tekstSlotu += '\n(ID: #' + slot.lot_id + ')';
-                            tekstSlotu += '\n[Kliknij INFO w tabeli]';
-                        }
-                    }
-                    maInformacjeOPasazerze = true;
-                    
-                } else if (slot.status === 'Prywatny') {
-                    // Dla lotów prywatnych - pełne dane z notatki
-                    if (slot.klient_nazwa) {
-                        tekstSlotu += '\n' + slot.klient_nazwa;
-                        maInformacjeOPasazerze = true;
-                    } else if (slot.notatka) {
-                        try {
-                            var danePrivate = JSON.parse(slot.notatka);
-                            if (danePrivate.imie && danePrivate.nazwisko) {
-                                var imieNazwisko = danePrivate.imie + ' ' + danePrivate.nazwisko;
-                                
-                                // Linia 1: Imię, nazwisko, wiek, waga, sprawność
-                                var linia1 = imieNazwisko;
-                                if (danePrivate.rok_urodzenia) {
-                                    var wiek = new Date().getFullYear() - parseInt(danePrivate.rok_urodzenia);
-                                    linia1 += ' (' + wiek + ' lat)';
-                                }
-                                if (danePrivate.kategoria_wagowa) {
-                                    linia1 += ', ' + danePrivate.kategoria_wagowa;
-                                }
-                                if (danePrivate.sprawnosc_fizyczna) {
-                                    var sprawnoscMap = {
-                                        'zdolnosc_do_marszu': 'Marsz',
-                                        'zdolnosc_do_biegu': 'Bieg', 
-                                        'sprinter': 'Sprinter'
-                                    };
-                                    linia1 += ', ' + (sprawnoscMap[danePrivate.sprawnosc_fizyczna] || danePrivate.sprawnosc_fizyczna);
-                                }
-                                tekstSlotu += '\n' + linia1;
-                                
-                                // Linia 2: Telefon
-                                if (danePrivate.telefon) {
-                                    tekstSlotu += '\nTel: ' + danePrivate.telefon;
-                                }
-                                
-                                // Linia 3: Uwagi (jeśli są)
-                                if (danePrivate.uwagi && danePrivate.uwagi.trim()) {
-                                    var uwagi = danePrivate.uwagi.trim();
-                                    // Skróć uwagi jeśli są za długie
-                                    if (uwagi.length > 50) {
-                                        uwagi = uwagi.substring(0, 47) + '...';
-                                    }
-                                    tekstSlotu += '\nUwagi: ' + uwagi;
-                                }
-                                
-                                maInformacjeOPasazerze = true;
-                            }
-                        } catch (e) {
-                            // W przypadku błędu parsowania JSON, nie dodawaj szczegółów
-                        }
-                    }
-                }
-
-                // Dynamiczne obliczenie wysokości slotu na podstawie zawartości
-                var liczbaLinii = tekstSlotu.split('\n').length;
-                var minimalnaWysokoscNaPodstawieLinii = Math.max(liczbaLinii * 16 + 8, 30); // 16px na linię + padding
-                var finalna_wysokosc = Math.max(wysokoscSlotu, minimalnaWysokoscNaPodstawieLinii);
-                
-                // Jeśli slot ma informacje o pasażerze, zwiększ minimalną wysokość
-                if (maInformacjeOPasazerze) {
-                    finalna_wysokosc = Math.max(finalna_wysokosc, 85);
-                }
-
-                // Utwórz element slotu z odpowiednią wysokością
-                var elementSlotu = $('<div class="srl-slot-harmonogram" style="position:absolute; top:' + pozycjaY + 'px; left:' + (pozycjaXKolumny + 3) + 'px; width:' + (szerokoscKolumny - 6) + 'px; height:' + finalna_wysokosc + 'px; background:' + kolor.bg + '; border:1px solid ' + kolor.border + '; border-radius:3px; z-index:5; cursor:pointer; overflow:hidden; display:flex; align-items:flex-start; justify-content:center; text-align:center; font-size:' + (finalna_wysokosc > 60 ? '10px' : '9px') + '; font-weight:' + (maInformacjeOPasazerze ? '500' : 'bold') + '; color:' + kolor.text + '; white-space:pre-line; padding:4px 2px; box-sizing:border-box; margin:0; line-height:1.3;"></div>');
-                
-                elementSlotu.text(tekstSlotu);
-                
-                // Hover effect - bez tooltip
-                elementSlotu.on('mouseenter', function() {
-                    $(this).css('transform', 'scale(1.02)');
-                    $(this).css('box-shadow', '0 4px 8px rgba(0,0,0,0.2)');
-                }).on('mouseleave', function() {
-                    $(this).css('transform', 'scale(1)');
-                    $(this).css('box-shadow', 'none');
-                });
-
-                // Kliknięcie - scroll do odpowiedniego wiersza w tabeli
-                elementSlotu.on('click', function() {
-                    var targetRow = $('tr[data-termin-id="' + slot.id + '"]');
-                    if (targetRow.length) {
-                        $('html, body').animate({
-                            scrollTop: targetRow.offset().top - 100
-                        }, 500);
-                        targetRow.css('background-color', '#fff3cd').delay(2000).queue(function() {
-                            $(this).css('background-color', '');
-                            $(this).dequeue();
-                        });
-                    }
-                });
-
-                obszarSlotow.append(elementSlotu);
-            });
-        }
-
-        harmonogram.append(obszarSlotow);
-
-        // Ustaw wysokość kontenera
-        harmonogram.css('height', wysokoscCalkowita + 'px');
-
-        // Dodaj legendę statusów
-        var legenda = $('<div class="srl-harmonogram-legenda" style="margin-top:15px; padding:10px; background:#f8f9fa; border-radius:4px; display:flex; gap:15px; flex-wrap:wrap; justify-content:center;"></div>');
+    } catch (e) {}
+}
+else if ((slot.status === 'Zarezerwowany' || slot.status === 'Zrealizowany') && slot.klient_nazwa) {
+    // Wykupione loty - dane z cache lub podstawowe
+    var pelneInfo = slot.dane_pasazera_cache || null;
+    
+    if (pelneInfo) {
+        var daneOsobowe = slot.klient_nazwa;
         
-        var statusy = [
-            {status: 'Wolny', label: 'Wolny'},
-            {status: 'Prywatny', label: 'Prywatny'},
-            {status: 'Zarezerwowany', label: 'Zarezerwowany'},
-            {status: 'Zrealizowany', label: 'Zrealizowany'},
-            {status: 'Odwołany przez organizatora', label: 'Odwołany przez organizatora'}
-        ];
-
-        statusy.forEach(function(item) {
-            var kolor = getKolorStatusu(item.status);
-            var elementLegenda = $('<div style="display:flex; align-items:center; gap:5px;"><div style="width:20px; height:20px; background:' + kolor.bg + '; border:2px solid ' + kolor.border + '; border-radius:3px;"></div><span style="font-size:12px;">' + item.label + '</span></div>');
-            legenda.append(elementLegenda);
-        });
-
-        kontener.append(harmonogram);
-        kontener.append(legenda);
+        if (pelneInfo.rok_urodzenia) {
+            var wiek = new Date().getFullYear() - parseInt(pelneInfo.rok_urodzenia);
+            daneOsobowe += ' (' + wiek + ' lat)';
+        }
+        if (pelneInfo.kategoria_wagowa) {
+            daneOsobowe += ', ' + pelneInfo.kategoria_wagowa;
+        }
+        if (pelneInfo.sprawnosc_fizyczna) {
+            var sprawnosci = {
+                'zdolnosc_do_marszu': 'Marsz',
+                'zdolnosc_do_biegu': 'Bieg', 
+                'sprinter': 'Sprinter'
+            };
+            daneOsobowe += ', ' + (sprawnosci[pelneInfo.sprawnosc_fizyczna] || pelneInfo.sprawnosc_fizyczna);
+        }
+        
+        linie.push(daneOsobowe);
+        
+        if (pelneInfo.telefon) {
+            linie.push('Tel: ' + pelneInfo.telefon);
+        }
+        
+        if (pelneInfo.uwagi && pelneInfo.uwagi.trim()) {
+            var uwagi = pelneInfo.uwagi.trim();
+            if (uwagi.length > 40) {
+                uwagi = uwagi.substring(0, 37) + '...';
+            }
+            linie.push('Uwagi: ' + uwagi);
+        }
+    } else {
+        linie.push(slot.klient_nazwa);
+        linie.push('[Kliknij INFO w tabeli]');
     }
+} else if (slot.status === 'Odwołany przez organizatora' && slot.notatka) {
+    // Loty odwołane - dane z notatki
+    try {
+        var daneOdwolane = JSON.parse(slot.notatka);
+        if (daneOdwolane.klient_nazwa || (daneOdwolane.imie && daneOdwolane.nazwisko)) {
+            var nazwaKlienta = daneOdwolane.klient_nazwa || (daneOdwolane.imie + ' ' + daneOdwolane.nazwisko);
+            var daneOsobowe = nazwaKlienta;
+            
+            if (daneOdwolane.rok_urodzenia) {
+                var wiek = new Date().getFullYear() - parseInt(daneOdwolane.rok_urodzenia);
+                daneOsobowe += ' (' + wiek + ' lat)';
+            }
+            if (daneOdwolane.kategoria_wagowa) {
+                daneOsobowe += ', ' + daneOdwolane.kategoria_wagowa;
+            }
+            if (daneOdwolane.sprawnosc_fizyczna) {
+                var sprawnosci = {
+                    'zdolnosc_do_marszu': 'Marsz',
+                    'zdolnosc_do_biegu': 'Bieg', 
+                    'sprinter': 'Sprinter'
+                };
+                daneOsobowe += ', ' + (sprawnosci[daneOdwolane.sprawnosc_fizyczna] || daneOdwolane.sprawnosc_fizyczna);
+            }
+            
+            linie.push(daneOsobowe);
+            
+            if (daneOdwolane.telefon) {
+                linie.push('Tel: ' + daneOdwolane.telefon);
+            }
+            
+            if (daneOdwolane.uwagi && daneOdwolane.uwagi.trim()) {
+                var uwagi = daneOdwolane.uwagi.trim();
+                if (uwagi.length > 40) {
+                    uwagi = uwagi.substring(0, 37) + '...';
+                }
+                linie.push('Uwagi: ' + uwagi);
+            }
+        }
+    } catch (e) {
+    }
+}
+    
+    return linie.join('\n');
+}
+
+	
+function generujHarmonogramCzasowy() {
+    var kontener = $('#srl-harmonogram-container');
+    kontener.empty();
+
+    // Sprawdź czy są jakieś sloty
+    var maSloty = Object.keys(srlIstniejaceGodziny).some(function(pid) {
+        return srlIstniejaceGodziny[pid] && srlIstniejaceGodziny[pid].length > 0;
+    });
+
+    if (!maSloty) {
+        kontener.html('<p style="text-align:center; color:#666; font-style:italic; padding:20px;">Brak zaplanowanych lotów na ten dzień</p>');
+        return;
+    }
+
+    var liczbaPilotow = parseInt(liczbaPilotowSelect.val());
+    
+    // Znajdź zakres godzin
+    var najwczesniej = 24 * 60;
+    var najpozniej = 0;
+
+    for (var pid = 1; pid <= liczbaPilotow; pid++) {
+        var sloty = srlIstniejaceGodziny[pid] || [];
+        sloty.forEach(function(slot) {
+            var start = zamienNaMinuty(slot.start);
+            var koniec = zamienNaMinuty(slot.koniec);
+            najwczesniej = Math.min(najwczesniej, start);
+            najpozniej = Math.max(najpozniej, koniec);
+        });
+    }
+
+    // Dodaj margines i zaokrąglij
+    najwczesniej = Math.floor(Math.max(0, najwczesniej - 30) / 60) * 60;
+    najpozniej = Math.ceil(Math.min(24 * 60, najpozniej + 30) / 60) * 60;
+
+    var czasTrwania = najpozniej - najwczesniej;
+    var wysokoscRzadu = 150;
+    var szerokoscKolumny = 300;
+    var wysokoscCalkowita = (czasTrwania / 60) * wysokoscRzadu + 40;
+
+    // Główny kontener
+    var harmonogram = $('<div class="srl-harmonogram"></div>');
+    harmonogram.css('height', wysokoscCalkowita + 'px');
+
+    // Nagłówek z pilotami
+    var naglowek = $('<div class="srl-harmonogram-header"></div>');
+    for (var pid = 1; pid <= liczbaPilotow; pid++) {
+        naglowek.append('<div class="srl-harmonogram-pilot-col">Pilot ' + pid + '</div>');
+    }
+    harmonogram.append(naglowek);
+
+    // Oś czasu
+    var osCzasu = $('<div class="srl-harmonogram-time-axis"></div>');
+    osCzasu.css('height', (wysokoscCalkowita - 40) + 'px');
+    
+    for (var godzina = Math.floor(najwczesniej / 60); godzina <= Math.ceil(najpozniej / 60); godzina++) {
+        var pozycjaY = ((godzina * 60 - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
+        
+        // Etykieta godziny
+        var etykietaGodziny = $('<div class="srl-time-label-hour"></div>');
+        etykietaGodziny.css('top', Math.round(pozycjaY) - 10 + 'px');
+        etykietaGodziny.text(pad2(godzina) + ':00');
+        osCzasu.append(etykietaGodziny);
+        
+        // Znaczniki co 15 minut
+        for (var minuta = 15; minuta < 60; minuta += 15) {
+            var pozycjaYMin = (((godzina * 60 + minuta) - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
+            var etykietaMinuty = $('<div class="srl-time-label-minute"></div>');
+            etykietaMinuty.css('top', Math.round(pozycjaYMin) - 8 + 'px');
+            etykietaMinuty.text(pad2(godzina) + ':' + pad2(minuta));
+            osCzasu.append(etykietaMinuty);
+        }
+    }
+    harmonogram.append(osCzasu);
+
+    // Obszar slotów
+    var obszarSlotow = $('<div class="srl-harmonogram-slots"></div>');
+    obszarSlotow.css('height', (wysokoscCalkowita - 40) + 'px');
+
+    // Siatka godzinowa
+    for (var godzina = Math.floor(najwczesniej / 60); godzina <= Math.ceil(najpozniej / 60); godzina++) {
+        var pozycjaY = ((godzina * 60 - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
+        
+        // Linia godzinowa
+        var liniaGodzinowa = $('<div class="srl-grid-line-hour"></div>');
+        liniaGodzinowa.css('top', Math.round(pozycjaY) + 'px');
+        obszarSlotow.append(liniaGodzinowa);
+        
+        // Linie co 15 minut
+        for (var minuta = 15; minuta < 60; minuta += 15) {
+            var pozycjaYMin = (((godzina * 60 + minuta) - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40);
+            var liniaMinutowa = $('<div class="srl-grid-line-minute"></div>');
+            liniaMinutowa.css('top', Math.round(pozycjaYMin) + 'px');
+            obszarSlotow.append(liniaMinutowa);
+        }
+    }
+
+    // Linie kolumn pilotów
+    for (var pid = 1; pid <= liczbaPilotow; pid++) {
+        var pozycjaX = (pid - 1) * szerokoscKolumny;
+        var liniaPilota = $('<div class="srl-pilot-column-line"></div>');
+        liniaPilota.css('left', pozycjaX + 'px');
+        obszarSlotow.append(liniaPilota);
+    }
+
+    // Dodaj sloty
+    for (var pid = 1; pid <= liczbaPilotow; pid++) {
+        var sloty = srlIstniejaceGodziny[pid] || [];
+        var pozycjaXKolumny = (pid - 1) * szerokoscKolumny;
+
+        sloty.forEach(function(slot) {
+            var startMin = zamienNaMinuty(slot.start);
+            var koniecMin = zamienNaMinuty(slot.koniec);
+            var czasSlotu = koniecMin - startMin;
+
+            var pozycjaY = Math.round(((startMin - najwczesniej) / czasTrwania) * (wysokoscCalkowita - 40));
+            var wysokoscSlotu = Math.round((czasSlotu / czasTrwania) * (wysokoscCalkowita - 40)) + 1;
+            wysokoscSlotu = Math.max(wysokoscSlotu, 3);
+
+            // Formatowanie tekstu
+            var tekstSlotu = srl_formatujSlotHarmonogram(slot);
+            var maInformacje = (slot.klient_nazwa || slot.notatka) ? true : false;
+
+            // Dynamiczna wysokość
+            var liczbaLinii = tekstSlotu.split('\n').length;
+            var minimalnaWysokosc = Math.max(liczbaLinii * 16 + 8, 30);
+            var finalnaWysokosc = Math.max(wysokoscSlotu, minimalnaWysokosc);
+            
+            if (maInformacje) {
+                finalnaWysokosc = Math.max(finalnaWysokosc, 120);
+            }
+
+            // Kolor i styl
+            var kolor = getKolorStatusu(slot.status);
+            var fontSize = finalnaWysokosc > 60 ? '10px' : '9px';
+            var fontWeight = maInformacje ? '500' : 'bold';
+
+            // Element slotu
+            var elementSlotu = $('<div class="srl-slot-harmonogram"></div>');
+            elementSlotu.css({
+                'top': pozycjaY + 'px',
+                'left': (pozycjaXKolumny + 3) + 'px',
+                'width': (szerokoscKolumny - 6) + 'px',
+                'height': finalnaWysokosc + 'px',
+                'background': kolor.bg,
+                'border': '1px solid ' + kolor.border,
+                'font-size': fontSize,
+                'font-weight': fontWeight,
+                'color': kolor.text
+            });
+            
+            elementSlotu.html(tekstSlotu.replace(/\n/g, '<br>'));
+            
+            // Kliknięcie - scroll do tabeli
+            elementSlotu.on('click', function() {
+                var targetRow = $('tr[data-termin-id="' + slot.id + '"]');
+                if (targetRow.length) {
+                    $('html, body').animate({
+                        scrollTop: targetRow.offset().top - 100
+                    }, 500);
+                    targetRow.css('background-color', '#fff3cd').delay(2000).queue(function() {
+                        $(this).css('background-color', '');
+                        $(this).dequeue();
+                    });
+                }
+            });
+
+            obszarSlotow.append(elementSlotu);
+        });
+    }
+
+    harmonogram.append(obszarSlotow);
+
+    // Legenda
+    var legenda = $('<div class="srl-harmonogram-legenda"></div>');
+    var statusy = [
+        {status: 'Wolny', label: 'Wolny'},
+        {status: 'Prywatny', label: 'Prywatny'},
+        {status: 'Zarezerwowany', label: 'Zarezerwowany'},
+        {status: 'Zrealizowany', label: 'Zrealizowany'},
+        {status: 'Odwołany przez organizatora', label: 'Odwołany'}
+    ];
+
+    statusy.forEach(function(item) {
+        var kolor = getKolorStatusu(item.status);
+        var elementLegenda = $('<div class="srl-legend-item"></div>');
+        
+        var kolorBox = $('<div class="srl-legend-color"></div>');
+        kolorBox.css({
+            'background': kolor.bg,
+            'border-color': kolor.border
+        });
+        
+        var label = $('<span class="srl-legend-label"></span>').text(item.label);
+        
+        elementLegenda.append(kolorBox, label);
+        legenda.append(elementLegenda);
+    });
+
+    kontener.append(harmonogram);
+    kontener.append(legenda);
+}
 
     // Funkcja pomocnicza: zwraca kolory dla statusów
     function getKolorStatusu(status) {
@@ -2028,7 +2541,30 @@ function pokazKomunikatSukcesu(tekst) {
     }, 4000);
 }
 
-
+// Funkcja pokazywania danych odwołanego lotu
+function pokazDaneOdwolanegoLotu(terminId) {
+    // Znajdź slot w danych lokalnych
+    var slot = null;
+    Object.keys(srlIstniejaceGodziny).forEach(function(pilotId) {
+        srlIstniejaceGodziny[pilotId].forEach(function(s) {
+            if (s.id == terminId) {
+                slot = s;
+            }
+        });
+    });
+    
+    if (slot) {
+        var daneSlotu = srl_formatujDanePasazera(slot, false);
+        if (daneSlotu.daneDoModalu) {
+            // Użyj istniejącej funkcji modal z oznaczniem odwołania
+            pokazUjednoliconyModalDanych(daneSlotu.daneDoModalu, '🚫 Lot odwołany przez organizatora', false);
+        } else {
+            alert('Brak danych pasażera dla odwołanego lotu.');
+        }
+    } else {
+        alert('Nie znaleziono danych slotu.');
+    }
+}
 
 
 
