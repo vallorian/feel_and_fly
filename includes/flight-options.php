@@ -47,50 +47,59 @@ function srl_analiza_opcji_produktu($nazwa_produktu) {
     return $opcje;
 }
 
-/**
- * Aktualizuje opcje lotu w bazie danych
- */
-function srl_ustaw_opcje_lotu($lot_id, $ma_filmowanie, $ma_akrobacje, $opis_zmiany = '') {
+
+function srl_ustaw_opcje_lotu($lot_id, $ma_filmowanie, $ma_akrobacje, $opis_zmiany = '', $executor = 'System') {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
     
-    // Pobierz aktualną historię
+    // Pobierz aktualny stan opcji
     $lot = $wpdb->get_row($wpdb->prepare(
-        "SELECT historia_modyfikacji FROM $tabela WHERE id = %d",
+        "SELECT ma_filmowanie, ma_akrobacje FROM $tabela WHERE id = %d",
         $lot_id
     ), ARRAY_A);
     
-    $historia = !empty($lot['historia_modyfikacji']) ? json_decode($lot['historia_modyfikacji'], true) : array();
-    
-    // Dodaj nową modyfikację do historii
-    if (!empty($opis_zmiany)) {
-        $historia[] = array(
-            'data' => current_time('mysql'),
-            'opis' => $opis_zmiany,
-            'filmowanie' => $ma_filmowanie,
-            'akrobacje' => $ma_akrobacje
-        );
+    if (!$lot) {
+        return false;
     }
     
-    // Aktualizuj lot
+    $stary_filmowanie = $lot['ma_filmowanie'];
+    $stary_akrobacje = $lot['ma_akrobacje'];
+    
+    // Aktualizuj opcje lotu
     $result = $wpdb->update(
         $tabela,
         array(
             'ma_filmowanie' => $ma_filmowanie,
-            'ma_akrobacje' => $ma_akrobacje,
-            'historia_modyfikacji' => json_encode($historia)
+            'ma_akrobacje' => $ma_akrobacje
         ),
         array('id' => $lot_id),
-        array('%d', '%d', '%s'),
+        array('%d', '%d'),
         array('%d')
     );
+    
+    if ($result !== false && !empty($opis_zmiany)) {
+        // DOPISZ wpis do historii - NIE NADPISUJ
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'opis' => $opis_zmiany,
+            'typ' => 'zmiana_opcji',
+            'executor' => $executor,
+            'szczegoly' => array(
+                'stary_filmowanie' => $stary_filmowanie,
+                'nowy_filmowanie' => $ma_filmowanie,
+                'stary_akrobacje' => $stary_akrobacje,
+                'nowy_akrobacje' => $ma_akrobacje,
+                'zmiana_filmowanie' => $stary_filmowanie != $ma_filmowanie,
+                'zmiana_akrobacje' => $stary_akrobacje != $ma_akrobacje
+            )
+        );
+        
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
+    }
     
     return $result !== false;
 }
 
-/**
- * Przedłuża ważność lotu o rok
- */
 function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
@@ -105,34 +114,36 @@ function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
         return false;
     }
     
-    // Przedłuż o rok od aktualnej daty ważności
-    $nowa_data_waznosci = date('Y-m-d', strtotime($lot['data_waznosci'] . ' +1 year'));
+    $stara_data = $lot['data_waznosci'];
+    $nowa_data = date('Y-m-d', strtotime($stara_data . ' +1 year'));
     
     // Aktualizuj lot
     $result = $wpdb->update(
         $tabela,
-        array('data_waznosci' => $nowa_data_waznosci),
+        array('data_waznosci' => $nowa_data),
         array('id' => $lot_id),
         array('%s'),
         array('%d')
     );
     
     if ($result !== false) {
-        // Dodaj do historii
-        $opis_zmiany = "Przedłużono ważność do $nowa_data_waznosci (zamówienie #$order_id)";
-        $wpdb->update(
-            $tabela,
-            array(
-                'historia_modyfikacji' => json_encode(array(array(
-                    'data' => current_time('mysql'),
-                    'opis' => $opis_zmiany,
-                    'typ' => 'przedluzenie'
-                )))
-            ),
-            array('id' => $lot_id),
-            array('%s'),
-            array('%d')
+        // DOPISZ do historii zamiast NADPISAĆ
+        $opis_zmiany = "Przedłużono ważność lotu do " . date('d.m.Y', strtotime($nowa_data)) . " (zamówienie #$order_id)";
+        
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'opis' => $opis_zmiany,
+            'typ' => 'przedluzenie_waznosci',
+            'executor' => 'Klient',
+            'szczegoly' => array(
+                'stara_data_waznosci' => $stara_data,
+                'nowa_data_waznosci' => $nowa_data,
+                'order_id' => $order_id,
+                'przedluzenie' => '12 miesięcy'
+            )
         );
+        
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
     }
     
     return $result !== false;

@@ -250,6 +250,8 @@ function srl_zmien_status_godziny() {
         if ($lot) {
             $nowy_status_lotu = '';
             $dane_lotu_update = array();
+            $opis_zmiany = '';
+            $stary_status = $lot['status'];
             
             switch ($status) {
                 case 'Wolny':
@@ -259,20 +261,24 @@ function srl_zmien_status_godziny() {
                         'termin_id' => null,
                         'data_rezerwacji' => null
                     );
+                    $opis_zmiany = 'Status zmieniony na wolny przez administratora - zwolniono rezerwację';
                     break;
                     
                 case 'Zarezerwowany':
                     $nowy_status_lotu = 'zarezerwowany';
-                    $dane_lotu_update = array(
-                        'status' => $nowy_status_lotu
-                    );
+                    $dane_lotu_update = array('status' => $nowy_status_lotu);
+                    $opis_zmiany = 'Status zmieniony na zarezerwowany przez administratora';
                     break;
                     
                 case 'Zrealizowany':
                     $nowy_status_lotu = 'zrealizowany';
-                    $dane_lotu_update = array(
-                        'status' => $nowy_status_lotu
-                    );
+                    $dane_lotu_update = array('status' => $nowy_status_lotu);
+                    $opis_zmiany = 'Lot oznaczony jako zrealizowany przez administratora';
+                    break;
+                    
+                case 'Prywatny':
+                    // Dla slotów prywatnych nie zmieniamy statusu lotu
+                    $opis_zmiany = 'Slot oznaczony jako prywatny przez administratora';
                     break;
                     
                 case 'Odwołany przez organizatora':
@@ -282,9 +288,11 @@ function srl_zmien_status_godziny() {
                         'termin_id' => null,
                         'data_rezerwacji' => null
                     );
+                    $opis_zmiany = 'Lot odwołany przez organizatora';
                     break;
             }
             
+            // Aktualizuj lot jeśli potrzeba
             if (!empty($dane_lotu_update)) {
                 $update_result = $wpdb->update(
                     $tabela_loty,
@@ -298,8 +306,36 @@ function srl_zmien_status_godziny() {
                     throw new Exception('Błąd aktualizacji statusu lotu');
                 }
             }
+            
+            // ZAWSZE dopisz wpis do historii jeśli była zmiana
+            if (!empty($opis_zmiany)) {
+                $szczegoly = array(
+                    'termin_id' => $termin_id,
+                    'stary_status_slotu' => $slot['status'],
+                    'nowy_status_slotu' => $status,
+                    'zmiana_przez_admin' => true
+                );
+                
+                // Dodaj informacje o zmianie statusu lotu jeśli nastąpiła
+                if (!empty($nowy_status_lotu) && $stary_status !== $nowy_status_lotu) {
+                    $szczegoly['stary_status_lotu'] = $stary_status;
+                    $szczegoly['nowy_status_lotu'] = $nowy_status_lotu;
+                    $szczegoly['zmiana_statusu'] = $stary_status . ' → ' . $nowy_status_lotu;
+                    $opis_zmiany .= " (status lotu: {$stary_status} → {$nowy_status_lotu})";
+                }
+                
+                $wpis_historii = array(
+                    'data' => srl_get_current_datetime(),
+                    'opis' => $opis_zmiany,
+                    'typ' => 'zmiana_statusu_admin',
+                    'executor' => 'Admin',
+                    'szczegoly' => $szczegoly
+                );
+                
+                srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
+            }
         }
-        
+
         $wpdb->query('COMMIT');
         srl_zwroc_godziny_wg_pilota($slot['data']);
         
@@ -309,6 +345,9 @@ function srl_zmien_status_godziny() {
     }
 }
 
+/**
+ * POPRAWKA dla funkcji srl_anuluj_lot_przez_organizatora
+ */
 function srl_anuluj_lot_przez_organizatora() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
@@ -322,11 +361,12 @@ function srl_anuluj_lot_przez_organizatora() {
     }
 
     global $wpdb;
-    $tabela = $wpdb->prefix . 'srl_terminy';
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
     $termin_id = intval($_POST['termin_id']);
 
     $slot = $wpdb->get_row($wpdb->prepare(
-        "SELECT data, klient_id, godzina_start FROM $tabela WHERE id = %d",
+        "SELECT data, klient_id, godzina_start, godzina_koniec FROM $tabela_terminy WHERE id = %d",
         $termin_id
     ), ARRAY_A);
     
@@ -337,47 +377,99 @@ function srl_anuluj_lot_przez_organizatora() {
     
     $data = $slot['data'];
     $klient_id = intval($slot['klient_id']);
-    $data_lotu = $slot['data'] . ' ' . substr($slot['godzina_start'], 0,5);
+    $szczegoly_terminu = $slot['data'] . ' ' . substr($slot['godzina_start'], 0, 5) . '-' . substr($slot['godzina_koniec'], 0, 5);
 
-    $result = $wpdb->update(
-        $tabela,
-        array(
-            'status' => 'Wolny',
-            'klient_id' => null
-        ),
-        array('id' => $termin_id),
-        array('%s', '%d'),
-        array('%d')
-    );
-
-    if ($result === false) {
-        wp_send_json_error('Błąd aktualizacji slotu: ' . $wpdb->last_error);
-        return;
-    }
-
+    // Znajdź powiązany lot PRZED zmianą statusu slotu
+    $lot = null;
     if ($klient_id > 0) {
-        $user = get_userdata($klient_id);
-        if ($user) {
-            $to = $user->user_email;
-            $subject = 'Twój lot tandemowy został odwołany przez organizatora';
-            $body = "Dzień dobry {$user->display_name},\n\n"
-                 . "Niestety Twój lot, który był zaplanowany na {$data_lotu}, został odwołany przez organizatora.\n"
-                 . "Status Twojego lotu został przywrócony – możesz ponownie wybrać inny termin.\n\n"
-                 . "Pozdrawiamy,\nZespół Loty Tandemowe";
-            wp_mail($to, $subject, $body);
-
-            $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-            $wpdb->update(
-                $tabela_loty,
-                array('status' => 'wolny', 'termin_id' => null, 'data_rezerwacji' => null),
-                array('user_id' => $klient_id, 'termin_id' => $termin_id),
-                array('%s', '%d', '%s'),
-                array('%d', '%d')
-            );
-        }
+        $lot = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $tabela_loty WHERE termin_id = %d AND user_id = %d",
+            $termin_id, $klient_id
+        ), ARRAY_A);
     }
 
-    srl_zwroc_godziny_wg_pilota($data);
+    $wpdb->query('START TRANSACTION');
+    
+    try {
+        // Zaktualizuj slot
+        $result = $wpdb->update(
+            $tabela_terminy,
+            array(
+                'status' => 'Wolny',
+                'klient_id' => null
+            ),
+            array('id' => $termin_id),
+            array('%s', '%d'),
+            array('%d')
+        );
+
+        if ($result === false) {
+            throw new Exception('Błąd aktualizacji slotu.');
+        }
+
+        // Jeśli był klient przypisany
+        if ($klient_id > 0) {
+            $user = get_userdata($klient_id);
+            if ($user) {
+                // Wyślij email
+                $to = $user->user_email;
+                $subject = 'Twój lot tandemowy został odwołany przez organizatora';
+                $body = "Dzień dobry {$user->display_name},\n\n"
+                     . "Niestety Twój lot, który był zaplanowany na {$szczegoly_terminu}, został odwołany przez organizatora.\n"
+                     . "Status Twojego lotu został przywrócony – możesz ponownie wybrać inny termin.\n\n"
+                     . "Pozdrawiamy,\nZespół Loty Tandemowe";
+                wp_mail($to, $subject, $body);
+
+                // Zaktualizuj lot jeśli istnieje
+                if ($lot) {
+                    $stary_status = $lot['status'];
+                    
+                    $wpdb->update(
+                        $tabela_loty,
+                        array(
+                            'status' => 'wolny', 
+                            'termin_id' => null, 
+                            'data_rezerwacji' => null
+                        ),
+                        array('id' => $lot['id']),
+                        array('%s', '%d', '%s'),
+                        array('%d')
+                    );
+                    
+                    // DOPISZ do historii lotu
+                    $opis_zmiany = "Lot odwołany przez organizatora - zwolniono termin {$szczegoly_terminu}";
+                    if ($stary_status !== 'wolny') {
+                        $opis_zmiany .= " (status: {$stary_status} → wolny)";
+                    }
+                    
+                    $wpis_historii = array(
+                        'data' => srl_get_current_datetime(),
+                        'opis' => $opis_zmiany,
+                        'typ' => 'odwolanie_przez_organizatora',
+                        'executor' => 'Admin',
+                        'szczegoly' => array(
+                            'termin_id' => $termin_id,
+                            'odwolany_termin' => $szczegoly_terminu,
+                            'stary_status' => $stary_status,
+                            'nowy_status' => 'wolny',
+                            'klient_id' => $klient_id,
+                            'email_wyslany' => true,
+                            'powod' => 'Odwołanie przez organizatora'
+                        )
+                    );
+                    
+                    srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
+                }
+            }
+        }
+        
+        $wpdb->query('COMMIT');
+        srl_zwroc_godziny_wg_pilota($data);
+        
+    } catch (Exception $e) {
+        $wpdb->query('ROLLBACK');
+        wp_send_json_error('Błąd podczas odwoływania: ' . $e->getMessage());
+    }
 }
 
 function srl_wyszukaj_klientow_loty() {
@@ -467,7 +559,7 @@ function srl_ajax_dodaj_voucher_recznie() {
             'nazwa_produktu' => 'Voucher dodany ręcznie',
             'kod_vouchera' => $kod_vouchera,
             'status' => 'do_wykorzystania',
-            'data_zakupu' => current_time('mysql'),
+            'data_zakupu' => srl_get_current_datetime(),
             'data_waznosci' => $data_waznosci
         ),
         array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s')
@@ -587,7 +679,7 @@ function srl_ajax_przypisz_klienta_do_slotu() {
             $tabela_loty,
             array(
                 'status' => 'zarezerwowany',
-                'data_rezerwacji' => current_time('mysql'),
+                'data_rezerwacji' => srl_get_current_datetime(),
                 'termin_id' => $termin_id
             ),
             array('id' => $lot_id),
@@ -599,6 +691,45 @@ function srl_ajax_przypisz_klienta_do_slotu() {
             throw new Exception('Błąd aktualizacji lotu.');
         }
         
+		// Pobierz szczegóły terminu dla historii
+		$termin = $wpdb->get_row($wpdb->prepare(
+			"SELECT data, godzina_start, godzina_koniec, pilot_id FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+			$termin_id
+		), ARRAY_A);
+
+		// Pobierz dane klienta
+		$user = get_userdata($lot['user_id']);
+		$klient_info = $user ? $user->display_name . ' (' . $user->user_email . ')' : 'Klient #' . $lot['user_id'];
+
+		$termin_opis = sprintf('%s %s-%s (Pilot %d)', 
+			$termin['data'], 
+			substr($termin['godzina_start'], 0, 5), 
+			substr($termin['godzina_koniec'], 0, 5),
+			$termin['pilot_id']
+		);
+
+		// DOPISZ wpis do historii
+		$wpis_historii = array(
+			'data' => srl_get_current_datetime(),
+			'opis' => "Lot przypisany do terminu przez administratora: {$termin_opis} dla klienta: {$klient_info}",
+			'typ' => 'przypisanie_admin',
+			'executor' => 'Admin',
+			'szczegoly' => array(
+				'termin_id' => $termin_id,
+				'data_lotu' => $termin['data'],
+				'godzina_start' => $termin['godzina_start'],
+				'godzina_koniec' => $termin['godzina_koniec'],
+				'pilot_id' => $termin['pilot_id'],
+				'user_id' => $lot['user_id'],
+				'user_info' => $klient_info,
+				'stary_status' => 'wolny',
+				'nowy_status' => 'zarezerwowany'
+			)
+		);
+
+		srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
+		
+		
         $wpdb->query('COMMIT');
 
 		// Pobierz datę ze slotu do odświeżenia harmonogramu
@@ -843,7 +974,7 @@ function srl_ajax_przypisz_wykupiony_lot() {
             $tabela_loty,
             array(
                 'status' => 'zarezerwowany',
-                'data_rezerwacji' => current_time('mysql'),
+                'data_rezerwacji' => srl_get_current_datetime(),
                 'termin_id' => $termin_id
             ),
             array('id' => $lot_id),
@@ -851,6 +982,44 @@ function srl_ajax_przypisz_wykupiony_lot() {
             array('%d')
         );
         
+		// Pobierz szczegóły terminu dla historii
+		$termin = $wpdb->get_row($wpdb->prepare(
+			"SELECT data, godzina_start, godzina_koniec, pilot_id FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+			$termin_id
+		), ARRAY_A);
+
+		// Pobierz dane klienta
+		$user = get_userdata($lot['user_id']);
+		$klient_info = $user ? $user->display_name . ' (' . $user->user_email . ')' : 'Klient #' . $lot['user_id'];
+
+		$termin_opis = sprintf('%s %s-%s (Pilot %d)', 
+			$termin['data'], 
+			substr($termin['godzina_start'], 0, 5), 
+			substr($termin['godzina_koniec'], 0, 5),
+			$termin['pilot_id']
+		);
+
+		// DOPISZ wpis do historii
+		$wpis_historii = array(
+			'data' => srl_get_current_datetime(),
+			'opis' => "Lot przypisany do terminu przez administratora: {$termin_opis} dla klienta: {$klient_info}",
+			'typ' => 'przypisanie_admin',
+			'executor' => 'Admin',
+			'szczegoly' => array(
+				'termin_id' => $termin_id,
+				'data_lotu' => $termin['data'],
+				'godzina_start' => $termin['godzina_start'],
+				'godzina_koniec' => $termin['godzina_koniec'],
+				'pilot_id' => $termin['pilot_id'],
+				'user_id' => $lot['user_id'],
+				'user_info' => $klient_info,
+				'stary_status' => 'wolny',
+				'nowy_status' => 'zarezerwowany'
+			)
+		);
+
+		srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
+		
         $wpdb->query('COMMIT');
 
 		// Pobierz datę ze slotu do odświeżenia harmonogramu  
@@ -928,3 +1097,30 @@ function srl_ajax_zapisz_lot_prywatny() {
         wp_send_json_error('Błąd zapisu do bazy danych.');
     }
 }
+
+
+add_action('wp_ajax_srl_pobierz_historie_lotu', 'srl_ajax_pobierz_historie_lotu');
+
+function srl_ajax_pobierz_historie_lotu() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Brak uprawnień.');
+        return;
+    }
+    
+    $lot_id = intval($_POST['lot_id']);
+    
+    if (!$lot_id) {
+        wp_send_json_error('Nieprawidłowe ID lotu.');
+        return;
+    }
+    
+    $historia = srl_pobierz_pelna_historie_lotu($lot_id);
+    
+    wp_send_json_success($historia);
+}
+
+
+
+
+?>

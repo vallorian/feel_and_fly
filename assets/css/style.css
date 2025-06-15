@@ -161,3 +161,139 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
     background: #f8f9fa;
     color: #6c757d;
 }
+
+
+/* Styles dla historii lotu */
+.srl-modal-historia {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.srl-modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+    min-width: 800px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.srl-historia-container h3 {
+    margin-top: 0;
+    color: #0073aa;
+    border-bottom: 2px solid #0073aa;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.srl-historia-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.srl-historia-table th {
+    background: #f8f9fa;
+    color: #333;
+    font-weight: 600;
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.srl-historia-table td {
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: top;
+}
+
+.srl-historia-row:hover {
+    background: #f8f9fa;
+}
+
+.srl-historia-data {
+    white-space: nowrap;
+    font-weight: 500;
+    color: #666;
+    width: 130px;
+}
+
+.srl-historia-akcja {
+    font-weight: 600;
+    width: 180px;
+}
+
+.srl-historia-wykonawca {
+    width: 100px;
+    font-size: 13px;
+}
+
+.srl-historia-szczegoly {
+    line-height: 1.4;
+}
+
+/* Kolorowanie według typu akcji */
+.srl-historia-zakup .srl-historia-akcja {
+    color: #28a745;
+}
+
+.srl-historia-rezerwacja .srl-historia-akcja {
+    color: #007bff;
+}
+
+.srl-historia-realizacja .srl-historia-akcja {
+    color: #17a2b8;
+}
+
+.srl-historia-dokupienie .srl-historia-akcja {
+    color: #ffc107;
+}
+
+.srl-historia-modyfikacja .srl-historia-akcja {
+    color: #6c757d;
+}
+
+.srl-historia-anulowanie .srl-historia-akcja {
+    color: #dc3545;
+}
+
+.srl-modal-actions {
+    text-align: right;
+    border-top: 1px solid #dee2e6;
+    padding-top: 15px;
+    margin-top: 10px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .srl-modal-content {
+        min-width: auto;
+        width: 95%;
+        padding: 20px;
+    }
+    
+    .srl-historia-table {
+        font-size: 12px;
+    }
+    
+    .srl-historia-table th,
+    .srl-historia-table td {
+        padding: 8px 6px;
+    }
+    
+    .srl-historia-data,
+    .srl-historia-wykonawca {
+        width: auto;
+    }
+}

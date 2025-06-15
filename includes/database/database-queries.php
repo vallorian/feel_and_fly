@@ -145,3 +145,216 @@ function srl_zwroc_godziny_wg_pilota($data) {
         'godziny_wg_pilota' => $noweWgPilota
     ));
 }
+
+
+function srl_pobierz_pelna_historie_lotu($lot_id) {
+    global $wpdb;
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+    
+    // Pobierz podstawowe dane lotu
+    $lot = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $tabela_loty WHERE id = %d",
+        $lot_id
+    ), ARRAY_A);
+    
+    if (!$lot) {
+        return array('lot_id' => $lot_id, 'events' => array());
+    }
+    
+    $events = array();
+    
+    // 1. Zakup lotu (zawsze pierwszy)
+    $events[] = array(
+        'timestamp' => strtotime($lot['data_zakupu']),
+        'date' => $lot['data_zakupu'],
+        'type' => 'zakup',
+        'action_name' => 'Zakup lotu',
+        'executor' => 'Klient',
+        'details' => sprintf('Zamówienie #%d - %s', $lot['order_id'], $lot['nazwa_produktu'])
+    );
+    
+	// 2. Historia modyfikacji (z JSON)
+	if (!empty($lot['historia_modyfikacji'])) {
+		$historia_json = json_decode($lot['historia_modyfikacji'], true);
+		if (is_array($historia_json)) {
+			foreach ($historia_json as $modyfikacja) {
+				// Określ wykonawcę na podstawie opisu
+				$executor = 'Admin';
+				if (isset($modyfikacja['executor'])) {
+					$executor = $modyfikacja['executor'];
+				} elseif (strpos(strtolower($modyfikacja['opis'] ?? ''), 'zamówienie') !== false) {
+					$executor = 'Klient';
+				}
+				
+				$events[] = array(
+					'timestamp' => strtotime($modyfikacja['data']),
+					'date' => $modyfikacja['data'],
+					'type' => $modyfikacja['typ'] ?? 'modyfikacja',
+					'action_name' => srl_formatuj_nazwe_akcji($modyfikacja),
+					'executor' => $executor,
+					'details' => $modyfikacja['opis']
+				);
+			}
+		}
+	}
+	
+    // 3. Rezerwacje i zmiany statusu
+    if ($lot['termin_id']) {
+        // Sprawdź czy lot był kiedyś zarezerwowany
+        if ($lot['data_rezerwacji']) {
+            $events[] = array(
+                'timestamp' => strtotime($lot['data_rezerwacji']),
+                'date' => $lot['data_rezerwacji'],
+                'type' => 'rezerwacja',
+                'action_name' => 'Rezerwacja terminu',
+                'executor' => 'Klient',
+                'details' => sprintf('Zarezerwowano termin na %s', 
+                    srl_pobierz_szczegoly_terminu($lot['termin_id']))
+            );
+        }
+    }
+    
+    // 4. Zmiany statusu lotu
+    if ($lot['status'] === 'zrealizowany') {
+        // Znajdź termin realizacji (data lotu w przeszłości)
+        $data_realizacji = srl_estymuj_date_realizacji($lot);
+        if ($data_realizacji) {
+            $events[] = array(
+                'timestamp' => strtotime($data_realizacji),
+                'date' => $data_realizacji,
+                'type' => 'realizacja',
+                'action_name' => 'Realizacja lotu',
+                'executor' => 'Admin',
+                'details' => 'Lot został oznaczony jako zrealizowany'
+            );
+        }
+    }
+    
+    // 5. Dokupione opcje (z zamówień WooCommerce)
+    $dodatkowe_opcje = srl_pobierz_historie_opcji($lot['user_id'], $lot_id);
+    $events = array_merge($events, $dodatkowe_opcje);
+    
+    // Sortuj chronologicznie
+    usort($events, function($a, $b) {
+        return $a['timestamp'] - $b['timestamp'];
+    });
+    
+    // Formatuj daty dla wyświetlenia
+    foreach ($events as &$event) {
+        $event['formatted_date'] = date('d.m.Y H:i', $event['timestamp']);
+    }
+    
+    return array(
+        'lot_id' => $lot_id,
+        'events' => $events
+    );
+}
+
+
+function srl_pobierz_szczegoly_terminu($termin_id) {
+    global $wpdb;
+    $tabela = $wpdb->prefix . 'srl_terminy';
+    
+    $termin = $wpdb->get_row($wpdb->prepare(
+        "SELECT data, godzina_start, godzina_koniec FROM $tabela WHERE id = %d",
+        $termin_id
+    ), ARRAY_A);
+    
+    if ($termin) {
+        return sprintf('%s %s-%s', 
+            srl_formatuj_date($termin['data']), 
+            substr($termin['godzina_start'], 0, 5),
+            substr($termin['godzina_koniec'], 0, 5)
+        );
+    }
+    
+    return 'nieznany termin';
+}
+
+function srl_estymuj_date_realizacji($lot) {
+    if ($lot['termin_id']) {
+        global $wpdb;
+        $tabela = $wpdb->prefix . 'srl_terminy';
+        
+        $data_lotu = $wpdb->get_var($wpdb->prepare(
+            "SELECT data FROM $tabela WHERE id = %d",
+            $lot['termin_id']
+        ));
+        
+        if ($data_lotu && strtotime($data_lotu) <= time()) {
+            // Jeśli lot był w przeszłości, przyjmij że został zrealizowany tego dnia
+            return $data_lotu . ' 18:00:00';
+        }
+    }
+    
+    return null;
+}
+
+function srl_pobierz_historie_opcji($user_id, $lot_id) {
+    global $wpdb;
+    $events = array();
+    $opcje_produkty = srl_get_flight_option_product_ids();
+    
+    // Znajdź zamówienia użytkownika
+    $orders = $wpdb->get_results($wpdb->prepare(
+        "SELECT ID, post_date 
+         FROM {$wpdb->posts} 
+         WHERE post_author = %d 
+         AND post_type = 'shop_order' 
+         AND post_status IN ('wc-completed', 'wc-processing')
+         ORDER BY post_date ASC",
+        $user_id
+    ), ARRAY_A);
+    
+    foreach ($orders as $order_data) {
+        $order = wc_get_order($order_data['ID']);
+        if (!$order) continue;
+        
+        // Sprawdź każdy item w zamówieniu osobno
+        foreach ($order->get_items() as $item_id => $item) {
+            $product_id = $item->get_product_id();
+            $lot_meta = $item->get_meta('_srl_lot_id');
+            $quantity = $item->get_quantity();
+            
+            // Sprawdź czy to opcja dla naszego lotu
+            if ($lot_meta == $lot_id && in_array($product_id, $opcje_produkty)) {
+                $opcja_nazwa = '';
+                $details = '';
+                
+                if ($product_id == $opcje_produkty['filmowanie']) {
+                    $opcja_nazwa = 'Dokupiono filmowanie';
+                    $details = sprintf('Zamówienie #%d - %s (Item ID: %d)', 
+                        $order_data['ID'], $item->get_name(), $item_id);
+                } elseif ($product_id == $opcje_produkty['akrobacje']) {
+                    $opcja_nazwa = 'Dokupiono akrobacje';
+                    $details = sprintf('Zamówienie #%d - %s (Item ID: %d)', 
+                        $order_data['ID'], $item->get_name(), $item_id);
+                } elseif ($product_id == $opcje_produkty['przedluzenie']) {
+                    $opcja_nazwa = 'Przedłużenie ważności';
+                    $details = sprintf('Zamówienie #%d - %s (Item ID: %d)', 
+                        $order_data['ID'], $item->get_name(), $item_id);
+                }
+                
+                if ($opcja_nazwa) {
+                    // Dodaj osobny wpis dla każdej ilości (jeśli quantity > 1)
+                    for ($i = 0; $i < $quantity; $i++) {
+                        $unique_timestamp = strtotime($order_data['post_date']) + $i; // Dodaj sekundy dla unikalności
+                        
+                        $events[] = array(
+                            'timestamp' => $unique_timestamp,
+                            'date' => $order_data['post_date'],
+                            'type' => 'dokupienie',
+                            'action_name' => $opcja_nazwa,
+                            'executor' => 'Klient',
+                            'details' => $details . ($quantity > 1 ? ' (' . ($i + 1) . '/' . $quantity . ')' : ''),
+                            'unique_key' => $order_data['ID'] . '_' . $item_id . '_' . $i // Klucz unikalności
+                        );
+                    }
+                }
+            }
+        }
+    }
+    
+    return $events;
+}

@@ -497,6 +497,9 @@ $total_pages = ceil($total_items / $per_page);
 									<button type="button" class="button button-small srl-info-lot" data-lot-id="<?php echo $lot['id']; ?>" data-user-id="<?php echo $lot['user_id']; ?>">
 										INFO
 									</button>
+									<button type="button" class="button button-small srl-historia-lot" data-lot-id="<?php echo $lot['id']; ?>" style="margin-left: 5px;">
+										Historia
+									</button>
 								</td>
 							</tr>
 						<?php endforeach; ?>
@@ -638,15 +641,23 @@ jQuery(document).ready(function($) {
                 
                 $('body').append(modal);
                 
-                modal.find('button').on('click', function() {
-                    modal.remove();
-                });
-                
-                modal.on('click', function(e) {
-                    if (e.target === this) {
-                        modal.remove();
-                    }
-                });
+				modal.find('button').on('click', function() {
+					modal.remove();
+					$(document).off('keydown.srl-info-modal'); // Usuń nasłuch
+				});
+
+				// Obsługa klawisza Escape dla modalu INFO
+				$(document).on('keydown.srl-info-modal', function(e) {
+					if (e.keyCode === 27) { // Escape key
+						modal.remove();
+						$(document).off('keydown.srl-info-modal'); // Usuń nasłuch po zamknięciu
+					}
+				});
+
+				// Usuń nasłuch po zamknięciu modalu (dla pewności)
+				modal.on('remove', function() {
+					$(document).off('keydown.srl-info-modal');
+				});
             } else {
                 alert('Błąd: ' + response.data);
             }
@@ -702,6 +713,79 @@ jQuery(document).ready(function($) {
         var date = new Date(dateStr);
         return date.toLocaleDateString('pl-PL');
     }
+	
+	// Show history
+	$('.srl-historia-lot').on('click', function() {
+		var lotId = $(this).data('lot-id');
+		
+		$.post(ajaxurl, {
+			action: 'srl_pobierz_historie_lotu',
+			lot_id: lotId,
+			nonce: '<?php echo wp_create_nonce('srl_admin_nonce'); ?>'
+		}, function(response) {
+			if (response.success) {
+				pokazHistorieLotu(response.data);
+			} else {
+				alert('Błąd: ' + response.data);
+			}
+		});
+	});
+
+	function pokazHistorieLotu(historia) {
+		var content = '<div class="srl-historia-container">';
+		content += '<h3>Historia lotu #' + historia.lot_id + '</h3>';
+		
+		if (historia.events.length === 0) {
+			content += '<p>Brak zdarzeń w historii tego lotu.</p>';
+		} else {
+			content += '<table class="srl-historia-table">';
+			content += '<thead><tr><th>Data</th><th>Akcja</th><th>Wykonawca</th><th>Szczegóły</th></tr></thead>';
+			content += '<tbody>';
+			
+			historia.events.forEach(function(event) {
+				content += '<tr class="srl-historia-row srl-historia-' + event.type + '">';
+				content += '<td class="srl-historia-data">' + event.formatted_date + '</td>';
+				content += '<td class="srl-historia-akcja">' + event.action_name + '</td>';
+				content += '<td class="srl-historia-wykonawca">' + event.executor + '</td>';
+				content += '<td class="srl-historia-szczegoly">' + event.details + '</td>';
+				content += '</tr>';
+			});
+			
+			content += '</tbody></table>';
+		}
+		
+		content += '</div>';
+		
+		// Utwórz modal
+		var modal = $('<div class="srl-modal-historia" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">' +
+			'<div class="srl-modal-content">' +
+			content +
+			'<div class="srl-modal-actions"><button class="button button-primary srl-modal-close">Zamknij</button></div>' +
+			'</div></div>');
+		
+		$('body').append(modal);
+		
+		modal.find('.srl-modal-close, .srl-modal-historia').on('click', function(e) {
+			if (e.target === this) {
+				modal.remove();
+			}
+		});
+		
+		// Obsługa klawisza Escape
+		$(document).on('keydown.srl-modal', function(e) {
+			if (e.keyCode === 27) { // Escape key
+				modal.remove();
+				$(document).off('keydown.srl-modal'); // Usuń nasłuch po zamknięciu
+			}
+		});
+
+		// Usuń nasłuch po zamknięciu modalu (dla pewności)
+		modal.on('remove', function() {
+			$(document).off('keydown.srl-modal');
+		});
+	}
+	
+	
 });
 </script>
     <?php
@@ -847,10 +931,10 @@ function srl_synchronizuj_loty_z_zamowieniami() {
 add_action('wp_ajax_srl_admin_zmien_status_lotu', 'srl_ajax_admin_zmien_status_lotu');
 function srl_ajax_admin_zmien_status_lotu() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Brak uprawnień.');
+        return;
+    }
     
     $lot_id = intval($_POST['lot_id']);
     $nowy_status = sanitize_text_field($_POST['nowy_status']);
@@ -867,14 +951,26 @@ function srl_ajax_admin_zmien_status_lotu() {
     
     if (!$lot) {
         wp_send_json_error('Lot nie został znaleziony.');
+        return;
     }
+    
+    $stary_status = $lot['status'];
     
     // Rozpocznij transakcję
     $wpdb->query('START TRANSACTION');
     
     try {
+        $szczegoly_historii = array();
+        $opis_zmiany = '';
+        
         // Aktualizuj lot
         if ($nowy_status === 'wolny' && $lot['termin_id']) {
+            // Pobierz szczegóły terminu przed jego zwolnieniem
+            $termin_info = $wpdb->get_row($wpdb->prepare(
+                "SELECT data, godzina_start, godzina_koniec, pilot_id FROM $tabela_terminy WHERE id = %d",
+                $lot['termin_id']
+            ), ARRAY_A);
+            
             // Dla statusu "wolny" - usuń dane rezerwacji i zwolnij slot
             $result = $wpdb->update(
                 $tabela_loty,
@@ -900,6 +996,21 @@ function srl_ajax_admin_zmien_status_lotu() {
                 array('%d')
             );
             
+            // Przygotuj szczegóły dla historii
+            if ($termin_info) {
+                $termin_opis = sprintf('%s %s-%s (Pilot %d)', 
+                    $termin_info['data'],
+                    substr($termin_info['godzina_start'], 0, 5),
+                    substr($termin_info['godzina_koniec'], 0, 5),
+                    $termin_info['pilot_id']
+                );
+                $opis_zmiany = "Status lotu zmieniony przez administratora z '{$stary_status}' na '{$nowy_status}' - zwolniono termin {$termin_opis}";
+                $szczegoly_historii['zwolniony_termin'] = $termin_opis;
+                $szczegoly_historii['termin_id'] = $lot['termin_id'];
+            } else {
+                $opis_zmiany = "Status lotu zmieniony przez administratora z '{$stary_status}' na '{$nowy_status}' - zwolniono rezerwację";
+            }
+            
         } else {
             // Dla innych statusów - zachowaj dane rezerwacji ale zaktualizuj slot
             $result = $wpdb->update(
@@ -910,6 +1021,8 @@ function srl_ajax_admin_zmien_status_lotu() {
                 array('%d')
             );
             
+            $opis_zmiany = "Status lotu zmieniony przez administratora z '{$stary_status}' na '{$nowy_status}'";
+            
             // Synchronizuj status slotu tylko jeśli lot ma przypisany termin
             if ($lot['termin_id']) {
                 $status_slotu = '';
@@ -919,6 +1032,7 @@ function srl_ajax_admin_zmien_status_lotu() {
                         break;
                     case 'zrealizowany':
                         $status_slotu = 'Zrealizowany';
+                        $opis_zmiany .= ' - lot oznaczony jako zrealizowany';
                         break;
                     case 'przedawniony':
                         // Dla przedawnionych - zwolnij slot
@@ -945,6 +1059,9 @@ function srl_ajax_admin_zmien_status_lotu() {
                             array('%d', '%s'),
                             array('%d')
                         );
+                        
+                        $opis_zmiany .= ' - slot zwolniony z powodu przedawnienia';
+                        $szczegoly_historii['slot_zwolniony'] = true;
                         break;
                 }
                 
@@ -957,12 +1074,35 @@ function srl_ajax_admin_zmien_status_lotu() {
                         array('%s'),
                         array('%d')
                     );
+                    
+                    $szczegoly_historii['status_slotu_zmieniony'] = $status_slotu;
                 }
             }
         }
         
         if ($result === false) {
             throw new Exception('Błąd aktualizacji w bazie danych.');
+        }
+        
+        // DOPISZ wpis do historii - ZAWSZE gdy zmienia się status
+        if ($stary_status !== $nowy_status) {
+            $szczegoly_historii = array_merge($szczegoly_historii, array(
+                'stary_status' => $stary_status,
+                'nowy_status' => $nowy_status,
+                'zmiana_statusu' => $stary_status . ' → ' . $nowy_status,
+                'zmiana_przez_admin' => true,
+                'lot_id' => $lot_id
+            ));
+            
+            $wpis_historii = array(
+                'data' => srl_get_current_datetime(),
+                'opis' => $opis_zmiany,
+                'typ' => 'zmiana_statusu_admin',
+                'executor' => 'Admin',
+                'szczegoly' => $szczegoly_historii
+            );
+            
+            srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
         }
         
         // Zatwierdź transakcję

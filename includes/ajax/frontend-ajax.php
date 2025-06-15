@@ -224,7 +224,7 @@ function srl_zablokuj_slot_tymczasowo() {
 }
 
 function srl_dokonaj_rezerwacji() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -264,6 +264,10 @@ function srl_dokonaj_rezerwacji() {
         return;
     }
     
+    // Pobierz dane użytkownika dla historii
+    $user = get_userdata($user_id);
+    $user_display_name = $user ? $user->display_name : 'Klient #' . $user_id;
+    
     $dane_pasazera = array(
         'imie' => get_user_meta($user_id, 'srl_imie', true),
         'nazwisko' => get_user_meta($user_id, 'srl_nazwisko', true),
@@ -273,10 +277,12 @@ function srl_dokonaj_rezerwacji() {
         'telefon' => get_user_meta($user_id, 'srl_telefon', true),
         'uwagi' => get_user_meta($user_id, 'srl_uwagi', true)
     );
-
+    
     $wpdb->query('START TRANSACTION');
-
+    
     try {
+        $current_datetime = srl_get_current_datetime();
+        
         $update_slot = $wpdb->update(
             $tabela_terminy,
             array(
@@ -296,7 +302,7 @@ function srl_dokonaj_rezerwacji() {
             $tabela_loty,
             array(
                 'status' => 'zarezerwowany',
-                'data_rezerwacji' => current_time('mysql'),
+                'data_rezerwacji' => $current_datetime,
                 'termin_id' => $termin_id,
                 'dane_pasazera' => json_encode($dane_pasazera)
             ),
@@ -308,6 +314,38 @@ function srl_dokonaj_rezerwacji() {
         if ($update_lot === false) {
             throw new Exception('Błąd aktualizacji lotu.');
         }
+        
+        // Przygotuj szczegóły terminu dla historii
+        $termin_opis = sprintf('%s %s-%s (Pilot %d)', 
+            $slot['data'], 
+            substr($slot['godzina_start'], 0, 5), 
+            substr($slot['godzina_koniec'], 0, 5),
+            $slot['pilot_id']
+        );
+        
+        // DOPISZ wpis do historii
+        $wpis_historii = array(
+            'data' => $current_datetime,
+            'opis' => sprintf('Lot zarezerwowany przez klienta (%s) na termin %s', 
+                $user_display_name, $termin_opis),
+            'typ' => 'rezerwacja_klient',
+            'executor' => 'Klient',
+            'szczegoly' => array(
+                'termin_id' => $termin_id,
+                'termin' => $termin_opis,
+                'pilot_id' => $slot['pilot_id'],
+                'data_lotu' => $slot['data'],
+                'godzina_start' => $slot['godzina_start'],
+                'godzina_koniec' => $slot['godzina_koniec'],
+                'user_id' => $user_id,
+                'user_info' => $user_display_name,
+                'dane_pasazera_zapisane' => !empty($dane_pasazera['imie']) && !empty($dane_pasazera['nazwisko']),
+                'stary_status' => 'wolny',
+                'nowy_status' => 'zarezerwowany'
+            )
+        );
+        
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
         
         $wpdb->query('COMMIT');
         
@@ -328,7 +366,7 @@ function srl_dokonaj_rezerwacji() {
 }
 
 function srl_anuluj_rezerwacje_klient() {
-	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     if (!is_user_logged_in()) {
         wp_send_json_error('Musisz być zalogowany.');
         return;
@@ -342,7 +380,7 @@ function srl_anuluj_rezerwacje_klient() {
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
     
     $lot = $wpdb->get_row($wpdb->prepare(
-        "SELECT zl.*, t.data, t.godzina_start 
+        "SELECT zl.*, t.data, t.godzina_start, t.godzina_koniec, t.pilot_id
          FROM $tabela_loty zl
          LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
          WHERE zl.id = %d AND zl.user_id = %d AND zl.status = 'zarezerwowany'",
@@ -363,6 +401,14 @@ function srl_anuluj_rezerwacje_klient() {
     }
     
     $termin_id = $lot['termin_id'];
+    
+    // Przygotuj szczegóły anulowanego terminu dla historii
+    $szczegoly_terminu = sprintf('%s %s-%s (Pilot %d)', 
+        $lot['data'],
+        substr($lot['godzina_start'], 0, 5),
+        substr($lot['godzina_koniec'], 0, 5),
+        $lot['pilot_id']
+    );
     
     $wpdb->query('START TRANSACTION');
     
@@ -397,6 +443,25 @@ function srl_anuluj_rezerwacje_klient() {
         if ($update_lot === false) {
             throw new Exception('Błąd aktualizacji lotu.');
         }
+        
+        // DOPISZ wpis do historii
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'opis' => sprintf('Rezerwacja anulowana przez klienta - zwolniono termin %s', $szczegoly_terminu),
+            'typ' => 'anulowanie_klient',
+            'executor' => 'Klient',
+            'szczegoly' => array(
+                'anulowany_termin' => $szczegoly_terminu,
+                'termin_id' => $termin_id,
+                'data_anulowania' => srl_get_current_datetime(),
+                'powod' => 'Anulowanie przez klienta w dozwolonym czasie (powyżej 48h przed lotem)',
+                'stary_status' => 'zarezerwowany',
+                'nowy_status' => 'wolny',
+                'czas_do_lotu_godzin' => round($czas_do_lotu / 3600, 1)
+            )
+        );
+        
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
         
         $wpdb->query('COMMIT');
         wp_send_json_success(array('message' => 'Rezerwacja została anulowana.'));

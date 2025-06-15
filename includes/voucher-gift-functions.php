@@ -171,7 +171,7 @@ function srl_wykorzystaj_voucher($kod_vouchera, $user_id) {
         return array('success' => false, 'message' => 'Nieprawidłowy użytkownik.');
     }
     
-    $data_wykorzystania = current_time('mysql');
+    $data_wykorzystania = srl_get_current_datetime();
     $data_waznosci_lotu = date('Y-m-d', strtotime($data_wykorzystania . ' +1 year'));
     
     // Rozpocznij transakcję

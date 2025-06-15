@@ -1479,16 +1479,24 @@ function pokazUjednoliconyModalDanych(dane, tytul, moznaEdytowac, terminId) {
         });
     }
     
-    // Zamknięcie modalu
-    modal.find('.srl-btn-zamknij').on('click', function() {
-        modal.remove();
-    });
-    
-    modal.on('click', function(e) {
-        if (e.target === this) {
-            modal.remove();
-        }
-    });
+	// Zamknięcie modalu
+	modal.find('.srl-btn-zamknij').on('click', function() {
+		modal.remove();
+		$(document).off('keydown.srl-dane-modal');
+	});
+
+	// Obsługa klawisza Escape
+	$(document).on('keydown.srl-dane-modal', function(e) {
+		if (e.keyCode === 27) { // Escape key
+			modal.remove();
+			$(document).off('keydown.srl-dane-modal');
+		}
+	});
+
+	// Usuń nasłuch po zamknięciu modalu
+	modal.on('remove', function() {
+		$(document).off('keydown.srl-dane-modal');
+	});
 }
 
 // Funkcja do zapisywania edytowanych danych prywatnych (bez zmian)
@@ -1664,20 +1672,26 @@ function pokazModalPrzypisaniaSlotu(terminId) {
     modal.append(content);
     $('body').append(modal);
     
-    // OBSŁUGA EVENTÓW BEZPOŚREDNIO NA ELEMENTACH MODALU
-    // Zamknięcie modalu
-    modal.find('.srl-modal-anuluj').on('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        modal.remove();
-    });
+	// Zamknięcie modalu
+	modal.find('.srl-modal-anuluj').on('click', function(e) {
+		e.preventDefault();
+		e.stopPropagation();
+		modal.remove();
+		$(document).off('keydown.srl-przypisanie-modal');
+	});
 
-    // Kliknięcie poza modalem zamyka go
-    modal.on('click', function(e) {
-        if (e.target === this) {
-            modal.remove();
-        }
-    });
+	// Obsługa klawisza Escape
+	$(document).on('keydown.srl-przypisanie-modal', function(e) {
+		if (e.keyCode === 27) { // Escape key
+			modal.remove();
+			$(document).off('keydown.srl-przypisanie-modal');
+		}
+	});
+
+	// Usuń nasłuch po zamknięciu modalu
+	modal.on('remove', function() {
+		$(document).off('keydown.srl-przypisanie-modal');
+	});
     
     // Przełączanie między typami lotów - bezpośrednio na elementach modalu
     modal.find('#srl-typ-wykupiony').on('click', function(e) {

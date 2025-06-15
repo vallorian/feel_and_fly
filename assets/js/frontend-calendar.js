@@ -468,7 +468,7 @@ function wypelnijListeRezerwacji(lotySpolaczone) {
             // Sprawdź czy lot potrzebuje przedłużenia (mniej niż 390 dni do wygaśnięcia)
             if (lot.data_waznosci) {
                 var dniDoWaznosci = Math.floor((new Date(lot.data_waznosci).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-                if (dniDoWaznosci <= 390) {
+                if (dniDoWaznosci <= 3390) {
                     dostepneOpcje.push({nazwa: 'Przedłużenie', id: srlFrontend.productIds.przedluzenie});
                 }
             }

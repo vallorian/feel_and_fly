@@ -40,6 +40,7 @@ require_once SRL_PLUGIN_DIR . 'includes/flight-options.php';
 require_once SRL_PLUGIN_DIR . 'includes/cart-flight-options.php';
 require_once SRL_PLUGIN_DIR . 'includes/product-flight-options.php';
 require_once SRL_PLUGIN_DIR . 'includes/client-account.php';
+require_once SRL_PLUGIN_DIR . 'includes/historia-lotow-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/woocommerce-integration.php';
 
 // AJAX includes

@@ -94,7 +94,7 @@ function srl_process_flight_options_purchase($order_id, $old_status, $new_status
         
         if ($lot_id && in_array($product_id, $opcje_produkty)) {
             if ($product_id == $opcje_produkty['przedluzenie']) {
-                srl_przedluz_waznosc_lotu($lot_id, $order_id);
+                //srl_dokup_przedluzenie($lot_id, $order_id);
                 
             } elseif ($product_id == $opcje_produkty['filmowanie']) {
                 global $wpdb;
