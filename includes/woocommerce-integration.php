@@ -37,41 +37,66 @@ function srl_dodaj_loty_po_zakupie($order_id) {
     $data_waznosci = date('Y-m-d', strtotime($data_zakupu . ' +1 year'));
     $imie = $order->get_billing_first_name();
     $nazwisko = $order->get_billing_last_name();
-    $user = get_userdata($user_id);
-    $user_display_name = $user ? $user->display_name : ($imie . ' ' . $nazwisko);
     $dodane_loty = 0;
     foreach ($order->get_items() as $item_id => $item) {
         $product = $item->get_product();
         if ($product && srl_czy_produkt_lotu($product)) {
             $quantity = $item->get_quantity();
             $nazwa_produktu = $item->get_name();
-            for ($i = 0;$i < $quantity;$i++) {
+            for ($i = 0; $i < $quantity; $i++) {
                 $opcje = srl_analiza_opcji_produktu($nazwa_produktu);
-                $result = $wpdb->insert($tabela, array('order_item_id' => $item_id, 'order_id' => $order_id, 'user_id' => $user_id, 'imie' => $imie, 'nazwisko' => $nazwisko, 'nazwa_produktu' => $nazwa_produktu, 'status' => 'wolny', 'data_zakupu' => $data_zakupu, 'data_waznosci' => $data_waznosci, 'ma_filmowanie' => $opcje['ma_filmowanie'], 'ma_akrobacje' => $opcje['ma_akrobacje']), array('%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d'));
+                $result = $wpdb->insert($tabela, array(
+                    'order_item_id' => $item_id,
+                    'order_id' => $order_id,
+                    'user_id' => $user_id,
+                    'imie' => $imie,
+                    'nazwisko' => $nazwisko,
+                    'nazwa_produktu' => $nazwa_produktu,
+                    'status' => 'wolny',
+                    'data_zakupu' => $data_zakupu,
+                    'data_waznosci' => $data_waznosci,
+                    'ma_filmowanie' => $opcje['ma_filmowanie'],
+                    'ma_akrobacje' => $opcje['ma_akrobacje']
+                ), array('%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d'));
                 if ($result !== false) {
                     $dodane_loty++;
                     $lot_id = $wpdb->insert_id;
-                    $historia_poczatkowa = array();
-                    $opis_zakupu = sprintf('Przypisanie ID lotu #%d, Lot ważny do %s (12 miesięcy od zakupu)', $lot_id, date('d.m.Y', strtotime($data_waznosci)));
-                    if ($quantity > 1) {
-                        $opis_zakupu.= sprintf(' [lot %d z %d w zamówieniu #%d]', $i + 1, $quantity, $order_id);
-                    } else {
-                        $opis_zakupu.= sprintf(' [zamówienie #%d]', $order_id);
-                    }
-                    $historia_poczatkowa[] = array('data' => $data_zakupu, 'opis' => $opis_zakupu, 'typ' => 'przypisanie_id', 'executor' => 'System', 'szczegoly' => array('nazwa_produktu' => $nazwa_produktu, 'cena' => $item->get_total(), 'quantity_info' => $quantity > 1 ? sprintf('%d/%d', $i + 1, $quantity) : '1/1', 'order_id' => $order_id, 'order_item_id' => $item_id, 'user_id' => $user_id, 'user_info' => $user_display_name, 'data_waznosci' => $data_waznosci));
+                    $wpis_historii = array(
+                        'data' => $data_zakupu,
+                        'opis' => 'Przypisanie ID lotu',
+                        'typ' => 'przypisanie_id',
+                        'executor' => 'System',
+                        'szczegoly' => array(
+                            'lot_id' => $lot_id,
+                            'order_id' => $order_id,
+                            'quantity_info' => $quantity > 1 ? sprintf('%d/%d', $i + 1, $quantity) : '1/1',
+                            'data_waznosci' => $data_waznosci
+                        )
+                    );
+                    srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
                     if ($opcje['ma_filmowanie']) {
-                        $historia_poczatkowa[] = array('data' => $data_zakupu, 'opis' => 'Lot zakupiony z opcją filmowania', 'typ' => 'opcja_przy_zakupie', 'executor' => 'System', 'szczegoly' => array('opcja' => 'filmowanie', 'dodano_przy_zakupie' => true, 'order_id' => $order_id));
+                        $wpis_opcji = array(
+                            'data' => $data_zakupu,
+                            'opis' => 'Lot zakupiony z opcją filmowania',
+                            'typ' => 'opcja_przy_zakupie',
+                            'executor' => 'System',
+                            'szczegoly' => array('opcja' => 'filmowanie', 'order_id' => $order_id)
+                        );
+                        srl_dopisz_do_historii_lotu($lot_id, $wpis_opcji);
                     }
                     if ($opcje['ma_akrobacje']) {
-                        $historia_poczatkowa[] = array('data' => $data_zakupu, 'opis' => 'Lot zakupiony z opcją akrobacji', 'typ' => 'opcja_przy_zakupie', 'executor' => 'System', 'szczegoly' => array('opcja' => 'akrobacje', 'dodano_przy_zakupie' => true, 'order_id' => $order_id));
+                        $wpis_opcji = array(
+                            'data' => $data_zakupu,
+                            'opis' => 'Lot zakupiony z opcją akrobacji',
+                            'typ' => 'opcja_przy_zakupie',
+                            'executor' => 'System',
+                            'szczegoly' => array('opcja' => 'akrobacje', 'order_id' => $order_id)
+                        );
+                        srl_dopisz_do_historii_lotu($lot_id, $wpis_opcji);
                     }
-                    $wpdb->update($tabela, array('historia_modyfikacji' => json_encode($historia_poczatkowa)), array('id' => $lot_id), array('%s'), array('%d'));
                 }
             }
         }
-    }
-    if ($dodane_loty > 0) {
-        error_log("SRL: Dodano $dodane_loty lotów dla zamówienia #$order_id z pełną historią");
     }
     return $dodane_loty;
 }
@@ -210,15 +235,23 @@ function srl_dokup_filmowanie($lot_id, $order_id, $item_id, $quantity = 1) {
     }
     $result = $wpdb->update($tabela_loty, array('ma_filmowanie' => 1), array('id' => $lot_id), array('%d'), array('%d'));
     if ($result !== false) {
-        $opis_zmiany = "Dokupiono opcję filmowania lotu (zamówienie #$order_id, item #$item_id)";
-        if ($quantity > 1) {
-            $opis_zmiany.= " - ilość: $quantity";
-        }
-        $wpis_historii = array('data' => srl_get_current_datetime(), 'opis' => $opis_zmiany, 'typ' => 'dokupienie_filmowanie', 'executor' => 'Klient', 'szczegoly' => array('opcja' => 'filmowanie', 'order_id' => $order_id, 'item_id' => $item_id, 'quantity' => $quantity, 'stary_stan' => 0, 'nowy_stan' => 1));
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'opis' => 'Dokupiono opcję filmowania',
+            'typ' => 'dokupienie_filmowanie',
+            'executor' => 'Klient',
+            'szczegoly' => array(
+                'opcja' => 'filmowanie',
+                'order_id' => $order_id,
+                'item_id' => $item_id,
+                'quantity' => $quantity
+            )
+        );
         srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
     }
     return $result !== false;
 }
+
 function srl_dokup_akrobacje($lot_id, $order_id, $item_id, $quantity = 1) {
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
@@ -228,15 +261,23 @@ function srl_dokup_akrobacje($lot_id, $order_id, $item_id, $quantity = 1) {
     }
     $result = $wpdb->update($tabela_loty, array('ma_akrobacje' => 1), array('id' => $lot_id), array('%d'), array('%d'));
     if ($result !== false) {
-        $opis_zmiany = "Dokupiono opcję akrobacji podczas lotu (zamówienie #$order_id, item #$item_id)";
-        if ($quantity > 1) {
-            $opis_zmiany.= " - ilość: $quantity";
-        }
-        $wpis_historii = array('data' => srl_get_current_datetime(), 'opis' => $opis_zmiany, 'typ' => 'dokupienie_akrobacje', 'executor' => 'Klient', 'szczegoly' => array('opcja' => 'akrobacje', 'order_id' => $order_id, 'item_id' => $item_id, 'quantity' => $quantity, 'stary_stan' => 0, 'nowy_stan' => 1));
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'opis' => 'Dokupiono opcję akrobacji',
+            'typ' => 'dokupienie_akrobacje',
+            'executor' => 'Klient',
+            'szczegoly' => array(
+                'opcja' => 'akrobacje',
+                'order_id' => $order_id,
+                'item_id' => $item_id,
+                'quantity' => $quantity
+            )
+        );
         srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
     }
     return $result !== false;
 }
+
 function srl_dokup_przedluzenie($lot_id, $order_id, $item_id = 0, $quantity = 1) {
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
@@ -246,18 +287,24 @@ function srl_dokup_przedluzenie($lot_id, $order_id, $item_id = 0, $quantity = 1)
     }
     $stara_data = $lot['data_waznosci'];
     $nowa_data = $stara_data;
-    for ($i = 0;$i < $quantity;$i++) {
+    for ($i = 0; $i < $quantity; $i++) {
         $nowa_data = date('Y-m-d', strtotime($nowa_data . ' +1 year'));
     }
     $result = $wpdb->update($tabela_loty, array('data_waznosci' => $nowa_data), array('id' => $lot_id), array('%s'), array('%d'));
     if ($result !== false) {
-        $lata_text = ($quantity == 1) ? '1 rok' : (($quantity < 5) ? "$quantity lata" : "$quantity lat");
-        if ($item_id > 0) {
-            $opis_zmiany = "Przedłużono ważność lotu o $lata_text do " . date('d.m.Y', strtotime($nowa_data)) . " (zamówienie #$order_id, item #$item_id)";
-        } else {
-            $opis_zmiany = "Przedłużono ważność lotu o $lata_text do " . date('d.m.Y', strtotime($nowa_data)) . " (zamówienie #$order_id)";
-        }
-        $wpis_historii = array('data' => srl_get_current_datetime(), 'opis' => $opis_zmiany, 'typ' => 'przedluzenie_waznosci', 'executor' => 'Klient', 'szczegoly' => array('stara_data_waznosci' => $stara_data, 'nowa_data_waznosci' => $nowa_data, 'przedluzenie_lat' => $quantity, 'order_id' => $order_id, 'item_id' => $item_id, 'quantity_w_zamowieniu' => $quantity));
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'opis' => 'Przedłużono ważność lotu',
+            'typ' => 'przedluzenie_waznosci',
+            'executor' => 'Klient',
+            'szczegoly' => array(
+                'stara_data_waznosci' => $stara_data,
+                'nowa_data_waznosci' => $nowa_data,
+                'przedluzenie_lat' => $quantity,
+                'order_id' => $order_id,
+                'item_id' => $item_id
+            )
+        );
         srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
     }
     return $result !== false;

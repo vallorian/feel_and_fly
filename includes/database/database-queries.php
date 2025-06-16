@@ -86,47 +86,77 @@ function srl_zwroc_godziny_wg_pilota($data) {
 function srl_pobierz_pelna_historie_lotu($lot_id) {
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
     $lot = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabela_loty WHERE id = %d", $lot_id), ARRAY_A);
     if (!$lot) {
         return array('lot_id' => $lot_id, 'events' => array());
     }
     $events = array();
-    $events[] = array('timestamp' => strtotime($lot['data_zakupu']), 'date' => $lot['data_zakupu'], 'type' => 'zakup', 'action_name' => 'Zakup lotu', 'executor' => 'Klient', 'details' => sprintf('Zamówienie #%d - %s', $lot['order_id'], $lot['nazwa_produktu']));
+    $events[] = array(
+        'timestamp' => strtotime($lot['data_zakupu']),
+        'date' => $lot['data_zakupu'],
+        'type' => 'SYSTEMOWE',
+        'action_name' => 'Zakup lotu',
+        'executor' => 'Klient',
+        'details' => sprintf('Zamówienie #%d - %s', $lot['order_id'], $lot['nazwa_produktu'])
+    );
     if (!empty($lot['historia_modyfikacji'])) {
         $historia_json = json_decode($lot['historia_modyfikacji'], true);
         if (is_array($historia_json)) {
             foreach ($historia_json as $modyfikacja) {
-                $executor = 'Admin';
-                if (isset($modyfikacja['executor'])) {
-                    $executor = $modyfikacja['executor'];
-                } elseif (strpos(strtolower($modyfikacja['opis']??''), 'zamówienie') !== false) {
-                    $executor = 'Klient';
+                if (isset($modyfikacja['typ'])) {
+                    $events[] = array(
+                        'timestamp' => strtotime($modyfikacja['data']),
+                        'date' => $modyfikacja['data'],
+                        'type' => $modyfikacja['typ'],
+                        'action_name' => $modyfikacja['akcja'] ?? srl_formatuj_nazwe_akcji($modyfikacja),
+                        'executor' => $modyfikacja['executor'] ?? 'System',
+                        'details' => $modyfikacja['opis'] ?? ''
+                    );
+                } else {
+                    $executor = 'Admin';
+                    if (isset($modyfikacja['executor'])) {
+                        $executor = $modyfikacja['executor'];
+                    } elseif (strpos(strtolower($modyfikacja['opis'] ?? ''), 'zamówienie') !== false) {
+                        $executor = 'Klient';
+                    }
+                    $events[] = array(
+                        'timestamp' => strtotime($modyfikacja['data']),
+                        'date' => $modyfikacja['data'],
+                        'type' => 'SYSTEMOWE',
+                        'action_name' => srl_formatuj_nazwe_akcji($modyfikacja),
+                        'executor' => $executor,
+                        'details' => $modyfikacja['opis']
+                    );
                 }
-                $events[] = array('timestamp' => strtotime($modyfikacja['data']), 'date' => $modyfikacja['data'], 'type' => $modyfikacja['typ']??'modyfikacja', 'action_name' => srl_formatuj_nazwe_akcji($modyfikacja), 'executor' => $executor, 'details' => $modyfikacja['opis']);
             }
         }
     }
-    if ($lot['termin_id']) {
-        if ($lot['data_rezerwacji']) {
-            $events[] = array('timestamp' => strtotime($lot['data_rezerwacji']), 'date' => $lot['data_rezerwacji'], 'type' => 'rezerwacja', 'action_name' => 'Rezerwacja terminu', 'executor' => 'Klient', 'details' => sprintf('Zarezerwowano termin na %s', srl_pobierz_szczegoly_terminu($lot['termin_id'])));
-        }
+    if ($lot['termin_id'] && $lot['data_rezerwacji']) {
+        $events[] = array(
+            'timestamp' => strtotime($lot['data_rezerwacji']),
+            'date' => $lot['data_rezerwacji'],
+            'type' => 'ZMIANA_STATUSU',
+            'action_name' => 'Rezerwacja terminu',
+            'executor' => 'Klient',
+            'details' => sprintf('Zarezerwowano termin na %s', srl_pobierz_szczegoly_terminu($lot['termin_id']))
+        );
     }
     if ($lot['status'] === 'zrealizowany') {
         $data_realizacji = srl_estymuj_date_realizacji($lot);
         if ($data_realizacji) {
-            $events[] = array('timestamp' => strtotime($data_realizacji), 'date' => $data_realizacji, 'type' => 'realizacja', 'action_name' => 'Realizacja lotu', 'executor' => 'Admin', 'details' => 'Lot został oznaczony jako zrealizowany');
+            $events[] = array(
+                'timestamp' => strtotime($data_realizacji),
+                'date' => $data_realizacji,
+                'type' => 'ZMIANA_STATUSU',
+                'action_name' => 'Realizacja lotu',
+                'executor' => 'Admin',
+                'details' => 'Lot został oznaczony jako zrealizowany'
+            );
         }
     }
     $dodatkowe_opcje = srl_pobierz_historie_opcji($lot['user_id'], $lot_id);
     $events = array_merge($events, $dodatkowe_opcje);
-    usort($events, function ($a, $b) {
-        return $a['timestamp'] - $b['timestamp'];
-    });
-    foreach ($events as & $event) {
-        $event['formatted_date'] = date('d.m.Y H:i', $event['timestamp']);
-    }
-    return array('lot_id' => $lot_id, 'events' => $events);
+    return array('lot_id' => $lot_id, 'events' => srl_formatuj_historie_lotu($events));
 }
 function srl_pobierz_szczegoly_terminu($termin_id) {
     global $wpdb;
@@ -167,21 +197,24 @@ function srl_pobierz_historie_opcji($user_id, $lot_id) {
             $quantity = $item->get_quantity();
             if ($lot_meta == $lot_id && in_array($product_id, $opcje_produkty)) {
                 $opcja_nazwa = '';
-                $details = '';
                 if ($product_id == $opcje_produkty['filmowanie']) {
-                    $opcja_nazwa = 'Dokupiono filmowanie';
-                    $details = sprintf('Zamówienie #%d - %s (Item ID: %d)', $order_data['ID'], $item->get_name(), $item_id);
+                    $opcja_nazwa = '+Filmowanie';
                 } elseif ($product_id == $opcje_produkty['akrobacje']) {
-                    $opcja_nazwa = 'Dokupiono akrobacje';
-                    $details = sprintf('Zamówienie #%d - %s (Item ID: %d)', $order_data['ID'], $item->get_name(), $item_id);
+                    $opcja_nazwa = '+Akrobacje';
                 } elseif ($product_id == $opcje_produkty['przedluzenie']) {
-                    $opcja_nazwa = 'Przedłużenie ważności';
-                    $details = sprintf('Zamówienie #%d - %s (Item ID: %d)', $order_data['ID'], $item->get_name(), $item_id);
+                    $opcja_nazwa = '+Przedłużenie';
                 }
                 if ($opcja_nazwa) {
-                    for ($i = 0;$i < $quantity;$i++) {
+                    for ($i = 0; $i < $quantity; $i++) {
                         $unique_timestamp = strtotime($order_data['post_date']) + $i;
-                        $events[] = array('timestamp' => $unique_timestamp, 'date' => $order_data['post_date'], 'type' => 'dokupienie', 'action_name' => $opcja_nazwa, 'executor' => 'Klient', 'details' => $details . ($quantity > 1 ? ' (' . ($i + 1) . '/' . $quantity . ')' : ''), 'unique_key' => $order_data['ID'] . '_' . $item_id . '_' . $i);
+                        $events[] = array(
+                            'timestamp' => $unique_timestamp,
+                            'date' => $order_data['post_date'],
+                            'type' => 'DOKUPIENIE_WARIANTU',
+                            'action_name' => $opcja_nazwa,
+                            'executor' => 'Klient',
+                            'details' => sprintf('Zamówienie #%d', $order_data['ID'])
+                        );
                     }
                 }
             }

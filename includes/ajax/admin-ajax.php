@@ -119,6 +119,7 @@ function srl_usun_godzine() {
     }
     srl_zwroc_godziny_wg_pilota($data);
 }
+
 function srl_zmien_status_godziny() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
@@ -163,31 +164,23 @@ function srl_zmien_status_godziny() {
         if ($lot) {
             $nowy_status_lotu = '';
             $dane_lotu_update = array();
-            $opis_zmiany = '';
             $stary_status = $lot['status'];
             switch ($status) {
                 case 'Wolny':
                     $nowy_status_lotu = 'wolny';
                     $dane_lotu_update = array('status' => $nowy_status_lotu, 'termin_id' => null, 'data_rezerwacji' => null);
-                    $opis_zmiany = 'Status zmieniony na WOLNY przez ADMINA - zwolniono rezerwację';
                 break;
                 case 'Zarezerwowany':
                     $nowy_status_lotu = 'zarezerwowany';
                     $dane_lotu_update = array('status' => $nowy_status_lotu);
-                    $opis_zmiany = 'Status zmieniony na ZAREZERWOWANY przez ADMINA';
                 break;
                 case 'Zrealizowany':
                     $nowy_status_lotu = 'zrealizowany';
                     $dane_lotu_update = array('status' => $nowy_status_lotu);
-                    $opis_zmiany = 'Lot oznaczony jako ZREALIZOWANY przez ADMINA';
-                break;
-                case 'Prywatny':
-                    $opis_zmiany = 'Slot oznaczony jako PRYWATNY przez ADMINA';
                 break;
                 case 'Odwołany przez organizatora':
                     $nowy_status_lotu = 'wolny';
                     $dane_lotu_update = array('status' => $nowy_status_lotu, 'termin_id' => null, 'data_rezerwacji' => null);
-                    $opis_zmiany = 'Lot ODOWŁANY przez organizatora';
                 break;
             }
             if (!empty($dane_lotu_update)) {
@@ -196,15 +189,23 @@ function srl_zmien_status_godziny() {
                     throw new Exception('Błąd aktualizacji statusu lotu');
                 }
             }
-            if (!empty($opis_zmiany)) {
-                $szczegoly = array('termin_id' => $termin_id, 'stary_status_slotu' => $slot['status'], 'nowy_status_slotu' => $status, 'zmiana_przez_admin' => true);
-                if (!empty($nowy_status_lotu) && $stary_status !== $nowy_status_lotu) {
-                    $szczegoly['stary_status_lotu'] = $stary_status;
-                    $szczegoly['nowy_status_lotu'] = $nowy_status_lotu;
-                    $szczegoly['zmiana_statusu'] = $stary_status . ' → ' . $nowy_status_lotu;
-                    $opis_zmiany.= " (status lotu: {$stary_status} → {$nowy_status_lotu})";
+            if ($stary_status !== $nowy_status_lotu && !empty($nowy_status_lotu)) {
+                $szczegoly = array(
+                    'termin_id' => $termin_id,
+                    'stary_status' => $stary_status,
+                    'nowy_status' => $nowy_status_lotu,
+                    'zmiana_przez_admin' => true
+                );
+                if ($status === 'Wolny') {
+                    $szczegoly['slot_zwolniony'] = true;
                 }
-                $wpis_historii = array('data' => srl_get_current_datetime(), 'opis' => $opis_zmiany, 'typ' => 'zmiana_statusu_admin', 'executor' => 'Admin', 'szczegoly' => $szczegoly);
+                $wpis_historii = array(
+                    'data' => srl_get_current_datetime(),
+                    'opis' => 'Status zmieniony przez administratora',
+                    'typ' => 'zmiana_statusu_admin',
+                    'executor' => 'Admin',
+                    'szczegoly' => $szczegoly
+                );
                 srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
             }
         }
@@ -216,6 +217,8 @@ function srl_zmien_status_godziny() {
         wp_send_json_error($e->getMessage());
     }
 }
+
+
 function srl_anuluj_lot_przez_organizatora() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
@@ -243,7 +246,12 @@ function srl_anuluj_lot_przez_organizatora() {
     }
     $wpdb->query('START TRANSACTION');
     try {
-        $dane_historyczne = array('typ' => 'odwolany_przez_organizatora', 'data_odwolania' => srl_get_current_datetime(), 'oryginalny_status' => $slot['status'], 'klient_id' => $klient_id);
+        $dane_historyczne = array(
+            'typ' => 'odwolany_przez_organizatora',
+            'data_odwolania' => srl_get_current_datetime(),
+            'oryginalny_status' => $slot['status'],
+            'klient_id' => $klient_id
+        );
         if ($klient_id > 0) {
             $user = get_userdata($klient_id);
             if ($user) {
@@ -282,8 +290,20 @@ function srl_anuluj_lot_przez_organizatora() {
                 $subject = 'Twój lot tandemowy został odwołany przez organizatora';
                 $body = "Dzień dobry {$user->display_name},\n\n" . "Niestety Twój lot, który był zaplanowany na {$szczegoly_terminu}, został odwołany przez organizatora z powodów niezależnych od nas (prawdopodobnie warunki pogodowe).\n\n" . "Status Twojego lotu został przywrócony – możesz ponownie wybrać inny termin.\n" . "Przepraszamy za niedogodności.\n\n" . "Pozdrawiamy,\nZespół Loty Tandemowe";
                 wp_mail($to, $subject, $body);
-                $opis_zmiany = "Lot odwołany przez organizatora - termin {$szczegoly_terminu} zachowany w historii, lot dostępny do ponownej rezerwacji";
-                $wpis_historii = array('data' => srl_get_current_datetime(), 'opis' => $opis_zmiany, 'typ' => 'odwolanie_przez_organizatora', 'executor' => 'Admin', 'szczegoly' => array('termin_id' => $termin_id, 'odwolany_termin' => $szczegoly_terminu, 'stary_status' => $stary_status, 'nowy_status' => 'wolny', 'klient_id' => $klient_id, 'email_wyslany' => true, 'slot_zachowany' => true, 'dane_zachowane_w_slocie' => true, 'powod' => 'Odwołanie przez organizatora - możliwe przywrócenie'));
+                $wpis_historii = array(
+                    'data' => srl_get_current_datetime(),
+                    'opis' => 'Lot odwołany przez organizatora',
+                    'typ' => 'anulowanie_przez_organizatora',
+                    'executor' => 'Admin',
+                    'szczegoly' => array(
+                        'termin_id' => $termin_id,
+                        'stary_status' => $stary_status,
+                        'nowy_status' => 'wolny',
+                        'klient_id' => $klient_id,
+                        'zwolniony_termin' => $szczegoly_terminu,
+                        'email_wyslany' => true
+                    )
+                );
                 srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
             }
         }
@@ -295,6 +315,8 @@ function srl_anuluj_lot_przez_organizatora() {
         wp_send_json_error('Błąd podczas odwoływania: ' . $e->getMessage());
     }
 }
+
+
 function srl_wyszukaj_klientow_loty() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
@@ -754,7 +776,17 @@ function srl_ajax_zrealizuj_lot() {
         $lot = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabela_loty WHERE termin_id = %d", $termin_id), ARRAY_A);
         if ($lot) {
             $wpdb->update($tabela_loty, array('status' => 'zrealizowany'), array('id' => $lot['id']), array('%s'), array('%d'));
-            $wpis_historii = array('data' => srl_get_current_datetime(), 'opis' => 'Lot oznaczony jako zrealizowany przez administratora', 'typ' => 'realizacja_admin', 'executor' => 'Admin', 'szczegoly' => array('termin_id' => $termin_id, 'stary_status' => 'zarezerwowany', 'nowy_status' => 'zrealizowany', 'lot_id' => $lot['id']));
+            $wpis_historii = array(
+                'data' => srl_get_current_datetime(),
+                'opis' => 'Lot zrealizowany przez administratora',
+                'typ' => 'realizacja_admin',
+                'executor' => 'Admin',
+                'szczegoly' => array(
+                    'termin_id' => $termin_id,
+                    'stary_status' => 'zarezerwowany',
+                    'nowy_status' => 'zrealizowany'
+                )
+            );
             srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
         }
         $wpdb->query('COMMIT');
@@ -766,6 +798,7 @@ function srl_ajax_zrealizuj_lot() {
         wp_send_json_error($e->getMessage());
     }
 }
+
 function srl_ajax_zrealizuj_lot_prywatny() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
     if (!current_user_can('manage_options')) {
