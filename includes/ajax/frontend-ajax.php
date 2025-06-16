@@ -147,7 +147,7 @@ function srl_zapisz_dane_pasazera() {
                     )
                 );
 
-                srl_dopisz_do_historii_lotu_v2($lot['id'], $wpis_historii);
+                srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
             }
         }
     }
@@ -374,7 +374,7 @@ function srl_dokonaj_rezerwacji() {
             )
         );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
 
         $wpdb->query('COMMIT');
 
@@ -487,7 +487,7 @@ function srl_anuluj_rezerwacje_klient() {
             )
         );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
 
         $wpdb->query('COMMIT');
         wp_send_json_success(array('message' => 'Rezerwacja została anulowana.'));

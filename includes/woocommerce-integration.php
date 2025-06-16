@@ -300,57 +300,6 @@ add_action('srl_sprawdz_przeterminowane_loty', function() {
 });
 add_action('srl_sprawdz_przeterminowane_loty', 'srl_oznacz_przeterminowane_loty');
 
-add_action('woocommerce_order_status_changed', 'srl_obsluz_opcje_lotow', 20, 3);
-
-function srl_obsluz_opcje_lotow($order_id, $old_status, $new_status) {
-
-    $valid_statuses = array('processing', 'completed');
-
-    if (!in_array($new_status, $valid_statuses)) {
-        return;
-    }
-
-    $order = wc_get_order($order_id);
-    if (!$order) {
-        return;
-    }
-
-    $user_id = $order->get_user_id();
-    if (!$user_id) {
-        return;
-    }
-
-    $opcje_produkty = srl_get_flight_option_product_ids();
-
-    foreach ($order->get_items() as $item_id => $item) {
-        $product_id = $item->get_product_id();
-        $lot_meta = $item->get_meta('_srl_lot_id');
-        $quantity = $item->get_quantity();
-
-        if ($lot_meta && in_array($product_id, $opcje_produkty)) {
-            $lot_id = intval($lot_meta);
-
-            global $wpdb;
-            $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-            $lot = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $tabela_loty WHERE id = %d AND user_id = %d",
-                $lot_id, $user_id
-            ), ARRAY_A);
-
-            if (!$lot) {
-                continue;
-            }
-
-            if ($product_id == $opcje_produkty['filmowanie']) {
-                srl_dokup_filmowanie($lot_id, $order_id, $item_id, $quantity);
-            } elseif ($product_id == $opcje_produkty['akrobacje']) {
-                srl_dokup_akrobacje($lot_id, $order_id, $item_id, $quantity);
-            } elseif ($product_id == $opcje_produkty['przedluzenie']) {
-                srl_dokup_przedluzenie($lot_id, $order_id, $item_id, $quantity);
-            }
-        }
-    }
-}
 
 function srl_dokup_filmowanie($lot_id, $order_id, $item_id, $quantity = 1) {
     global $wpdb;
@@ -374,21 +323,30 @@ function srl_dokup_filmowanie($lot_id, $order_id, $item_id, $quantity = 1) {
     );
 
     if ($result !== false) {
-        $wpis_historii = array(
-            'data' => srl_get_current_datetime(),
-            'typ' => 'dokupienie_filmowanie',
-            'executor' => 'Klient',
-            'szczegoly' => array(
-                'opcja' => 'filmowanie',
-                'order_id' => $order_id,
-                'item_id' => $item_id,
-                'quantity' => $quantity,
-                'stary_stan' => 0,
-                'nowy_stan' => 1
-            )
-        );
+        // Zapisz każdą opcję osobno w historii
+        for ($i = 0; $i < $quantity; $i++) {
+            // Dodaj sekundy do timestamp aby uniknąć duplikatów
+            $current_time = srl_get_current_datetime();
+            if ($i > 0) {
+                $current_time = date('Y-m-d H:i:s', strtotime($current_time) + $i);
+            }
+            
+            $wpis_historii = array(
+                'data' => $current_time,
+                'typ' => 'dokupienie_filmowanie',
+                'executor' => 'Klient',
+                'szczegoly' => array(
+                    'opcja' => 'filmowanie',
+                    'order_id' => $order_id,
+                    'item_id' => $item_id,
+                    'quantity_info' => $quantity > 1 ? sprintf('%d/%d', $i + 1, $quantity) : '1/1',
+                    'stary_stan' => 0,
+                    'nowy_stan' => 1
+                )
+            );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+            srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
+        }
     }
 
     return $result !== false;
@@ -416,21 +374,30 @@ function srl_dokup_akrobacje($lot_id, $order_id, $item_id, $quantity = 1) {
     );
 
     if ($result !== false) {
-        $wpis_historii = array(
-            'data' => srl_get_current_datetime(),
-            'typ' => 'dokupienie_akrobacje',
-            'executor' => 'Klient',
-            'szczegoly' => array(
-                'opcja' => 'akrobacje',
-                'order_id' => $order_id,
-                'item_id' => $item_id,
-                'quantity' => $quantity,
-                'stary_stan' => 0,
-                'nowy_stan' => 1
-            )
-        );
+        // Zapisz każdą opcję osobno w historii
+        for ($i = 0; $i < $quantity; $i++) {
+            // Dodaj sekundy do timestamp aby uniknąć duplikatów
+            $current_time = srl_get_current_datetime();
+            if ($i > 0) {
+                $current_time = date('Y-m-d H:i:s', strtotime($current_time) + $i);
+            }
+            
+            $wpis_historii = array(
+                'data' => $current_time,
+                'typ' => 'dokupienie_akrobacje',
+                'executor' => 'Klient',
+                'szczegoly' => array(
+                    'opcja' => 'akrobacje',
+                    'order_id' => $order_id,
+                    'item_id' => $item_id,
+                    'quantity_info' => $quantity > 1 ? sprintf('%d/%d', $i + 1, $quantity) : '1/1',
+                    'stary_stan' => 0,
+                    'nowy_stan' => 1
+                )
+            );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+            srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
+        }
     }
 
     return $result !== false;
@@ -464,24 +431,32 @@ function srl_dokup_przedluzenie($lot_id, $order_id, $item_id = 0, $quantity = 1)
         array('%d')
     );
 
-    if ($result !== false) {
+	if ($result !== false) {
+		// Zapisz każde przedłużenie osobno w historii
+		for ($i = 0; $i < $quantity; $i++) {
+			$data_przedluzenia = date('Y-m-d', strtotime($stara_data . ' +' . ($i + 1) . ' year'));
+			
+			$wpis_historii = array(
+				'data' => srl_get_current_datetime(),
+				'typ' => 'przedluzenie_waznosci',
+				'executor' => 'Klient',
+				'szczegoly' => array(
+					'stara_data_waznosci' => $i == 0 ? $stara_data : date('Y-m-d', strtotime($stara_data . ' +' . $i . ' year')),
+					'nowa_data_waznosci' => $data_przedluzenia,
+					'przedluzenie_lat' => 1,
+					'order_id' => $order_id,
+					'item_id' => $item_id,
+					'quantity_info' => $quantity > 1 ? sprintf('%d/%d', $i + 1, $quantity) : '1/1'
+				)
+			);
 
-        $wpis_historii = array(
-            'data' => srl_get_current_datetime(),
-            'typ' => 'przedluzenie_waznosci',
-            'executor' => 'Klient',
-            'szczegoly' => array(
-                'stara_data_waznosci' => $stara_data,
-                'nowa_data_waznosci' => $nowa_data,
-                'przedluzenie_lat' => $quantity,
-                'order_id' => $order_id,
-                'item_id' => $item_id,
-                'quantity_w_zamowieniu' => $quantity
-            )
-        );
-
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
-    }
+			srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
+			
+			if ($i < $quantity - 1) {
+				usleep(100000);
+			}
+		}
+	}
 
     return $result !== false;
 }

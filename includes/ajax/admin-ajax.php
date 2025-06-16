@@ -323,7 +323,7 @@ function srl_zmien_status_godziny() {
                     'szczegoly' => $szczegoly
                 );
 
-                srl_dopisz_do_historii_lotu_v2($lot['id'], $wpis_historii);
+                srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
             }
         }
 
@@ -470,7 +470,7 @@ function srl_anuluj_lot_przez_organizatora() {
                     )
                 );
 
-                srl_dopisz_do_historii_lotu_v2($lot['id'], $wpis_historii);
+                srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
             }
         }
 
@@ -543,7 +543,7 @@ function srl_ajax_zrealizuj_lot() {
                 )
             );
 
-            srl_dopisz_do_historii_lotu_v2($lot['id'], $wpis_historii);
+            srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
         }
 
         $wpdb->query('COMMIT');
@@ -644,7 +644,7 @@ function srl_ajax_przypisz_wykupiony_lot() {
             )
         );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
 
         $wpdb->query('COMMIT');
 
@@ -912,7 +912,7 @@ function srl_ajax_przypisz_klienta_do_slotu() {
             )
         );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
 
         $wpdb->query('COMMIT');
 
@@ -1180,7 +1180,7 @@ function srl_ajax_pobierz_historie_lotu() {
         return;
     }
 
-    $historia = srl_pobierz_historie_lotu_v2($lot_id);
+    $historia = srl_pobierz_historie_lotu($lot_id);
 
     wp_send_json_success($historia);
 }
@@ -1298,7 +1298,7 @@ function srl_ajax_przywroc_rezerwacje() {
                 )
             );
 
-            srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+            srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
         }
 
         $wpdb->query('COMMIT');

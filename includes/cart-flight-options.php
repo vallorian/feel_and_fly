@@ -79,46 +79,24 @@ function srl_process_flight_options_purchase($order_id, $old_status, $new_status
     if (!in_array($new_status, array('processing', 'completed'))) {
         return;
     }
-
+    
     $order = wc_get_order($order_id);
     if (!$order) return;
-
+    
     $opcje_produkty = srl_get_flight_option_product_ids();
-
+    
     foreach ($order->get_items() as $item_id => $item) {
         $product_id = $item->get_product_id();
         $lot_id = $item->get_meta('_srl_lot_id');
-
+        $quantity = $item->get_quantity();
+        
         if ($lot_id && in_array($product_id, $opcje_produkty)) {
             if ($product_id == $opcje_produkty['przedluzenie']) {
-
+                srl_dokup_przedluzenie($lot_id, $order_id, $item_id, $quantity);
             } elseif ($product_id == $opcje_produkty['filmowanie']) {
-                global $wpdb;
-                $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-                $lot = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabela WHERE id = %d", $lot_id), ARRAY_A);
-
-                if ($lot) {
-                    srl_ustaw_opcje_lotu(
-                        $lot_id, 
-                        1,
-                        $lot['ma_akrobacje'],
-                        "Dokupiono filmowanie (zamówienie #$order_id)"
-                    );
-                }
-
+                srl_dokup_filmowanie($lot_id, $order_id, $item_id, $quantity);
             } elseif ($product_id == $opcje_produkty['akrobacje']) {
-                global $wpdb;
-                $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-                $lot = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabela WHERE id = %d", $lot_id), ARRAY_A);
-
-                if ($lot) {
-                    srl_ustaw_opcje_lotu(
-                        $lot_id, 
-                        $lot['ma_filmowanie'],
-                        1,
-                        "Dokupiono akrobacje (zamówienie #$order_id)"
-                    );
-                }
+                srl_dokup_akrobacje($lot_id, $order_id, $item_id, $quantity);
             }
         }
     }

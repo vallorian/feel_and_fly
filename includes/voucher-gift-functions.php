@@ -177,20 +177,58 @@ function srl_wykorzystaj_voucher($kod_vouchera, $user_id) {
 
         $lot_id = $wpdb->insert_id;
 
-        if ($opcje_produktu['ma_filmowanie'] || $opcje_produktu['ma_akrobacje']) {
-            $opcje_tekst = array();
-            if ($opcje_produktu['ma_filmowanie']) $opcje_tekst[] = 'filmowanie';
-            if ($opcje_produktu['ma_akrobacje']) $opcje_tekst[] = 'akrobacje';
+		$historia_poczatkowa = array();
 
-            if (function_exists('srl_ustaw_opcje_lotu')) {
-                srl_ustaw_opcje_lotu(
-                    $lot_id, 
-                    $opcje_produktu['ma_filmowanie'], 
-                    $opcje_produktu['ma_akrobacje'], 
-                    'Lot z vouchera z opcjami: ' . implode(', ', $opcje_tekst)
-                );
-            }
-        }
+		$historia_poczatkowa[] = array(
+			'data' => $data_wykorzystania,
+			'typ' => 'przypisanie_id',
+			'executor' => 'System',
+			'szczegoly' => array(
+				'lot_id' => $lot_id,
+				'nazwa_produktu' => $voucher['nazwa_produktu'],
+				'kod_vouchera' => $kod_vouchera,
+				'voucher_id' => $voucher['id'],
+				'user_id' => $user_id,
+				'data_waznosci' => $data_waznosci_lotu,
+				'zrodlo' => 'voucher'
+			)
+		);
+
+		if ($opcje_produktu['ma_filmowanie']) {
+			$historia_poczatkowa[] = array(
+				'data' => $data_wykorzystania,
+				'typ' => 'opcja_przy_zakupie',
+				'executor' => 'System',
+				'szczegoly' => array(
+					'opcja' => 'filmowanie',
+					'dodano_przy_zakupie' => true,
+					'zrodlo' => 'voucher',
+					'kod_vouchera' => $kod_vouchera
+				)
+			);
+		}
+
+		if ($opcje_produktu['ma_akrobacje']) {
+			$historia_poczatkowa[] = array(
+				'data' => $data_wykorzystania,
+				'typ' => 'opcja_przy_zakupie',
+				'executor' => 'System',
+				'szczegoly' => array(
+					'opcja' => 'akrobacje',
+					'dodano_przy_zakupie' => true,
+					'zrodlo' => 'voucher',
+					'kod_vouchera' => $kod_vouchera
+				)
+			);
+		}
+
+		$wpdb->update(
+			$tabela_loty,
+			array('historia_modyfikacji' => json_encode($historia_poczatkowa)),
+			array('id' => $lot_id),
+			array('%s'),
+			array('%d')
+		);
 
         $result_voucher = $wpdb->update(
             $tabela_vouchery,

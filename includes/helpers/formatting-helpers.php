@@ -203,31 +203,3 @@ function srl_formatuj_date_i_czas_polski($data, $godzina_start) {
            '<div class="srl-termin-dzien">' . $nazwy_dni[$dzien_tygodnia] . '</div>';
 }
 
-function srl_formatuj_nazwe_akcji($modyfikacja) {
-    if (isset($modyfikacja['typ'])) {
-        switch ($modyfikacja['typ']) {
-            case 'przedluzenie':
-                return 'Przedłużenie ważności';
-            case 'zmiana_opcji':
-                return 'Zmiana opcji lotu';
-            case 'anulowanie':
-                return 'Anulowanie rezerwacji';
-            default:
-                return 'Modyfikacja';
-        }
-    }
-
-    $opis = strtolower($modyfikacja['opis'] ?? '');
-
-    if (strpos($opis, 'filmowanie') !== false) {
-        return 'Zmiana opcji filmowania';
-    } elseif (strpos($opis, 'akrobacje') !== false) {
-        return 'Zmiana opcji akrobacji';
-    } elseif (strpos($opis, 'przedłuż') !== false) {
-        return 'Przedłużenie ważności';
-    } elseif (strpos($opis, 'anulował') !== false || strpos($opis, 'odwołał') !== false) {
-        return 'Anulowanie przez organizatora';
-    }
-
-    return 'Modyfikacja danych';
-}

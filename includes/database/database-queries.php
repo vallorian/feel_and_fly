@@ -145,11 +145,6 @@ function srl_zwroc_godziny_wg_pilota($data) {
     ));
 }
 
-function srl_pobierz_pelna_historie_lotu($lot_id) {
-
-    return srl_pobierz_historie_lotu_v2($lot_id);
-}
-
 function srl_pobierz_szczegoly_terminu($termin_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_terminy';

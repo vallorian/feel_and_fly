@@ -106,10 +106,12 @@ function srl_uproszczony_opis_akcji($typ, $szczegoly) {
             return 'Zmiana statusu przez administratora';
 
         case 'dokupienie_filmowanie':
-            return 'Dokupiono opcję <strong>filmowania</strong>';
+			$quantity_info = isset($szczegoly['quantity_info']) ? ' (' . $szczegoly['quantity_info'] . ')' : '';
+			return 'Dokupiono opcję <strong>filmowania</strong>' . $quantity_info;
 
-        case 'dokupienie_akrobacje':
-            return 'Dokupiono opcję <strong>akrobacji</strong>';
+		case 'dokupienie_akrobacje':
+			$quantity_info = isset($szczegoly['quantity_info']) ? ' (' . $szczegoly['quantity_info'] . ')' : '';
+			return 'Dokupiono opcję <strong>akrobacji</strong>' . $quantity_info;
 
         case 'przedluzenie_waznosci':
             if (isset($szczegoly['nowa_data_waznosci'])) {
@@ -179,32 +181,16 @@ function srl_czy_duplikat($nowy_wpis, $istniejace_wpisy) {
         }
 
         if ($wpis['typ'] === $nowy_wpis['typ'] && 
-            $wpis['executor'] === $nowy_wpis['executor']) {
-
-            if ($nowy_wpis['typ'] === 'zmiana_statusu_admin') {
-                $nowe_szczegoly = $nowy_wpis['szczegoly'];
-                $stare_szczegoly = $wpis['szczegoly'];
-
-                if (isset($nowe_szczegoly['stary_status']) && isset($nowe_szczegoly['nowy_status']) &&
-                    isset($stare_szczegoly['stary_status']) && isset($stare_szczegoly['nowy_status'])) {
-
-                    if ($nowe_szczegoly['stary_status'] === $stare_szczegoly['stary_status'] &&
-                        $nowe_szczegoly['nowy_status'] === $stare_szczegoly['nowy_status']) {
-                        return true; 
-                    }
-                }
-            }
-
-            if (abs($czas_wpisu - strtotime($nowy_wpis['data'])) < 60) { 
-                return true;
-            }
+            $wpis['executor'] === $nowy_wpis['executor'] &&
+            abs($czas_wpisu - strtotime($nowy_wpis['data'])) < 60) {
+            return true;
         }
     }
 
     return false;
 }
 
-function srl_dopisz_do_historii_lotu_v2($lot_id, $wpis) {
+function srl_dopisz_do_historii_lotu($lot_id, $wpis) {
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
 
@@ -252,12 +238,7 @@ function srl_dopisz_do_historii_lotu_v2($lot_id, $wpis) {
     return $result !== false;
 }
 
-function srl_formatuj_nazwe_akcji_v2($wpis) {
-    $kategoria = srl_kategoryzuj_akcje($wpis['typ']);
-    return $kategoria;
-}
-
-function srl_pobierz_historie_lotu_v2($lot_id) {
+function srl_pobierz_historie_lotu($lot_id) {
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
 
@@ -280,7 +261,7 @@ function srl_pobierz_historie_lotu_v2($lot_id) {
                     'timestamp' => strtotime($modyfikacja['data']),
                     'date' => $modyfikacja['data'],
                     'type' => $modyfikacja['typ'],
-                    'action_name' => srl_formatuj_nazwe_akcji_v2($modyfikacja),
+                    'action_name' => srl_formatuj_nazwe_akcji($modyfikacja),
                     'executor' => isset($modyfikacja['executor']) ? $modyfikacja['executor'] : 'System',
                     'details' => srl_uproszczony_opis_akcji($modyfikacja['typ'], $modyfikacja['szczegoly'] ?? array()),
                     'formatted_date' => date('d.m.Y H:i', strtotime($modyfikacja['data']))

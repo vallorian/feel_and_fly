@@ -36,56 +36,6 @@ function srl_analiza_opcji_produktu($nazwa_produktu) {
     return $opcje;
 }
 
-function srl_ustaw_opcje_lotu($lot_id, $ma_filmowanie, $ma_akrobacje, $opis_zmiany = '', $executor = 'System') {
-    global $wpdb;
-    $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-
-    $lot = $wpdb->get_row($wpdb->prepare(
-        "SELECT ma_filmowanie, ma_akrobacje FROM $tabela WHERE id = %d",
-        $lot_id
-    ), ARRAY_A);
-
-    if (!$lot) {
-        return false;
-    }
-
-    $stary_filmowanie = $lot['ma_filmowanie'];
-    $stary_akrobacje = $lot['ma_akrobacje'];
-
-    $result = $wpdb->update(
-        $tabela,
-        array(
-            'ma_filmowanie' => $ma_filmowanie,
-            'ma_akrobacje' => $ma_akrobacje
-        ),
-        array('id' => $lot_id),
-        array('%d', '%d'),
-        array('%d')
-    );
-
-    if ($result !== false && !empty($opis_zmiany)) {
-
-        $wpis_historii = array(
-            'data' => srl_get_current_datetime(),
-            'opis' => $opis_zmiany,
-            'typ' => 'zmiana_opcji',
-            'executor' => $executor,
-            'szczegoly' => array(
-                'stary_filmowanie' => $stary_filmowanie,
-                'nowy_filmowanie' => $ma_filmowanie,
-                'stary_akrobacje' => $stary_akrobacje,
-                'nowy_akrobacje' => $ma_akrobacje,
-                'zmiana_filmowanie' => $stary_filmowanie != $ma_filmowanie,
-                'zmiana_akrobacje' => $stary_akrobacje != $ma_akrobacje
-            )
-        );
-
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
-    }
-
-    return $result !== false;
-}
-
 function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
@@ -127,7 +77,7 @@ function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
             )
         );
 
-        srl_dopisz_do_historii_lotu_v2($lot_id, $wpis_historii);
+        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
     }
 
     return $result !== false;
