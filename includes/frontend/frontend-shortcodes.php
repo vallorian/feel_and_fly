@@ -1,17 +1,14 @@
 <?php
 
-/**
- * Generuje sekcję voucherów (wspólna dla różnych miejsc)
- */
 function srl_generuj_sekcje_voucherow($show_title = true) {
     ob_start();
     ?>
     <?php if ($show_title): ?>
     <h3>Kup lub dodaj voucher</h3>
     <?php endif; ?>
-    
+
 <div class="srl-voucher-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
-    
+
     <!-- Kup lot - PIERWSZE MIEJSCE -->
     <div class="srl-voucher-card">
         <div class="srl-voucher-header" style="background: linear-gradient(135deg, #46b450, #3ba745); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -22,7 +19,7 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
             <a href="/produkt/lot-w-tandemie/" class="srl-btn srl-btn-success" style="text-decoration: none; display: block; text-align: center;">Przejdź do sklepu</a>
         </div>
     </div>
-    
+
     <!-- Wykorzystaj Voucher Feel&Fly - DRUGIE MIEJSCE -->
     <div class="srl-voucher-card" id="srl-voucher-feelfly">
         <div class="srl-voucher-header" style="background: linear-gradient(135deg, #0073aa, #005a87); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -41,7 +38,7 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
             <button id="srl-voucher-show" class="srl-btn srl-btn-primary" style="width: 100%;">Mam voucher</button>
         </div>
     </div>
-    
+
     <!-- Wykorzystaj Voucher partnera - TRZECIE MIEJSCE -->
     <div class="srl-voucher-card" style="opacity: 0.6;">
         <div class="srl-voucher-header" style="background: linear-gradient(135deg, #6c757d, #5a6268); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -57,45 +54,39 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
     return ob_get_clean();
 }
 
-/**
- * Generuje JavaScript dla obsługi voucherów
- */
 function srl_generuj_js_voucherow() {
     ?>
     <script>
     jQuery(document).ready(function($) {
-        // Pokaż formularz vouchera
+
         $(document).on('click', '#srl-voucher-show', function() {
             $('#srl-voucher-show').hide();
             $('#srl-voucher-form').show();
             $('#srl-voucher-code').focus();
         });
-        
-        // Anuluj voucher
+
         $(document).on('click', '#srl-voucher-cancel', function() {
             $('#srl-voucher-form').hide();
             $('#srl-voucher-show').show();
             $('#srl-voucher-code').val('');
         });
-        
-        // Automatyczne formatowanie kodu vouchera
+
         $(document).on('input', '#srl-voucher-code', function() {
             var value = $(this).val().toUpperCase().replace(/[^A-Z0-9]/g, '');
             $(this).val(value);
         });
-        
-        // Zatwierdź voucher
+
         $(document).on('click', '#srl-voucher-submit', function() {
             var kod = $('#srl-voucher-code').val().trim();
-            
+
 			if (kod.length < 1) {
 				alert('Wprowadź kod vouchera.');
 				return;
 			}
-            
+
             var button = $(this);
             button.prop('disabled', true).text('Sprawdzanie...');
-            
+
             $.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
                 method: 'POST',
@@ -127,37 +118,32 @@ function srl_generuj_js_voucherow() {
     <?php
 }
 
-
-// Rejestracja shortcode dla kalendarza front-end
 add_shortcode('srl_kalendarz', 'srl_shortcode_kalendarz');
 function srl_shortcode_kalendarz() {
-    // Sprawdź czy użytkownik jest zalogowany
+
     if (!is_user_logged_in()) {
         return srl_komunikat_niezalogowany();
     }
-    
+
     $user_id = get_current_user_id();
-    
-    // Sprawdź czy ma jakieś loty do wykorzystania
+
     $loty_dostepne = srl_pobierz_dostepne_loty($user_id);
     if (empty($loty_dostepne)) {
         return srl_komunikat_brak_lotow();
     }
-    
-    // Enqueue scripts i styles
+
     wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), '1.0', true);
     wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), '1.0');
-    
-    // Przekaż dane do JS	
+
 	wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
 		'ajaxurl' => admin_url('admin-ajax.php'),
 		'nonce' => wp_create_nonce('srl_frontend_nonce'),
 		'user_id' => $user_id
 	));
-    
+
     ob_start();
     ?>
-    
+
     <div id="srl-rezerwacja-container">
         <!-- Progress Bar -->
 		<div class="srl-progress-bar">
@@ -186,7 +172,7 @@ function srl_shortcode_kalendarz() {
         <!-- Krok 1: Wybór rezerwacji -->
         <div id="srl-krok-1" class="srl-krok srl-krok-active">
             <h2>👋 Witaj!</h2>
-            
+
             <!-- Aktualne rezerwacje i wykupione loty -->
             <div id="srl-aktualne-rezerwacje">
                 <h3 style="text-transform: uppercase;">Twoje aktualne rezerwacje i wykupione loty</h3>
@@ -194,7 +180,7 @@ function srl_shortcode_kalendarz() {
                     <div class="srl-loader">Ładowanie...</div>
                 </div>
             </div>
-            
+
             <!-- Sekcja voucherów i zakupów -->
             <div id="srl-voucher-section" style="margin-top: 30px;">
                 <?php echo srl_generuj_sekcje_voucherow(true); ?>
@@ -204,13 +190,13 @@ function srl_shortcode_kalendarz() {
 		<!-- Krok 2: Twoje dane -->
 		<div id="srl-krok-2" class="srl-krok">
 			<h2 style="text-transform: uppercase;">Twoje dane</h2>
-			
+
 			<!-- Wybrany lot do rezerwacji -->
 			<div id="srl-wybrany-lot-info" style="margin-bottom:30px;">
 				<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Wybrany lot do rezerwacji:</h3>
 				<div id="srl-wybrany-lot-szczegoly"></div>
 			</div>
-			
+
 			<!-- Formularz danych pasażera -->
 			<div id="srl-dane-pasazera">
 				<h3  style="text-transform: uppercase;">Dane pasażera</h3>
@@ -254,12 +240,12 @@ function srl_shortcode_kalendarz() {
 							<option value="120kg+">120kg+</option>
 							</select>
 						</div>
-						
+
 						<!-- Komunikat o wadze na całą szerokość -->
 						<div class="srl-form-group srl-full-width">
 							<div id="srl-waga-ostrzezenie" style="display:none; margin-bottom:15px; border-radius:8px;"></div>
 						</div>
-						
+
 						<div class="srl-form-group srl-full-width">
 							<label for="srl-uwagi">Dodatkowe uwagi</label>
 							<textarea id="srl-uwagi" name="uwagi" rows="3" placeholder="Np. alergie, obawy, specjalne potrzeby..."></textarea>
@@ -271,7 +257,7 @@ function srl_shortcode_kalendarz() {
 							</label>
 						</div>
 					</div>
-					
+
 					<div class="srl-form-actions">
 						<button id="srl-powrot-krok-1" class="srl-btn srl-btn-secondary">← Powrót</button>
 						<button type="submit" class="srl-btn srl-btn-primary">
@@ -303,7 +289,7 @@ function srl_shortcode_kalendarz() {
 					</div>
 				</div>
 			</div>
-			
+
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-2" class="srl-btn srl-btn-secondary">← Powrót</button>
 			</div>
@@ -314,7 +300,7 @@ function srl_shortcode_kalendarz() {
 			<h2 style="text-transform: uppercase;">Wybierz godzinę lotu</h2>
 			<div id="srl-wybrany-dzien-info"></div>
 			<div id="srl-harmonogram-frontend"></div>
-			
+
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-3" class="srl-btn srl-btn-secondary">← Zmień dzień</button>
 				<button id="srl-dalej-krok-5" class="srl-btn srl-btn-primary" style="display:none;">
@@ -326,23 +312,23 @@ function srl_shortcode_kalendarz() {
 		<!-- Krok 5: Potwierdzenie -->
 		<div id="srl-krok-5" class="srl-krok">
 			<h2 style="text-transform: uppercase;">✅ Potwierdzenie rezerwacji</h2>
-			
+
 			<div id="srl-podsumowanie-rezerwacji">
 				<div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">
 					<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Podsumowanie rezerwacji</h3>
-					
+
 					<div class="srl-podsumowanie-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0;">
 						<div id="srl-wybrany-lot-podsumowanie"><strong>🎫 Wybrany lot:</strong><br><span id="srl-lot-details">Ładowanie...</span></div>
 						<div id="srl-data-godzina-podsumowanie"><strong>📅 Data i godzina lotu:</strong><br><span id="srl-datetime-details">Ładowanie...</span></div>
 					</div>
-					
+
 					<div class="srl-dane-pasazera-box" style="background:#f8f9fa; padding-top:30px; border-radius:8px; margin-top:20px;">
 						<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Dane pasażera</h3>
 						<div id="srl-dane-pasazera-podsumowanie">
 							<!-- Dane będą wypełnione przez JS -->
 						</div>
 					</div>
-					
+
 					<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:20px;">
 						<h4 style="margin-top:0; color:#f57c00;">⚠️ Ważne informacje:</h4>
 						<ul style="margin:0; padding-left:20px;">
@@ -354,7 +340,7 @@ function srl_shortcode_kalendarz() {
 					</div>
 				</div>
 			</div>
-			
+
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-4" class="srl-btn srl-btn-secondary">← Zmień godzinę</button>
 				<button id="srl-potwierdz-rezerwacje" class="srl-btn srl-btn-success">
@@ -362,24 +348,23 @@ function srl_shortcode_kalendarz() {
 				</button>
 			</div>
 		</div>
-        
+
 		<!-- Komunikaty -->
         <div id="srl-komunikaty"></div>
-        
+
         <!-- Komunikat o dodaniu do koszyka (jak w moje konto) -->
         <div id="srl-cart-notification" style="display:none; position:fixed; top:20px; right:20px; background:#46b450; color:white; padding:15px 20px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
             <div id="srl-cart-message"></div>
             <a href="<?php echo function_exists('wc_get_cart_url') ? wc_get_cart_url() : '/koszyk/'; ?>" class="button" style="margin-top:10px; background:white; color:#46b450; text-decoration:none; display:inline-block; padding:8px 15px; border-radius:4px; font-weight:600;">Przejdź do koszyka</a>
         </div>
     </div>
-    
+
 	<?php 
 	srl_generuj_js_voucherow(); 
 
 	return ob_get_clean();
 }
 
-// Komunikat dla niezalogowanych z formularzami logowania i rejestracji
 function srl_komunikat_niezalogowany() {
     ob_start();
     ?>
@@ -388,13 +373,13 @@ function srl_komunikat_niezalogowany() {
             <h3  style="text-transform: uppercase;">Logowanie wymagane</h3>
             <p>Aby dokonać rezerwacji lotu lub wykorzystać voucher, musisz być zalogowany.</p>
         </div>
-        
+
         <!-- Tabs -->
         <div class="srl-auth-tabs">
             <button class="srl-tab-btn srl-tab-active" data-tab="login">Logowanie</button>
             <button class="srl-tab-btn" data-tab="register">Rejestracja</button>
         </div>
-        
+
         <!-- Login Form -->
         <div id="srl-login-tab" class="srl-tab-content srl-tab-active">
             <form id="srl-login-form">
@@ -415,17 +400,17 @@ function srl_komunikat_niezalogowany() {
                         </label>
                     </div>
                 </div>
-                
+
                 <div class="srl-auth-actions">
                     <button type="submit" class="srl-btn srl-btn-primary srl-btn-large">Zaloguj się</button>
                 </div>
-                
+
                 <div class="srl-auth-footer">
                     <a href="<?php echo wp_lostpassword_url(get_permalink()); ?>">Zapomniałeś hasła?</a>
                 </div>
             </form>
         </div>
-        
+
         <!-- Register Form -->
         <div id="srl-register-tab" class="srl-tab-content">
             <form id="srl-register-form">
@@ -451,37 +436,36 @@ function srl_komunikat_niezalogowany() {
                         <input type="text" id="srl-register-last-name" name="last_name" required>
                     </div>
                 </div>
-                
+
                 <div class="srl-auth-actions">
                     <button type="submit" class="srl-btn srl-btn-primary srl-btn-large">Załóż konto</button>
                 </div>
             </form>
         </div>
-        
+
         <div id="srl-auth-messages"></div>
     </div>
-    
+
     <script>
     jQuery(document).ready(function($) {
-        // Tab switching
+
         $('.srl-tab-btn').on('click', function() {
             var tabId = $(this).data('tab');
-            
+
             $('.srl-tab-btn').removeClass('srl-tab-active');
             $('.srl-tab-content').removeClass('srl-tab-active');
-            
+
             $(this).addClass('srl-tab-active');
             $('#srl-' + tabId + '-tab').addClass('srl-tab-active');
         });
-        
-        // Login form
+
         $('#srl-login-form').on('submit', function(e) {
             e.preventDefault();
-            
+
             var submitBtn = $(this).find('button[type="submit"]');
             var originalText = submitBtn.text();
             submitBtn.prop('disabled', true).text('Logowanie...');
-            
+
             var formData = {
                 action: 'srl_ajax_login',
                 username: $('#srl-login-username').val(),
@@ -489,7 +473,7 @@ function srl_komunikat_niezalogowany() {
                 remember: $('#srl-login-remember').is(':checked'),
                 nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
             };
-            
+
             $.post('<?php echo admin_url('admin-ajax.php'); ?>', formData, function(response) {
                 if (response.success) {
                     $('#srl-auth-messages').html('<div class="srl-komunikat srl-komunikat-success">Zalogowano pomyślnie! Przekierowywanie...</div>');
@@ -502,23 +486,22 @@ function srl_komunikat_niezalogowany() {
                 }
             });
         });
-        
-        // Register form
+
         $('#srl-register-form').on('submit', function(e) {
             e.preventDefault();
-            
+
             var password = $('#srl-register-password').val();
             var passwordConfirm = $('#srl-register-password-confirm').val();
-            
+
             if (password !== passwordConfirm) {
                 $('#srl-auth-messages').html('<div class="srl-komunikat srl-komunikat-error">Hasła nie są identyczne.</div>');
                 return;
             }
-            
+
             var submitBtn = $(this).find('button[type="submit"]');
             var originalText = submitBtn.text();
             submitBtn.prop('disabled', true).text('Tworzenie konta...');
-            
+
             var formData = {
                 action: 'srl_ajax_register',
                 email: $('#srl-register-email').val(),
@@ -527,7 +510,7 @@ function srl_komunikat_niezalogowany() {
                 last_name: $('#srl-register-last-name').val(),
                 nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
             };
-            
+
             $.post('<?php echo admin_url('admin-ajax.php'); ?>', formData, function(response) {
                 if (response.success) {
                     $('#srl-auth-messages').html('<div class="srl-komunikat srl-komunikat-success">Konto zostało utworzone! Zalogowano automatycznie. Przekierowywanie...</div>');
@@ -546,7 +529,6 @@ function srl_komunikat_niezalogowany() {
     return ob_get_clean();
 }
 
-// Komunikat dla użytkowników bez lotów z opcjami voucherów
 function srl_komunikat_brak_lotow() {
     ob_start();
     ?>
@@ -554,28 +536,26 @@ function srl_komunikat_brak_lotow() {
         <h3>Brak dostępnych lotów</h3>
         <p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p>
     </div>
-    
+
     <!-- Sekcja voucherów i zakupów -->
     <div id="srl-voucher-section" style="margin-top: 30px;">
         <?php echo srl_generuj_sekcje_voucherow(); ?>
     </div>
-    
+
     <?php srl_generuj_js_voucherow(); ?>
     <?php
     return ob_get_clean();
 }
 
-// Pobiera dostępne loty użytkownika
 function srl_pobierz_dostepne_loty($user_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-    
-    // Sprawdź czy tabela istnieje
+
     $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela'") == $tabela;
     if (!$table_exists) {
         return array();
     }
-    
+
     $wynik = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM $tabela 
          WHERE user_id = %d 
@@ -584,6 +564,6 @@ function srl_pobierz_dostepne_loty($user_id) {
          ORDER BY data_zakupu DESC",
         $user_id
     ), ARRAY_A);
-    
+
     return $wynik;
 }

@@ -1,7 +1,10 @@
-<?php function srl_wyswietl_vouchery() {
+<?php
+
+function srl_wyswietl_vouchery() {
     global $wpdb;
     $tabela_vouchery = $wpdb->prefix . 'srl_vouchery';
     $voucherzy = $wpdb->get_results("SELECT * FROM $tabela_vouchery WHERE status = 'Oczekuje'");
+
     echo '<div class="wrap"><h1>Vouchery oczekujące na potwierdzenie</h1>';
     echo '<table class="widefat"><thead><tr><th>Imię i nazwisko</th><th>Data zgłoszenia</th><th>Kod Vouchera</th><th>Źródło</th><th>Akcje</th></tr></thead><tbody>';
     foreach ($voucherzy as $voucher) {
@@ -21,6 +24,7 @@
     }
     echo '</tbody></table></div>';
 }
+
 add_action('admin_init', 'srl_przetwarzaj_vouchery');
 function srl_przetwarzaj_vouchery() {
     if (isset($_POST['srl_zatwierdz_voucher'])) {
