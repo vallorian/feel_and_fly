@@ -1,14 +1,9 @@
-<?php
-
-/**
- * Generuje sekcję voucherów (wspólna dla różnych miejsc)
- */
-function srl_generuj_sekcje_voucherow($show_title = true) {
-    ob_start();
-    ?>
+<?php function srl_generuj_sekcje_voucherow($show_title = true) {
+    ob_start(); ?>
     <?php if ($show_title): ?>
     <h3>Kup lub dodaj voucher</h3>
-    <?php endif; ?>
+    <?php
+    endif; ?>
     
 <div class="srl-voucher-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
     
@@ -53,15 +48,9 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
         </div>
     </div>
 </div>
-    <?php
-    return ob_get_clean();
+    <?php return ob_get_clean();
 }
-
-/**
- * Generuje JavaScript dla obsługi voucherów
- */
-function srl_generuj_js_voucherow() {
-    ?>
+function srl_generuj_js_voucherow() { ?>
     <script>
     jQuery(document).ready(function($) {
         // Pokaż formularz vouchera
@@ -126,37 +115,20 @@ function srl_generuj_js_voucherow() {
     </script>
     <?php
 }
-
-
-// Rejestracja shortcode dla kalendarza front-end
 add_shortcode('srl_kalendarz', 'srl_shortcode_kalendarz');
 function srl_shortcode_kalendarz() {
-    // Sprawdź czy użytkownik jest zalogowany
     if (!is_user_logged_in()) {
         return srl_komunikat_niezalogowany();
     }
-    
     $user_id = get_current_user_id();
-    
-    // Sprawdź czy ma jakieś loty do wykorzystania
     $loty_dostepne = srl_pobierz_dostepne_loty($user_id);
     if (empty($loty_dostepne)) {
         return srl_komunikat_brak_lotow();
     }
-    
-    // Enqueue scripts i styles
     wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), '1.0', true);
     wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), '1.0');
-    
-    // Przekaż dane do JS	
-	wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
-		'ajaxurl' => admin_url('admin-ajax.php'),
-		'nonce' => wp_create_nonce('srl_frontend_nonce'),
-		'user_id' => $user_id
-	));
-    
-    ob_start();
-    ?>
+    wp_localize_script('srl-frontend-calendar', 'srlFrontend', array('ajaxurl' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('srl_frontend_nonce'), 'user_id' => $user_id));
+    ob_start(); ?>
     
     <div id="srl-rezerwacja-container">
         <!-- Progress Bar -->
@@ -373,16 +345,11 @@ function srl_shortcode_kalendarz() {
         </div>
     </div>
     
-	<?php 
-	srl_generuj_js_voucherow(); 
-
-	return ob_get_clean();
+	<?php srl_generuj_js_voucherow();
+    return ob_get_clean();
 }
-
-// Komunikat dla niezalogowanych z formularzami logowania i rejestracji
 function srl_komunikat_niezalogowany() {
-    ob_start();
-    ?>
+    ob_start(); ?>
     <div id="srl-auth-container">
         <div class="srl-auth-header">
             <h3  style="text-transform: uppercase;">Logowanie wymagane</h3>
@@ -542,48 +509,31 @@ function srl_komunikat_niezalogowany() {
         });
     });
     </script>
-    <?php
-    return ob_get_clean();
+    <?php return ob_get_clean();
 }
-
-// Komunikat dla użytkowników bez lotów z opcjami voucherów
 function srl_komunikat_brak_lotow() {
-    ob_start();
-    ?>
+    ob_start(); ?>
     <div class="srl-komunikat srl-komunikat-info">
         <h3>Brak dostępnych lotów</h3>
         <p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p>
     </div>
-    
-    <!-- Sekcja voucherów i zakupów -->
     <div id="srl-voucher-section" style="margin-top: 30px;">
         <?php echo srl_generuj_sekcje_voucherow(); ?>
     </div>
-    
     <?php srl_generuj_js_voucherow(); ?>
-    <?php
-    return ob_get_clean();
+    <?php return ob_get_clean();
 }
-
-// Pobiera dostępne loty użytkownika
 function srl_pobierz_dostepne_loty($user_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-    
-    // Sprawdź czy tabela istnieje
     $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela'") == $tabela;
     if (!$table_exists) {
         return array();
     }
-    
-    $wynik = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM $tabela 
+    $wynik = $wpdb->get_results($wpdb->prepare("SELECT * FROM $tabela 
          WHERE user_id = %d 
          AND status IN ('wolny', 'zarezerwowany') 
          AND data_waznosci >= CURDATE()
-         ORDER BY data_zakupu DESC",
-        $user_id
-    ), ARRAY_A);
-    
+         ORDER BY data_zakupu DESC", $user_id), ARRAY_A);
     return $wynik;
 }

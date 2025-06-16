@@ -1,16 +1,9 @@
-<?php
-/**
- * Konfiguracja i aktualizacja bazy danych
- */
-
-if (!defined('ABSPATH')) {
+<?php if (!defined('ABSPATH')) {
     exit;
 }
-
 function srl_aktywacja_wtyczki() {
     global $wpdb;
     $charset_collate = $wpdb->get_charset_collate();
-
     $tabela_terminy = $wpdb->prefix . 'srl_terminy';
     $sql_terminy = "CREATE TABLE $tabela_terminy (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -24,7 +17,6 @@ function srl_aktywacja_wtyczki() {
         KEY data (data),
         KEY pilot_id (pilot_id)
     ) $charset_collate;";
-
     $tabela_vouchery = $wpdb->prefix . 'srl_vouchery';
     $sql_vouchery = "CREATE TABLE $tabela_vouchery (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -36,7 +28,6 @@ function srl_aktywacja_wtyczki() {
         PRIMARY KEY  (id),
         UNIQUE KEY kod_vouchera (kod_vouchera)
     ) $charset_collate;";
-
     $tabela_zakupione_loty = $wpdb->prefix . 'srl_zakupione_loty';
     $sql_zakupione_loty = "CREATE TABLE $tabela_zakupione_loty (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -57,53 +48,39 @@ function srl_aktywacja_wtyczki() {
         KEY status (status),
         KEY data_waznosci (data_waznosci)
     ) $charset_collate;";
-
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    require_once (ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql_terminy);
     dbDelta($sql_vouchery);
     dbDelta($sql_zakupione_loty);
-
     srl_aktualizuj_baze();
     srl_utworz_kategorie_produktow();
     srl_utworz_strone_rezerwacji();
     srl_dodaj_endpointy();
     flush_rewrite_rules();
-
     update_option('srl_db_version', '1.0');
-    
     if (!get_option('users_can_register')) {
         update_option('users_can_register', 1);
     }
 }
-
 function srl_aktualizuj_baze() {
     global $wpdb;
-    
     $current_version = get_option('srl_db_version', '1.0');
-    
     if (version_compare($current_version, '1.1', '<')) {
         $tabela_terminy = $wpdb->prefix . 'srl_terminy';
         $wpdb->query("ALTER TABLE $tabela_terminy MODIFY COLUMN status ENUM('Wolny','Prywatny','Zarezerwowany','Zrealizowany','Odwołany przez organizatora') DEFAULT 'Wolny' NOT NULL");
         update_option('srl_db_version', '1.1');
     }
-    
     if (version_compare($current_version, '1.2', '<')) {
         $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-        
         $kolumna_istnieje = $wpdb->get_results("SHOW COLUMNS FROM $tabela_loty LIKE 'dane_pasazera'");
-        
         if (empty($kolumna_istnieje)) {
             $wpdb->query("ALTER TABLE $tabela_loty ADD COLUMN dane_pasazera TEXT NULL AFTER termin_id");
         }
-        
         update_option('srl_db_version', '1.2');
     }
-    
     if (version_compare($current_version, '1.3', '<')) {
         $tabela_vouchery_upominkowe = $wpdb->prefix . 'srl_vouchery_upominkowe';
-        
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela_vouchery_upominkowe'") == $tabela_vouchery_upominkowe;
-        
         if (!$table_exists) {
             $charset_collate = $wpdb->get_charset_collate();
             $sql_vouchery_upominkowe = "CREATE TABLE $tabela_vouchery_upominkowe (
@@ -129,71 +106,51 @@ function srl_aktualizuj_baze() {
                 KEY idx_data_waznosci (data_waznosci),
                 KEY idx_wykorzystany_przez_user_id (wykorzystany_przez_user_id)
             ) $charset_collate;";
-            
-            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            require_once (ABSPATH . 'wp-admin/includes/upgrade.php');
             dbDelta($sql_vouchery_upominkowe);
-            
             error_log('SRL: Tabela voucherów utworzona w wersji 1.3');
         }
-        
         update_option('srl_db_version', '1.3');
     }
-
     if (version_compare($current_version, '1.4', '<')) {
         $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-        
         $kolumny = $wpdb->get_results("SHOW COLUMNS FROM $tabela_loty");
         $existing_columns = array();
         foreach ($kolumny as $kolumna) {
             $existing_columns[] = $kolumna->Field;
         }
-        
         if (!in_array('ma_filmowanie', $existing_columns)) {
             $wpdb->query("ALTER TABLE $tabela_loty ADD COLUMN ma_filmowanie TINYINT(1) DEFAULT 0 AFTER dane_pasazera");
         }
-        
         if (!in_array('ma_akrobacje', $existing_columns)) {
             $wpdb->query("ALTER TABLE $tabela_loty ADD COLUMN ma_akrobacje TINYINT(1) DEFAULT 0 AFTER ma_filmowanie");
         }
-        
         if (!in_array('historia_modyfikacji', $existing_columns)) {
             $wpdb->query("ALTER TABLE $tabela_loty ADD COLUMN historia_modyfikacji TEXT NULL AFTER ma_akrobacje");
         }
-            
         update_option('srl_db_version', '1.4');
     }
-
     if (version_compare($current_version, '1.5', '<')) {
         $tabela_terminy = $wpdb->prefix . 'srl_terminy';
-        
         $kolumna_istnieje = $wpdb->get_results("SHOW COLUMNS FROM $tabela_terminy LIKE 'notatka'");
-        
         if (empty($kolumna_istnieje)) {
             $wpdb->query("ALTER TABLE $tabela_terminy ADD COLUMN notatka TEXT NULL AFTER klient_id");
         }
-        
         update_option('srl_db_version', '1.5');
     }
-
     if (version_compare($current_version, '1.6', '<')) {
         $tabela_terminy = $wpdb->prefix . 'srl_terminy';
-        
         $kolumna_istnieje = $wpdb->get_results("SHOW COLUMNS FROM $tabela_terminy LIKE 'notatka'");
-        
         if (empty($kolumna_istnieje)) {
             $wpdb->query("ALTER TABLE $tabela_terminy ADD COLUMN notatka TEXT NULL AFTER klient_id");
         }
-        
         update_option('srl_db_version', '1.6');
     }
 }
-
 function srl_cleanup_voucher_table() {
     global $wpdb;
     $tabela_vouchery_upominkowe = $wpdb->prefix . 'srl_vouchery_upominkowe';
-    
     $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela_vouchery_upominkowe'") == $tabela_vouchery_upominkowe;
-    
     if ($table_exists) {
         $wpdb->query("DROP TABLE IF EXISTS $tabela_vouchery_upominkowe");
         error_log('SRL: Usunięto uszkodzoną tabelę voucherów');

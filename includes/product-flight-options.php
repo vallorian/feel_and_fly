@@ -1,70 +1,45 @@
-<?php
-/**
- * Obsługa stron produktów opcji lotów
- */
-
-// Hook do wyświetlania formularza wyboru lotu na stronie produktu
-add_action('woocommerce_single_product_summary', 'srl_wyswietl_formularz_wyboru_lotu', 25);
-
+<?php add_action('woocommerce_single_product_summary', 'srl_wyswietl_formularz_wyboru_lotu', 25);
 function srl_wyswietl_formularz_wyboru_lotu() {
     global $product;
-    
     $opcje_produkty = srl_get_flight_option_product_ids();
-    
     if (!in_array($product->get_id(), $opcje_produkty)) {
-        return; // Nie jest to opcja lotu
+        return;
     }
-    
     if (!is_user_logged_in()) {
         echo '<div class="woocommerce-message woocommerce-message--info">';
         echo '<p>Musisz być zalogowany, aby kupić opcje lotu. <a href="' . wp_login_url(get_permalink()) . '">Zaloguj się</a></p>';
         echo '</div>';
         return;
     }
-    
     $user_id = get_current_user_id();
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-    
-    // Pobierz dostępne loty użytkownika
     $dostepne_loty = array();
-    
     if ($product->get_id() == $opcje_produkty['przedluzenie']) {
-        // Dla przedłużenia - wszystkie loty które nie są przeterminowane
-        $dostepne_loty = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM $tabela 
+        $dostepne_loty = $wpdb->get_results($wpdb->prepare("SELECT * FROM $tabela 
              WHERE user_id = %d 
              AND status IN ('wolny', 'zarezerwowany')
              AND data_waznosci >= CURDATE()
-             ORDER BY data_zakupu DESC",
-            $user_id
-        ), ARRAY_A);
+             ORDER BY data_zakupu DESC", $user_id), ARRAY_A);
     } else {
-        // Dla filmowania/akrobacji - tylko loty które nie miały miejsca
-        $dostepne_loty = $wpdb->get_results($wpdb->prepare(
-            "SELECT zl.*, t.data as data_lotu 
+        $dostepne_loty = $wpdb->get_results($wpdb->prepare("SELECT zl.*, t.data as data_lotu 
              FROM $tabela zl
              LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
              WHERE zl.user_id = %d 
              AND zl.status IN ('wolny', 'zarezerwowany')
              AND zl.data_waznosci >= CURDATE()
              AND (t.data IS NULL OR t.data >= CURDATE())
-             ORDER BY zl.data_zakupu DESC",
-            $user_id
-        ), ARRAY_A);
-        
-        // Odfiltruj loty które już mają daną opcję
+             ORDER BY zl.data_zakupu DESC", $user_id), ARRAY_A);
         if ($product->get_id() == $opcje_produkty['filmowanie']) {
-            $dostepne_loty = array_filter($dostepne_loty, function($lot) {
+            $dostepne_loty = array_filter($dostepne_loty, function ($lot) {
                 return empty($lot['ma_filmowanie']);
             });
         } elseif ($product->get_id() == $opcje_produkty['akrobacje']) {
-            $dostepne_loty = array_filter($dostepne_loty, function($lot) {
+            $dostepne_loty = array_filter($dostepne_loty, function ($lot) {
                 return empty($lot['ma_akrobacje']);
             });
         }
     }
-    
     if (empty($dostepne_loty)) {
         echo '<div class="woocommerce-message woocommerce-message--info">';
         if ($product->get_id() == $opcje_produkty['przedluzenie']) {
@@ -74,16 +49,11 @@ function srl_wyswietl_formularz_wyboru_lotu() {
             echo '<p>Nie masz lotów, do których można dodać ' . $opcja_nazwa . '. <a href="/produkt/lot-w-tandemie/">Kup lot tandemowy</a></p>';
         }
         echo '</div>';
-        
-        // Ukryj przycisk dodaj do koszyka
         remove_action('woocommerce_single_product_summary', 'woocommerce_template_single_add_to_cart', 30);
         return;
     }
-    
-    // Wyświetl formularz wyboru lotu
     echo '<div class="srl-flight-selection" style="margin: 20px 0; padding: 20px; border: 2px solid #0073aa; border-radius: 8px; background: #f8f9fa;">';
     echo '<h4 style="margin-top: 0; color: #0073aa;">Wybierz lot do modyfikacji:</h4>';
-    
     if (count($dostepne_loty) == 1) {
         $lot = reset($dostepne_loty);
         echo '<div style="padding: 15px; background: white; border-radius: 6px; font-weight: 600;">';
@@ -99,20 +69,15 @@ function srl_wyswietl_formularz_wyboru_lotu() {
         foreach ($dostepne_loty as $lot) {
             $opis = '#' . $lot['id'] . ' – ' . esc_html($lot['nazwa_produktu']);
             if ($lot['status'] === 'zarezerwowany' && !empty($lot['data_lotu'])) {
-                $opis .= ' (Zarezerwowany na: ' . date('d.m.Y', strtotime($lot['data_lotu'])) . ')';
+                $opis.= ' (Zarezerwowany na: ' . date('d.m.Y', strtotime($lot['data_lotu'])) . ')';
             }
             echo '<option value="' . $lot['id'] . '">' . $opis . '</option>';
         }
         echo '</select>';
     }
-    
-    echo '</div>';
-    
-    // JavaScript do obsługi formularza
-    ?>
+    echo '</div>'; ?>
     <script>
     jQuery(document).ready(function($) {
-        // Modyfikuj formularz dodawania do koszyka
         $('form.cart').on('submit', function(e) {
             var selectedFlight = $('#srl_selected_flight').val();
             if (!selectedFlight) {
@@ -120,16 +85,12 @@ function srl_wyswietl_formularz_wyboru_lotu() {
                 alert('Wybierz lot do modyfikacji.');
                 return false;
             }
-            
-            // Dodaj hidden input z ID lotu
             if (!$(this).find('input[name="srl_lot_id"]').length) {
                 $(this).append('<input type="hidden" name="srl_lot_id" value="' + selectedFlight + '">');
             } else {
                 $(this).find('input[name="srl_lot_id"]').val(selectedFlight);
             }
         });
-        
-        // Aktualizuj hidden input przy zmianie wyboru
         $('#srl_selected_flight').on('change', function() {
             var selectedFlight = $(this).val();
             $('input[name="srl_lot_id"]').val(selectedFlight);
