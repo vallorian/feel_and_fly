@@ -6,16 +6,17 @@ if (!defined('ABSPATH')) {
 
 function srl_kategoryzuj_akcje($typ) {
     $kategorie = array(
-        'ZMIANA STATUSU' => array(
-            'rezerwacja_klient', 
-            'anulowanie_klient', 
-            'zmiana_statusu_admin', 
-            'realizacja_admin', 
-            'odwolanie_przez_organizatora', 
-            'przywrocenie_przez_admin',
-            'anulowanie_przez_organizatora',
-            'przypisanie_admin' 
-        ),
+		'ZMIANA STATUSU' => array(
+			'rezerwacja_klient', 
+			'anulowanie_klient', 
+			'zmiana_statusu_admin', 
+			'realizacja_admin', 
+			'odwolanie_przez_organizatora', 
+			'przywrocenie_przez_admin',
+			'anulowanie_przez_organizatora',
+			'przypisanie_admin',
+			'zmiana_terminu_admin'
+		),
         'DOKUPIENIE WARIANTU' => array(
             'dokupienie_filmowanie', 
             'dokupienie_akrobacje', 
@@ -96,7 +97,13 @@ function srl_uproszczony_opis_akcji($typ, $szczegoly) {
                 return srl_formatuj_status_badge('odwolany') . ' → ' . srl_formatuj_status_badge('zarezerwowany') . '<br><small>Przywrócony termin: ' . esc_html($szczegoly['przywrocony_termin']) . '</small>';
             }
             return srl_formatuj_status_badge('odwolany') . ' → ' . srl_formatuj_status_badge('zarezerwowany');
-
+		
+		case 'zmiana_terminu_admin':
+			if (isset($szczegoly['stary_termin']) && isset($szczegoly['nowy_termin'])) {
+				return '🔄 Zmiana terminu przez admin<br><small><strong>Z:</strong> ' . esc_html($szczegoly['stary_termin']) . '</small><br><small><strong>Na:</strong> ' . esc_html($szczegoly['nowy_termin']) . '</small>';
+			}
+			return '🔄 Zmiana terminu przez administratora';
+		
         case 'zmiana_statusu_admin':
             $stary = isset($szczegoly['stary_status']) ? $szczegoly['stary_status'] : '';
             $nowy = isset($szczegoly['nowy_status']) ? $szczegoly['nowy_status'] : '';
@@ -261,7 +268,7 @@ function srl_pobierz_historie_lotu($lot_id) {
                     'timestamp' => strtotime($modyfikacja['data']),
                     'date' => $modyfikacja['data'],
                     'type' => $modyfikacja['typ'],
-                    'action_name' => srl_formatuj_nazwe_akcji($modyfikacja),
+                    'action_name' => srl_kategoryzuj_akcje($modyfikacja['typ']),
                     'executor' => isset($modyfikacja['executor']) ? $modyfikacja['executor'] : 'System',
                     'details' => srl_uproszczony_opis_akcji($modyfikacja['typ'], $modyfikacja['szczegoly'] ?? array()),
                     'formatted_date' => date('d.m.Y H:i', strtotime($modyfikacja['data']))

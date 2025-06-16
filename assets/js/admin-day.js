@@ -428,7 +428,7 @@ function srl_formatujOpcjeLotu(slot, daneOdwolane) {
             divaPilota.append(grupoweFunkcje);
 
             var tabela = $(
-                '<table class="widefat fixed" data-pilot-id="' + pid + '">' +
+                '<table class="widefat" data-pilot-id="' + pid + '">' +
                     '<thead>' +
                         '<tr>' +
                             '<th style="width:30px;"><input type="checkbox" class="srl-zaznacz-wszystkie-naglowek" data-pilot="' + pid + '"></th>' +
@@ -581,6 +581,7 @@ tr.append(danePasazeraTd);
 		akcjeTd.append('<button class="button button-primary srl-przypisz-slot" data-termin-id="' + obiektGodziny.id + '">Przypisz klienta</button>');
 	} else if (obiektGodziny.status === 'Zarezerwowany' && obiektGodziny.klient_id > 0) {
 		akcjeTd.append('<button class="button srl-wypisz-klienta">Wypisz klienta</button> ');
+		akcjeTd.append('<button class="button srl-zmien-termin" data-termin-id="' + obiektGodziny.id + '" style="background:#ff9800; color:white; margin-left:5px;">Zmiana terminu</button> ');
 		akcjeTd.append('<button class="button srl-zrealizuj-lot" data-termin-id="' + obiektGodziny.id + '" style="background:#28a745; color:white; margin-left:5px;">Zrealizuj</button> ');
 		akcjeTd.append('<button class="button srl-odwolaj-lot" data-termin-id="' + obiektGodziny.id + '" style="background:#dc3545; color:white; margin-left:5px;">Odwołaj</button>');
 	} else if (obiektGodziny.status === 'Prywatny') {
@@ -929,6 +930,11 @@ $(document).off('click', '.srl-przywroc-rezerwacje').on('click', '.srl-przywroc-
 $(document).off('click', '.srl-pokaz-dane-odwolane').on('click', '.srl-pokaz-dane-odwolane', function() {
     var terminId = $(this).data('termin-id');
     pokazDaneOdwolanegoLotu(terminId);
+});
+
+$(document).off('click', '.srl-historia-lot').on('click', '.srl-historia-lot', function() {
+    var lotId = $(this).data('lot-id');
+    pokazHistorieLotu(lotId);
 });
 
 $(document).off('click', '.srl-zrealizuj-lot').on('click', '.srl-zrealizuj-lot', function() {
@@ -2333,5 +2339,232 @@ function pokazDaneOdwolanegoLotu(terminId) {
         alert('Nie znaleziono danych slotu.');
     }
 }
+
+
+// W pliku assets/js/admin-day.js - DODAJ na końcu pliku przed ostatnim nawiasem });
+
+$(document).off('click', '.srl-zmien-termin').on('click', '.srl-zmien-termin', function() {
+    var terminId = $(this).data('termin-id');
+    pokazModalZmianyTerminu(terminId);
+});
+
+function pokazModalZmianyTerminu(terminId) {
+    var modal = $('<div class="srl-modal-zmiana-terminu" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;"></div>');
+    var content = $('<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:8px; width:90%; max-width:95%; height:85%; overflow-y:auto;"></div>');
+
+    content.html(`
+        <div id="srl-zmiana-terminu-loader" style="text-align:center; padding:40px;">
+            <div style="font-size:16px; margin-bottom:20px;">⏳ Ładowanie dostępnych terminów...</div>
+        </div>
+        <div id="srl-zmiana-terminu-content" style="display:none;">
+            <div id="srl-zmiana-terminu-tabela"></div>
+        </div>
+        <div style="margin-top:20px; text-align:right; border-top:1px solid #ddd; padding-top:15px;">
+            <button class="button srl-modal-anuluj-zmiane">Anuluj</button>
+        </div>
+    `);
+
+    modal.append(content);
+    $('body').append(modal);
+
+    // Obsługa zamykania modala
+    modal.find('.srl-modal-anuluj-zmiane').on('click', function() {
+        modal.remove();
+        $(document).off('keydown.srl-zmiana-modal');
+    });
+
+    $(document).on('keydown.srl-zmiana-modal', function(e) {
+        if (e.keyCode === 27) { // ESC
+            modal.remove();
+            $(document).off('keydown.srl-zmiana-modal');
+        }
+    });
+
+    modal.on('remove', function() {
+        $(document).off('keydown.srl-zmiana-modal');
+    });
+
+    // Załaduj dostępne terminy
+    zaladujDostepneTerminy(terminId, modal);
+}
+
+function zaladujDostepneTerminy(terminId, modal) {
+    $.post(ajaxurl, {
+        action: 'srl_pobierz_dostepne_terminy_do_zmiany',
+        termin_id: terminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            wygenerujTabeleDostepnychTerminow(response.data, terminId, modal);
+        } else {
+            modal.find('#srl-zmiana-terminu-loader').html('<p style="color:#d63638;">Błąd: ' + response.data + '</p>');
+        }
+    }).fail(function() {
+        modal.find('#srl-zmiana-terminu-loader').html('<p style="color:#d63638;">Błąd połączenia z serwerem.</p>');
+    });
+}
+
+function wygenerujTabeleDostepnychTerminow(dane, terminId, modal) {
+    if (!dane.dostepne_dni || Object.keys(dane.dostepne_dni).length === 0) {
+        modal.find('#srl-zmiana-terminu-loader').html('<p style="color:#666; text-align:center; padding:40px;">Brak dostępnych terminów do zmiany.</p>');
+        return;
+    }
+
+    var html = '<div class="srl-terminy-tabela-container" style="overflow-y:auto; border:1px solid #ddd; border-radius:6px;">';
+    html += '<table class="srl-terminy-tabela" style="width:100%; border-collapse:collapse;">';
+    html += '<thead style="position:sticky; top:0; background:#f8f9fa; z-index:10;">';
+    html += '<tr>';
+	html += '<th style="padding:12px; border-bottom:2px solid #dee2e6; text-align:left; font-weight:600; width:1%; white-space:nowrap;">Data</th>';
+	html += '<th style="padding:12px; border-bottom:2px solid #dee2e6; text-align:left; font-weight:600; width:99%;">ℹ️ Zmiana terminu dla: <span style="font-weight:bold;">' + dane.aktualny_termin.klient_nazwa + '</span> - Aktualny termin: ' + formatujDatePolski(dane.aktualny_termin.data) + ' ' + dane.aktualny_termin.godzina_start.substring(0,5) + '-' + dane.aktualny_termin.godzina_koniec.substring(0,5) + ' (Pilot ' + dane.aktualny_termin.pilot_id + ')</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+
+    // Sortuj daty
+    var sortedDates = Object.keys(dane.dostepne_dni).sort();
+
+    sortedDates.forEach(function(data) {
+        var terminy = dane.dostepne_dni[data];
+        if (terminy.length === 0) return;
+
+        html += '<tr>';
+        html += '<td style="padding:15px; border-bottom:1px solid #eee; vertical-align:top; width:1%; white-space:nowrap;">';
+        html += '<div style="font-weight:600; color:#333;">' + formatujDatePolski(data) + '</div>';
+        html += '<div style="font-size:12px; color:#666;">' + formatujDzienTygodnia(data) + '</div>';
+        html += '</td>';
+        html += '<td style="padding:15px; border-bottom:1px solid #eee; width:99%;">';
+        html += '<div class="srl-terminy-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:6px;">';
+
+		terminy.forEach(function(termin) {
+			html += '<div class="srl-termin-opcja" data-termin-id="' + termin.id + '" data-oryginalny-termin="' + terminId + '" style="border:1px solid #ddd; padding:8px; border-radius:6px; cursor:pointer; background:white; transition:all 0.2s; text-align:center;">';
+			html += '<div style="font-weight:600; color:#0073aa;">' + termin.godzina_start.substring(0,5) + ' - ' + termin.godzina_koniec.substring(0,5) + '</div>';
+			html += '</div>';
+		});
+
+        html += '</div>';
+        html += '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody>';
+    html += '</table>';
+    html += '</div>';
+
+    modal.find('#srl-zmiana-terminu-content').html(html);
+    modal.find('#srl-zmiana-terminu-loader').hide();
+    modal.find('#srl-zmiana-terminu-content').show();
+
+    // Dodaj obsługę kliknięć na terminy
+    modal.find('.srl-termin-opcja').on('click', function() {
+        var nowyTerminId = $(this).data('termin-id');
+        var oryginalnyTerminId = $(this).data('oryginalny-termin');
+        
+        // Podświetl wybór
+        modal.find('.srl-termin-opcja').removeClass('srl-termin-wybrany');
+        $(this).addClass('srl-termin-wybrany');
+        
+        var terminInfo = $(this).find('div:first').text() + ' (' + $(this).find('div:nth-child(2)').text() + ')';
+        
+        if (confirm('Czy na pewno zmienić termin na: ' + terminInfo + '?')) {
+            wykonajZmianeTerminu(oryginalnyTerminId, nowyTerminId, modal);
+        } else {
+            $(this).removeClass('srl-termin-wybrany');
+        }
+    });
+
+    // Hover effects
+    modal.find('.srl-termin-opcja').hover(
+        function() {
+            $(this).css({
+                'background': '#f0f8ff',
+                'border-color': '#0073aa',
+                'transform': 'scale(1.02)'
+            });
+        },
+        function() {
+            if (!$(this).hasClass('srl-termin-wybrany')) {
+                $(this).css({
+                    'background': 'white',
+                    'border-color': '#ddd',
+                    'transform': 'scale(1)'
+                });
+            }
+        }
+    );
+}
+
+function wykonajZmianeTerminu(staryTerminId, nowyTerminId, modal) {
+    // Zablokuj interfejs podczas zmiany
+    modal.find('.srl-terminy-tabela-container').css('opacity', '0.5');
+    modal.find('.srl-termin-opcja').css('pointer-events', 'none');
+    
+    // Dodaj loader
+    var loader = $('<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:20px; border-radius:6px; text-align:center; z-index:1000;">⏳ Zmienianie terminu...</div>');
+    modal.find('#srl-zmiana-terminu-content').css('position', 'relative').append(loader);
+
+    $.post(ajaxurl, {
+        action: 'srl_zmien_termin_lotu',
+        stary_termin_id: staryTerminId,
+        nowy_termin_id: nowyTerminId,
+        nonce: srlAdmin.nonce
+    }, function(response) {
+        if (response.success) {
+            // Sukces - odśwież tabele
+            modal.remove();
+            generujTabelePilotow(); // Odśwież aktualną stronę
+            pokazKomunikatSukcesu('Termin lotu został pomyślnie zmieniony!');
+        } else {
+            // Błąd - przywróć interfejs
+            loader.remove();
+            modal.find('.srl-terminy-tabela-container').css('opacity', '1');
+            modal.find('.srl-termin-opcja').css('pointer-events', 'auto');
+            modal.find('.srl-termin-wybrany').removeClass('srl-termin-wybrany');
+            
+            alert('Błąd zmiany terminu: ' + response.data);
+        }
+    }).fail(function() {
+        // Błąd połączenia - przywróć interfejs
+        loader.remove();
+        modal.find('.srl-terminy-tabela-container').css('opacity', '1');
+        modal.find('.srl-termin-opcja').css('pointer-events', 'auto');
+        modal.find('.srl-termin-wybrany').removeClass('srl-termin-wybrany');
+        
+        alert('Błąd połączenia z serwerem.');
+    });
+}
+
+function formatujDatePolski(dataStr) {
+    var data = new Date(dataStr);
+    var dzien = data.getDate();
+    var miesiac = data.getMonth() + 1;
+    var rok = data.getFullYear();
+
+    return pad2(dzien) + '.' + pad2(miesiac) + '.' + rok;
+}
+
+function formatujDzienTygodnia(dataStr) {
+    var data = new Date(dataStr);
+    var nazwyDni = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
+    return nazwyDni[data.getDay()];
+}
+
+// CSS dla wybranego terminu
+$(document).ready(function() {
+    $('<style>')
+        .prop('type', 'text/css')
+        .html(`
+            .srl-termin-wybrany {
+                background: #e3f2fd !important;
+                border-color: #1976d2 !important;
+                transform: scale(1.02) !important;
+                box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3) !important;
+            }
+            
+            .srl-termin-opcja {
+                transition: all 0.2s ease !important;
+            }
+        `)
+        .appendTo('head');
+});
 
 });

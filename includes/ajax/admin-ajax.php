@@ -24,6 +24,8 @@ add_action('wp_ajax_srl_przywroc_rezerwacje', 'srl_ajax_przywroc_rezerwacje');
 add_action('wp_ajax_srl_pobierz_dane_odwolanego', 'srl_ajax_pobierz_dane_odwolanego');
 add_action('wp_ajax_srl_zrealizuj_lot', 'srl_ajax_zrealizuj_lot');
 add_action('wp_ajax_srl_zrealizuj_lot_prywatny', 'srl_ajax_zrealizuj_lot_prywatny');
+add_action('wp_ajax_srl_pobierz_dostepne_terminy_do_zmiany', 'srl_ajax_pobierz_dostepne_terminy_do_zmiany');
+add_action('wp_ajax_srl_zmien_termin_lotu', 'srl_ajax_zmien_termin_lotu');
 
 function srl_dodaj_godzine() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
@@ -1382,4 +1384,256 @@ function srl_ajax_zrealizuj_lot_prywatny() {
     }
 }
 
+function srl_ajax_pobierz_dostepne_terminy_do_zmiany() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Brak uprawnień.');
+        return;
+    }
+
+    $termin_id = intval($_POST['termin_id']);
+
+    global $wpdb;
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+
+    // Pobierz informacje o aktualnym terminie
+    $aktualny_termin = $wpdb->get_row($wpdb->prepare(
+        "SELECT t.*, zl.id as lot_id, zl.user_id, zl.imie, zl.nazwisko
+         FROM $tabela_terminy t
+         LEFT JOIN $tabela_loty zl ON t.id = zl.termin_id
+         WHERE t.id = %d",
+        $termin_id
+    ), ARRAY_A);
+
+    if (!$aktualny_termin) {
+        wp_send_json_error('Nie znaleziono terminu.');
+        return;
+    }
+
+    if ($aktualny_termin['status'] !== 'Zarezerwowany') {
+        wp_send_json_error('Można zmieniać tylko zarezerwowane terminy.');
+        return;
+    }
+
+    // Pobierz wszystkie wolne terminy z następnych 90 dni
+    $data_od = date('Y-m-d');
+    $data_do = date('Y-m-d', strtotime('+90 days'));
+
+    $dostepne_terminy = $wpdb->get_results($wpdb->prepare(
+        "SELECT id, data, pilot_id, godzina_start, godzina_koniec,
+                TIMESTAMPDIFF(MINUTE, godzina_start, godzina_koniec) as czas_trwania
+         FROM $tabela_terminy 
+         WHERE status = 'Wolny' 
+         AND data BETWEEN %s AND %s
+         AND data >= CURDATE()
+         AND id != %d
+         ORDER BY data ASC, godzina_start ASC",
+        $data_od, $data_do, $termin_id
+    ), ARRAY_A);
+
+    // Grupuj terminy według daty
+    $dostepne_dni = array();
+    foreach ($dostepne_terminy as $termin) {
+        $data = $termin['data'];
+        if (!isset($dostepne_dni[$data])) {
+            $dostepne_dni[$data] = array();
+        }
+        $dostepne_dni[$data][] = $termin;
+    }
+
+    // Przygotuj dane aktualnego terminu
+    $klient_nazwa = '';
+    if ($aktualny_termin['imie'] && $aktualny_termin['nazwisko']) {
+        $klient_nazwa = $aktualny_termin['imie'] . ' ' . $aktualny_termin['nazwisko'];
+    } elseif ($aktualny_termin['user_id']) {
+        $user = get_userdata($aktualny_termin['user_id']);
+        if ($user) {
+            $klient_nazwa = $user->display_name;
+        }
+    }
+
+    wp_send_json_success(array(
+        'dostepne_dni' => $dostepne_dni,
+        'aktualny_termin' => array(
+            'id' => $aktualny_termin['id'],
+            'data' => $aktualny_termin['data'],
+            'godzina_start' => $aktualny_termin['godzina_start'],
+            'godzina_koniec' => $aktualny_termin['godzina_koniec'],
+            'pilot_id' => $aktualny_termin['pilot_id'],
+            'klient_nazwa' => $klient_nazwa,
+            'lot_id' => $aktualny_termin['lot_id']
+        )
+    ));
+}
+
+function srl_ajax_zmien_termin_lotu() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Brak uprawnień.');
+        return;
+    }
+
+    $stary_termin_id = intval($_POST['stary_termin_id']);
+    $nowy_termin_id = intval($_POST['nowy_termin_id']);
+
+    if (!$stary_termin_id || !$nowy_termin_id) {
+        wp_send_json_error('Nieprawidłowe parametry.');
+        return;
+    }
+
+    global $wpdb;
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+
+    $wpdb->query('START TRANSACTION');
+
+    try {
+        // Sprawdź stary termin
+        $stary_termin = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $tabela_terminy WHERE id = %d AND status = 'Zarezerwowany'",
+            $stary_termin_id
+        ), ARRAY_A);
+
+        if (!$stary_termin) {
+            throw new Exception('Stary termin nie istnieje lub nie jest zarezerwowany.');
+        }
+
+        // Sprawdź nowy termin
+        $nowy_termin = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $tabela_terminy WHERE id = %d AND status = 'Wolny'",
+            $nowy_termin_id
+        ), ARRAY_A);
+
+        if (!$nowy_termin) {
+            throw new Exception('Nowy termin nie istnieje lub nie jest dostępny.');
+        }
+
+        // Sprawdź czy nowy termin jest w przyszłości
+        $nowy_datetime = $nowy_termin['data'] . ' ' . $nowy_termin['godzina_start'];
+        if (strtotime($nowy_datetime) <= time()) {
+            throw new Exception('Nowy termin musi być w przyszłości.');
+        }
+
+        // Pobierz informacje o locie
+        $lot = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $tabela_loty WHERE termin_id = %d",
+            $stary_termin_id
+        ), ARRAY_A);
+
+        if (!$lot) {
+            throw new Exception('Nie znaleziono lotu przypisanego do tego terminu.');
+        }
+
+        // 1. Uwolnij stary termin
+        $result1 = $wpdb->update(
+            $tabela_terminy,
+            array(
+                'status' => 'Wolny',
+                'klient_id' => null
+            ),
+            array('id' => $stary_termin_id),
+            array('%s', '%d'),
+            array('%d')
+        );
+
+        if ($result1 === false) {
+            throw new Exception('Błąd zwalniania starego terminu.');
+        }
+
+        // 2. Zarezerwuj nowy termin
+        $result2 = $wpdb->update(
+            $tabela_terminy,
+            array(
+                'status' => 'Zarezerwowany',
+                'klient_id' => $stary_termin['klient_id']
+            ),
+            array('id' => $nowy_termin_id),
+            array('%s', '%d'),
+            array('%d')
+        );
+
+        if ($result2 === false) {
+            throw new Exception('Błąd rezerwacji nowego terminu.');
+        }
+
+        // 3. Zaktualizuj lot
+        $result3 = $wpdb->update(
+            $tabela_loty,
+            array(
+                'termin_id' => $nowy_termin_id,
+                'data_rezerwacji' => srl_get_current_datetime()
+            ),
+            array('id' => $lot['id']),
+            array('%d', '%s'),
+            array('%d')
+        );
+
+        if ($result3 === false) {
+            throw new Exception('Błąd aktualizacji lotu.');
+        }
+
+        // 4. Zapisz w historii
+        $stary_termin_opis = sprintf('%s %s-%s (Pilot %d)', 
+            $stary_termin['data'],
+            substr($stary_termin['godzina_start'], 0, 5),
+            substr($stary_termin['godzina_koniec'], 0, 5),
+            $stary_termin['pilot_id']
+        );
+
+        $nowy_termin_opis = sprintf('%s %s-%s (Pilot %d)', 
+            $nowy_termin['data'],
+            substr($nowy_termin['godzina_start'], 0, 5),
+            substr($nowy_termin['godzina_koniec'], 0, 5),
+            $nowy_termin['pilot_id']
+        );
+
+        $wpis_historii = array(
+            'data' => srl_get_current_datetime(),
+            'typ' => 'zmiana_terminu_admin',
+            'executor' => 'Admin',
+            'szczegoly' => array(
+                'stary_termin_id' => $stary_termin_id,
+                'nowy_termin_id' => $nowy_termin_id,
+                'stary_termin' => $stary_termin_opis,
+                'nowy_termin' => $nowy_termin_opis,
+                'powod' => 'Zmiana terminu przez administratora',
+                'user_id' => $lot['user_id']
+            )
+        );
+
+        srl_dopisz_do_historii_lotu($lot['id'], $wpis_historii);
+
+        // 5. Wyślij email do klienta
+        if ($lot['user_id']) {
+            $user = get_userdata($lot['user_id']);
+            if ($user) {
+                $subject = 'Zmiana terminu Twojego lotu tandemowego';
+                $message = "Dzień dobry {$user->display_name},\n\n";
+                $message .= "Informujemy o zmianie terminu Twojego lotu tandemowego.\n\n";
+                $message .= "Poprzedni termin: {$stary_termin_opis}\n";
+                $message .= "Nowy termin: {$nowy_termin_opis}\n\n";
+                $message .= "Pamiętaj:\n";
+                $message .= "- Zgłoś się 30 minut przed godziną lotu\n";
+                $message .= "- Weź ze sobą dokument tożsamości\n\n";
+                $message .= "W razie pytań, skontaktuj się z nami.\n\n";
+                $message .= "Pozdrawiamy,\nZespół Lotów Tandemowych";
+
+                wp_mail($user->user_email, $subject, $message);
+            }
+        }
+
+        $wpdb->query('COMMIT');
+
+        wp_send_json_success(array(
+            'message' => 'Termin został pomyślnie zmieniony.',
+            'stary_termin' => $stary_termin_opis,
+            'nowy_termin' => $nowy_termin_opis
+        ));
+
+    } catch (Exception $e) {
+        $wpdb->query('ROLLBACK');
+        wp_send_json_error($e->getMessage());
+    }
+}
 ?>
