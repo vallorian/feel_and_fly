@@ -7,34 +7,35 @@ System-rezerwacji-lotow/
 │   ├── helpers/
 │   │   ├── formatting-helpers.php              ← Funkcje formatowania dat, statusów, danych
 │   │   ├── validation-helpers.php              ← Funkcje walidacji formularzy i danych
-│   │   └── email-helpers.php                   ← Funkcje obsługi email i powiadomień
+│   │   ├── email-helpers.php                   ← Funkcje obsługi email i powiadomień
+│   │   └── historia-helpers.php                ← Funkcje obsługi historii lotów, kategoryzacji, formatowania akcji
 │   ├── ajax/
-│   │   ├── admin-ajax.php                      ← AJAX handlery dla panelu administracyjnego
-│   │   ├── frontend-ajax.php                   ← AJAX handlery dla frontendu (rezerwacje, dane klienta)
-│   │   ├── voucher-ajax.php                    ← AJAX handlery dla voucherów
-│   │   └── flight-options-ajax.php             ← AJAX handlery dla opcji lotów
+│   │   ├── admin-ajax.php                      ← AJAX handlery dla panelu administracyjnego (zarządzanie slotami, klientami)
+│   │   ├── frontend-ajax.php                   ← AJAX handlery dla frontendu (rezerwacje, dane klienta, logowanie)
+│   │   ├── voucher-ajax.php                    ← AJAX handlery dla voucherów (starych i upominkowych)
+│   │   └── flight-options-ajax.php             ← AJAX handlery dla opcji lotów (dodawanie do koszyka)
 │   ├── admin/
 │   │   ├── admin-menu.php                      ← Rejestruje menu admina + enqueue skryptów frontend/backend
 │   │   ├── admin-calendar.php                  ← Strona „Kalendarz" - przegląd miesięczny terminów
-│   │   ├── admin-day.php                       ← Strona „Dzień tygodnia" - planowanie slotów, harmonogram
+│   │   ├── admin-day.php                       ← Strona „Dzień tygodnia" - planowanie slotów, harmonogram czasowy
 │   │   ├── admin-voucher.php                   ← Strona „Oczekujące na potwierdzenie" - zarządzanie voucherami (starymi)
-│   │   ├── admin-flights.php                   ← Strona „Wykupione loty" - tabela wszystkich lotów + synchronizacja
+│   │   ├── admin-flights.php                   ← Strona „Wykupione loty" - tabela wszystkich lotów + synchronizacja + historia
 │   │   └── admin-vouchers.php                  ← Strona „Zakupione Vouchery" - zarządzanie voucherami upominkowymi Feel&Fly
 │   ├── frontend/
-│   │   └── frontend-shortcodes.php             ← Shortcode [srl_kalendarz] - 4-etapowy proces rezerwacji + vouchery
-│   ├── woocommerce-integration.php             ← Integracja WooCommerce (hooking statusów, loty + vouchery)
-│   ├── voucher-functions.php                   ← Generowanie kodów voucherów (starych)
-│   ├── voucher-gift-functions.php              ← Funkcje voucherów upominkowych (Feel&Fly)
-│   ├── flight-options.php                      ← Zarządzanie opcjami lotów (filmowanie, akrobacje, przedłużanie)
-│   ├── cart-flight-options.php                 ← Obsługa koszyka dla opcji lotów (bez AJAX handlerów)
-│   ├── product-flight-options.php              ← Obsługa stron produktów opcji lotów (formularz wyboru lotu)
-│   └── client-account.php                      ← Zakładki w koncie klienta (używa funkcji z helpers)
+│   │   └── frontend-shortcodes.php             ← Shortcode [srl_kalendarz] - 4-etapowy proces rezerwacji + logowanie/rejestracja
+│   ├── woocommerce-integration.php             ← Integracja WooCommerce (hooking statusów, automatyczne dodawanie lotów/voucherów, opcji)
+│   ├── voucher-functions.php                   ← Generowanie kodów voucherów (starych) + obsługa wykorzystania
+│   ├── voucher-gift-functions.php              ← Funkcje voucherów upominkowych Feel&Fly (generowanie, wykorzystanie)
+│   ├── flight-options.php                      ← Zarządzanie opcjami lotów (filmowanie, akrobacje, przedłużanie ważności)
+│   ├── cart-flight-options.php                 ← Obsługa koszyka dla opcji lotów (meta dane, walidacja)
+│   ├── product-flight-options.php              ← Obsługa stron produktów opcji lotów (formularz wyboru lotu, dropdown)
+│   └── client-account.php                      ← Zakładki w koncie klienta WooCommerce (historia zamówień, lotów)
 └── assets/
     ├── js/
-    │   ├── admin-calendar.js                   ← Skrypty kalendarza adminowego (tooltips, interakcje)
-    │   ├── admin-day.js                        ← Skrypty planowania dni (dodawanie slotów, harmonogram, grupowe akcje)
-    │   ├── frontend-calendar.js                ← Skrypty procesu rezerwacji (4 kroki, AJAX, progress bar, walidacja wieku)
-    │   └── flight-options-unified.js           ← Ujednolicony system obsługi opcji lotów (dodawanie/usuwanie z koszyka)
+    │   ├── admin-calendar.js                   ← Skrypty kalendarza adminowego (tooltips, nawigacja, modały)
+    │   ├── admin-day.js                        ← Skrypty planowania dni (CRUD slotów, harmonogram, grupowe akcje, modały klientów)
+    │   ├── frontend-calendar.js                ← Skrypty procesu rezerwacji (4 kroki, AJAX, progress bar, walidacja, logowanie)
+    │   └── flight-options-unified.js           ← Ujednolicony system obsługi opcji lotów (dodawanie/usuwanie z koszyka, dropdown lotów)
     └── css/
-        ├── style.css                           ← Style panelu administratora (tabele, harmonogram)
-        └── frontend-style.css                  ← Style procesu rezerwacji + opcji lotów (progress bar, kalendarz, formularze, vouchery)
+        ├── style.css                           ← Style panelu administratora (tabele, harmonogram, statusy, modały)
+        └── frontend-style.css                  ← Style procesu rezerwacji + opcji lotów (progress bar, kalendarz, formularze, vouchery, responsywność)
