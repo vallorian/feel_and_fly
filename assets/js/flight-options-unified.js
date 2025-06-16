@@ -1,1 +1,418 @@
-console.log("\uD83C\uDFAF [INIT] flight-options-unified.js START",new Date),jQuery(document).ready(function(o){function e(o,e,a,r){console.log('\uD83D\uDD04 [DEBUG] Przekształcanie przycisku na "w koszyku":',{lotId:e,productId:a,optionName:r}),o.removeClass("srl-btn-secondary button-small").addClass("srl-btn-warning"),o.css({background:"#ff9800","border-color":"#ff9800",color:"white","pointer-events":"auto",opacity:"1"});var n=r;"Filmowanie lotu"===r&&(n="Filmowanie"),"Akrobacje podczas lotu"===r&&(n="Akrobacje"),"Przedłużenie ważności"===r&&(n="Przedłużenie");var i="+ "+n+' (w koszyku) <span class="srl-remove-from-cart" data-lot-id="'+e+'" data-product-id="'+a+"\" style=\"margin-left: 10px; cursor: pointer; font-weight: bold; font-size: 14px; padding: 2px 6px; border-radius: 50%; transition: all 0.2s ease;\" onmouseenter=\"this.style.backgroundColor='#dc3545'; this.style.color='white';\" onmouseleave=\"this.style.backgroundColor=''; this.style.color='white';\">✕</span>";o.html(i),o.removeAttr("onclick"),console.log("✅ [DEBUG] Przycisk przekształcony")}function a(e,a){if(console.log("\uD83D\uDCE2 [DEBUG] Pokazywanie komunikatu:",{tekst:e,typ:a}),o("#srl-cart-notification").length)o("#srl-cart-message").html(e),o("#srl-cart-notification").css("background","success"===a?"#46b450":"#d63638").fadeIn().delay(3e3).fadeOut();else if("function"==typeof pokazKomunikat)pokazKomunikat(e,a);else{var r=o('<div style="position:fixed; top:20px; right:20px; background:'+("success"===a?"#46b450":"#d63638")+'; color:white; padding:15px 20px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);">'+e+"</div>");o("body").append(r),setTimeout(function(){r.fadeOut(function(){r.remove()})},3e3)}}function r(){if(console.log("\uD83D\uDD0D [DEBUG] Sprawdzanie opcji w koszyku..."),"undefined"==typeof srlFrontend||void 0===srlFrontend.productIds){console.error("❌ [ERROR] srlFrontend.productIds nie jest dostępne");return}var e="undefined"!=typeof srlFrontend?srlFrontend.ajaxurl:ajaxurl,a="undefined"!=typeof srlFrontend?srlFrontend.nonce:"";if(!a){console.warn("⚠️ [WARNING] Brak nonce - pomijanie sprawdzania koszyka");return}o.ajax({url:e,method:"POST",data:{action:"srl_sprawdz_opcje_w_koszyku",nonce:a},success:function(e){console.log("\uD83D\uDCE6 [DEBUG] Odpowiedź sprawdzania koszyka:",e),e.success&&e.data&&o.each(e.data,function(o,e){console.log("\uD83C\uDFAB [DEBUG] Przetwarzanie opcji dla lotu:",{lotId:o,opcje:e}),e.filmowanie&&n(o,srlFrontend.productIds.filmowanie,"Filmowanie lotu"),e.akrobacje&&n(o,srlFrontend.productIds.akrobacje,"Akrobacje podczas lotu"),e.przedluzenie&&n(o,srlFrontend.productIds.przedluzenie,"Przedłużenie ważności")})},error:function(o,e,a){console.error("❌ [ERROR] Błąd sprawdzania koszyka:",{xhr:o,status:e,error:a})}})}function n(a,r,n){console.log("\uD83C\uDFF7️ [DEBUG] Oznaczanie opcji jako w koszyku:",{lotId:a,productId:r,optionName:n});var i=o("#srl-opcja-"+a+"-"+r);i.length||(i=o('.srl-add-option[data-lot-id="'+a+'"][data-product-id="'+r+'"]')),i.length||(i=o('button[onclick*="srlDodajOpcjeLotu('+a+", "+r+')"]')),i.length?(e(i,a,r,n),console.log("✅ [DEBUG] Opcja oznaczona jako w koszyku")):console.warn("⚠️ [WARNING] Nie znaleziono przycisku dla opcji:",{lotId:a,productId:r})}function i(){console.log("\uD83D\uDD0C [DEBUG] Podłączanie event listener\xf3w..."),o(".srl-remove-from-cart").closest("button").prop("disabled",!1),console.log("\uD83D\uDD13 [DEBUG] Wyłączono disabled na przyciskach z X"),o(document).off("click",".srl-remove-from-cart").on("click",".srl-remove-from-cart",function(e){e.stopImmediatePropagation(),e.stopPropagation(),e.preventDefault(),console.log("\uD83D\uDDD1️ [DEBUG] Kliknięto usuwanie z koszyka");var r=o(this).data("lot-id"),n=o(this).data("product-id"),i=o(this).closest("button");if(console.log("\uD83D\uDCCB [DEBUG] Dane usuwania:",{lotId:r,productId:n}),!r||!n){console.error("❌ [ERROR] Brak danych do usuwania:",{lotId:r,productId:n}),a("❌ Błąd: Brak danych opcji do usunięcia","error");return}console.log("⏳ [DEBUG] Usuwanie bez potwierdzenia...");var t=i.html();i.html("Usuwanie..."),i.css("opacity","0.6");var d="undefined"!=typeof srlFrontend?srlFrontend.ajaxurl:ajaxurl,s="undefined"!=typeof srlFrontend?srlFrontend.nonce:"";if(!s){console.error("❌ [ERROR] Brak nonce dla usuwania"),a("❌ Błąd: Brak uprawnień do usuwania","error"),i.html(t),i.css("opacity","1");return}o.ajax({url:d,method:"POST",data:{action:"srl_usun_opcje_z_koszyka",lot_id:r,product_id:n,nonce:s},success:function(e){if(console.log("✅ [DEBUG] Odpowiedź usuwania:",e),e.success){var d,s,c,l,u;d=i,s=r,c=n,console.log("\uD83D\uDD04 [DEBUG] Przywracanie przycisku do oryginalnego stanu:",{lotId:s,productId:c}),l="",l=c==srlFrontend.productIds.filmowanie?"Filmowanie":c==srlFrontend.productIds.akrobacje?"Akrobacje":c==srlFrontend.productIds.przedluzenie?"Przedłużenie":"Opcja lotu",d.removeClass("srl-btn-warning").addClass("srl-btn-secondary button-small"),d.css({background:"","border-color":"",color:"",opacity:"1"}),d.html("+ "+l),d.prop("disabled",!1),u=l,c==srlFrontend.productIds.filmowanie&&(u="Filmowanie lotu"),c==srlFrontend.productIds.akrobacje&&(u="Akrobacje podczas lotu"),c==srlFrontend.productIds.przedluzenie&&(u="Przedłużenie ważności"),d.attr("onclick","srlDodajOpcjeLotu("+s+", "+c+", '"+u+"')"),console.log("✅ [DEBUG] Przycisk przywr\xf3cony i gotowy do ponownego użycia"),o(document).trigger("srl_opcje_zmienione"),a("✅ Opcja usunięta z koszyka","success"),"undefined"!=typeof wc_add_to_cart_params&&o(document.body).trigger("wc_fragment_refresh")}else console.error("❌ [ERROR] Błąd usuwania z koszyka:",e.data),a("❌ Błąd usuwania: "+e.data,"error"),i.html(t),i.css("opacity","1")},error:function(o,e,r){console.error("❌ [ERROR] Błąd AJAX usuwania:",{xhr:o,status:e,error:r}),a("❌ Błąd połączenia z serwerem","error"),i.html(t),i.css("opacity","1")}})}),console.log("✅ [DEBUG] Event listener podłączony, przycisk\xf3w X:",o(".srl-remove-from-cart").length)}console.log("\uD83C\uDFAF [INIT] jQuery ready w flight-options-unified.js"),window.srlDodajOpcjeLotu=function(r,n,i){console.log("\uD83C\uDFAF [DEBUG] Wywołano srlDodajOpcjeLotu:",{lotId:r,productId:n,optionName:i});var t=o("#srl-opcja-"+r+"-"+n);if(t.length||(t=o('button[onclick*="srlDodajOpcjeLotu('+r+", "+n+')"]')),t.length||(t=o('.srl-add-option[data-lot-id="'+r+'"][data-product-id="'+n+'"]')),t.hasClass("srl-btn-warning"))return console.log("⚠️ [WARNING] Opcja już jest w koszyku - pomijanie"),!1;var t=o("#srl-opcja-"+r+"-"+n);if(t.length||(t=o('button[onclick*="srlDodajOpcjeLotu('+r+", "+n+')"]')),t.length||(t=o('.srl-add-option[data-lot-id="'+r+'"][data-product-id="'+n+'"]')),console.log("\uD83D\uDD0D [DEBUG] Znaleziony przycisk:",t.length?t[0]:"BRAK"),!t.length)return console.error("❌ [ERROR] Nie znaleziono przycisku dla:",{lotId:r,productId:n}),a("❌ Błąd: Nie znaleziono przycisku opcji","error"),!1;var d=t.text();if(t.prop("disabled"))return console.warn("⚠️ [WARNING] Przycisk już zablokowany"),!1;console.log("⏳ [DEBUG] Blokowanie przycisku..."),t.text("Dodawanie...").prop("disabled",!0),o.ajax({url:"undefined"!=typeof srlFrontend?srlFrontend.ajaxurl:ajaxurl,method:"POST",data:{action:"srl_sprawdz_i_dodaj_opcje",product_id:n,quantity:1,srl_lot_id:r,nonce:"undefined"!=typeof srlFrontend?srlFrontend.nonce:""},success:function(s){console.log("✅ [DEBUG] Odpowiedź AJAX:",s),s&&!s.error?(a('✅ Dodano "'+i+'" do koszyka!',"success"),e(t,r,n,i),o(document).trigger("srl_opcje_zmienione"),"undefined"!=typeof wc_add_to_cart_params&&o(document.body).trigger("wc_fragment_refresh")):(console.error("❌ [ERROR] Błąd dodawania do koszyka:",s),a("❌ Błąd dodawania do koszyka","error"),t.text(d).prop("disabled",!1))},error:function(o,e,r){console.error("❌ [ERROR] Błąd AJAX:",{xhr:o,status:e,error:r}),a("❌ Błąd połączenia z serwerem","error"),t.text(d).prop("disabled",!1)}})},i(),o(document).on("srl_opcje_zmienione",function(){console.log("\uD83D\uDD04 [DEBUG] Opcje zmienione - ponowne podłączanie..."),setTimeout(i,100)}),setTimeout(function(){r()},1e3),o(document).on("srl_dane_klienta_zaladowane",function(){console.log("\uD83D\uDD04 [DEBUG] Dane klienta załadowane - sprawdzanie koszyka..."),setTimeout(function(){r(),i()},500)}),console.log("\uD83C\uDFAF [DEBUG] System opcji lot\xf3w zainicjalizowany")});
+// ==========================================================================
+// UJEDNOLICONY SYSTEM OBSŁUGI OPCJI LOTÓW - WERSJA FINALNA
+// ==========================================================================
+console.log('🎯 [INIT] flight-options-unified.js START', new Date());
+
+jQuery(document).ready(function($) {
+    console.log('🎯 [INIT] jQuery ready w flight-options-unified.js');
+    
+    // ==========================================================================
+    // Globalna funkcja dodawania opcji do koszyka
+    // ==========================================================================
+    
+    window.srlDodajOpcjeLotu = function(lotId, productId, optionName) {
+		console.log('🎯 [DEBUG] Wywołano srlDodajOpcjeLotu:', {lotId, productId, optionName});
+		
+		// SPRAWDŹ CZY OPCJA JUŻ JEST W KOSZYKU
+		var button = $('#srl-opcja-' + lotId + '-' + productId);
+		if (!button.length) {
+			button = $('button[onclick*="srlDodajOpcjeLotu(' + lotId + ', ' + productId + ')"]');
+		}
+		if (!button.length) {
+			button = $('.srl-add-option[data-lot-id="' + lotId + '"][data-product-id="' + productId + '"]');
+		}
+		
+		// Jeśli przycisk ma klasę "warning" to znaczy że jest już w koszyku
+		if (button.hasClass('srl-btn-warning')) {
+			console.log('⚠️ [WARNING] Opcja już jest w koszyku - pomijanie');
+			return false;
+		}
+        
+        // Znajdź przycisk - różne sposoby znajdowania
+        var button = $('#srl-opcja-' + lotId + '-' + productId);
+        if (!button.length) {
+            button = $('button[onclick*="srlDodajOpcjeLotu(' + lotId + ', ' + productId + ')"]');
+        }
+        if (!button.length) {
+            button = $('.srl-add-option[data-lot-id="' + lotId + '"][data-product-id="' + productId + '"]');
+        }
+        
+        console.log('🔍 [DEBUG] Znaleziony przycisk:', button.length ? button[0] : 'BRAK');
+        
+        if (!button.length) {
+            console.error('❌ [ERROR] Nie znaleziono przycisku dla:', {lotId, productId});
+            pokazKomunikatOpcji('❌ Błąd: Nie znaleziono przycisku opcji', 'error');
+            return false;
+        }
+        
+        var originalText = button.text();
+        
+        // Natychmiast zablokuj przycisk
+        if (button.prop('disabled')) {
+            console.warn('⚠️ [WARNING] Przycisk już zablokowany');
+            return false;
+        }
+        
+        console.log('⏳ [DEBUG] Blokowanie przycisku...');
+        button.text('Dodawanie...').prop('disabled', true);
+        
+        $.ajax({
+			url: (typeof srlFrontend !== 'undefined') ? srlFrontend.ajaxurl : ajaxurl,
+			method: 'POST',
+			data: {
+				action: 'srl_sprawdz_i_dodaj_opcje',
+				product_id: productId,
+				quantity: 1,
+				srl_lot_id: lotId,
+				nonce: (typeof srlFrontend !== 'undefined') ? srlFrontend.nonce : '' // ⬅️ DODAJ NONCE
+			},
+            success: function(response) {
+                console.log('✅ [DEBUG] Odpowiedź AJAX:', response);
+                
+                if (response && !response.error) {
+                    // Pokaż komunikat sukcesu
+                    pokazKomunikatOpcji('✅ Dodano "' + optionName + '" do koszyka!', 'success');
+                    
+                    // Zmień przycisk na "w koszyku"
+                    przemieniPrzyciskNaWKoszyku(button, lotId, productId, optionName);
+                    
+                    // Wyślij event o zmianie opcji
+                    $(document).trigger('srl_opcje_zmienione');
+                    
+                    // Aktualizuj licznik koszyka
+                    if (typeof wc_add_to_cart_params !== 'undefined') {
+                        $(document.body).trigger('wc_fragment_refresh');
+                    }
+                } else {
+                    console.error('❌ [ERROR] Błąd dodawania do koszyka:', response);
+                    pokazKomunikatOpcji('❌ Błąd dodawania do koszyka', 'error');
+                    button.text(originalText).prop('disabled', false);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('❌ [ERROR] Błąd AJAX:', {xhr, status, error});
+                pokazKomunikatOpcji('❌ Błąd połączenia z serwerem', 'error');
+                button.text(originalText).prop('disabled', false);
+            }
+        });
+    };
+    
+    // ==========================================================================
+    // Funkcja przekształcania przycisku na stan "w koszyku"
+    // ==========================================================================
+    
+    function przemieniPrzyciskNaWKoszyku(button, lotId, productId, optionName) {
+        console.log('🔄 [DEBUG] Przekształcanie przycisku na "w koszyku":', {lotId, productId, optionName});
+        
+        // Usuń stare klasy, dodaj nowe
+        button.removeClass('srl-btn-secondary button-small')
+              .addClass('srl-btn-warning');
+        
+        // Zmień kolory
+        button.css({
+            'background': '#ff9800', 
+            'border-color': '#ff9800', 
+            'color': 'white',
+            'pointer-events': 'auto',
+            'opacity': '1'
+        });
+        
+        // Skróć nazwę opcji dla wyświetlenia
+        var krotkanazwa = optionName;
+        if (optionName === 'Filmowanie lotu') krotkanazwa = 'Filmowanie';
+        if (optionName === 'Akrobacje podczas lotu') krotkanazwa = 'Akrobacje';
+        if (optionName === 'Przedłużenie ważności') krotkanazwa = 'Przedłużenie';
+        
+        // Nowa zawartość z przyciskiem X
+        var nowaZawartosc = '+ ' + krotkanazwa + ' (w koszyku) ' +
+            '<span class="srl-remove-from-cart" ' +
+			  'data-lot-id="' + lotId + '" ' +
+			  'data-product-id="' + productId + '" ' +
+			  'style="margin-left: 10px; cursor: pointer; font-weight: bold; font-size: 14px; padding: 2px 6px; border-radius: 50%; transition: all 0.2s ease;" ' +
+			  'onmouseenter="this.style.backgroundColor=\'#dc3545\'; this.style.color=\'white\';" ' +
+			  'onmouseleave="this.style.backgroundColor=\'\'; this.style.color=\'white\';">✕</span>';
+        
+        button.html(nowaZawartosc);
+		// USUŃ onclick handler, żeby nie kolidował z X
+		button.removeAttr('onclick');
+        
+        console.log('✅ [DEBUG] Przycisk przekształcony');
+    }
+    
+    // ==========================================================================
+    // Funkcja przywracania przycisku do oryginalnego stanu
+    // ==========================================================================
+    
+    function przywrocPrzyciskDoOryginalnegoStanu(button, lotId, productId) {
+        console.log('🔄 [DEBUG] Przywracanie przycisku do oryginalnego stanu:', {lotId, productId});
+        
+		// Określ krótką nazwę opcji na podstawie productId
+		var optionName = '';
+		if (productId == srlFrontend.productIds.filmowanie) {
+			optionName = 'Filmowanie';
+		} else if (productId == srlFrontend.productIds.akrobacje) {
+			optionName = 'Akrobacje';
+		} else if (productId == srlFrontend.productIds.przedluzenie) {
+			optionName = 'Przedłużenie';
+		} else {
+			optionName = 'Opcja lotu';
+		}
+        
+        // Przywróć oryginalne klasy i style
+        button.removeClass('srl-btn-warning')
+              .addClass('srl-btn-secondary button-small');
+        
+        button.css({
+            'background': '', 
+            'border-color': '', 
+            'color': '',
+            'opacity': '1'
+        });
+        
+        // Przywróć oryginalny tekst i onclick
+        button.html('+ ' + optionName);
+        button.prop('disabled', false);
+        
+		// Przywróć onclick handler z pełną nazwą dla backend
+		var pelnaName = optionName;
+		if (productId == srlFrontend.productIds.filmowanie) pelnaName = 'Filmowanie lotu';
+		if (productId == srlFrontend.productIds.akrobacje) pelnaName = 'Akrobacje podczas lotu'; 
+		if (productId == srlFrontend.productIds.przedluzenie) pelnaName = 'Przedłużenie ważności';
+        
+        button.attr('onclick', 'srlDodajOpcjeLotu(' + lotId + ', ' + productId + ', \'' + pelnaName + '\')');
+        
+        console.log('✅ [DEBUG] Przycisk przywrócony i gotowy do ponownego użycia');
+    }
+    
+    // ==========================================================================
+    // Funkcja pokazywania komunikatów
+    // ==========================================================================
+    
+    function pokazKomunikatOpcji(tekst, typ) {
+        console.log('📢 [DEBUG] Pokazywanie komunikatu:', {tekst, typ});
+        
+        // Sprawdź czy jesteśmy w sekcji z powiadomieniami
+        if ($('#srl-cart-notification').length) {
+            // System powiadomień w "moje konto"
+            var bgColor = typ === 'success' ? '#46b450' : '#d63638';
+            $('#srl-cart-message').html(tekst);
+            $('#srl-cart-notification').css('background', bgColor).fadeIn().delay(3000).fadeOut();
+        } else if (typeof pokazKomunikat === 'function') {
+            // System powiadomień w rezerwacji
+            pokazKomunikat(tekst, typ);
+        } else {
+            // Fallback - stwórz własny komunikat
+            var notification = $('<div style="position:fixed; top:20px; right:20px; background:' + 
+                (typ === 'success' ? '#46b450' : '#d63638') + 
+                '; color:white; padding:15px 20px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);">' + 
+                tekst + '</div>');
+            $('body').append(notification);
+            setTimeout(function() {
+                notification.fadeOut(function() {
+                    notification.remove();
+                });
+            }, 3000);
+        }
+    }
+    
+    // ==========================================================================
+    // Sprawdzanie zawartości koszyka przy ładowaniu
+    // ==========================================================================
+    
+    function sprawdzOpcjeWKoszyku() {
+		console.log('🔍 [DEBUG] Sprawdzanie opcji w koszyku...');
+		
+		// Sprawdź czy produkty są dostępne
+		if (typeof srlFrontend === 'undefined' || typeof srlFrontend.productIds === 'undefined') {
+			console.error('❌ [ERROR] srlFrontend.productIds nie jest dostępne');
+			return;
+		}
+		
+		var ajaxUrl = (typeof srlFrontend !== 'undefined') ? srlFrontend.ajaxurl : ajaxurl;
+		var nonce = (typeof srlFrontend !== 'undefined') ? srlFrontend.nonce : '';
+		
+		if (!nonce) {
+			console.warn('⚠️ [WARNING] Brak nonce - pomijanie sprawdzania koszyka');
+			return;
+		}
+		
+		$.ajax({
+			url: ajaxUrl,
+			method: 'POST',
+			data: {
+				action: 'srl_sprawdz_opcje_w_koszyku',
+				nonce: nonce
+			},
+			success: function(response) {
+				console.log('📦 [DEBUG] Odpowiedź sprawdzania koszyka:', response);
+				
+				if (response.success && response.data) {
+					$.each(response.data, function(lotId, opcje) {
+						console.log('🎫 [DEBUG] Przetwarzanie opcji dla lotu:', {lotId, opcje});
+						
+						if (opcje.filmowanie) {
+							oznaczOpcjeJakoWKoszyku(lotId, srlFrontend.productIds.filmowanie, 'Filmowanie lotu');
+						}
+						if (opcje.akrobacje) {
+							oznaczOpcjeJakoWKoszyku(lotId, srlFrontend.productIds.akrobacje, 'Akrobacje podczas lotu');
+						}
+						if (opcje.przedluzenie) {
+							oznaczOpcjeJakoWKoszyku(lotId, srlFrontend.productIds.przedluzenie, 'Przedłużenie ważności');
+						}
+					});
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('❌ [ERROR] Błąd sprawdzania koszyka:', {xhr, status, error});
+			}
+		});
+	}
+    
+    // ==========================================================================
+    // Oznaczanie opcji jako "w koszyku"
+    // ==========================================================================
+    
+    function oznaczOpcjeJakoWKoszyku(lotId, productId, optionName) {
+        console.log('🏷️ [DEBUG] Oznaczanie opcji jako w koszyku:', {lotId, productId, optionName});
+        
+        // Znajdź przycisk - różne sposoby
+        var button = $('#srl-opcja-' + lotId + '-' + productId);
+        if (!button.length) {
+            button = $('.srl-add-option[data-lot-id="' + lotId + '"][data-product-id="' + productId + '"]');
+        }
+        if (!button.length) {
+            button = $('button[onclick*="srlDodajOpcjeLotu(' + lotId + ', ' + productId + ')"]');
+        }
+        
+        if (button.length) {
+            przemieniPrzyciskNaWKoszyku(button, lotId, productId, optionName);
+            console.log('✅ [DEBUG] Opcja oznaczona jako w koszyku');
+        } else {
+            console.warn('⚠️ [WARNING] Nie znaleziono przycisku dla opcji:', {lotId, productId});
+        }
+    }
+    
+    // ==========================================================================
+    // Funkcja podłączająca event listenery
+    // ==========================================================================
+    
+    function podlaczEventListenery() {
+        console.log('🔌 [DEBUG] Podłączanie event listenerów...');
+        
+        // Wyłącz disabled na wszystkich przyciskach z X
+        $('.srl-remove-from-cart').closest('button').prop('disabled', false);
+        console.log('🔓 [DEBUG] Wyłączono disabled na przyciskach z X');
+        
+        // JEDEN JEDYNY event listener na usuwanie z koszyka
+        $(document).off('click', '.srl-remove-from-cart').on('click', '.srl-remove-from-cart', function(e) {
+            e.stopImmediatePropagation();
+            e.stopPropagation();
+            e.preventDefault();
+            
+            console.log('🗑️ [DEBUG] Kliknięto usuwanie z koszyka');
+            
+            var lotId = $(this).data('lot-id');
+            var productId = $(this).data('product-id');
+            var button = $(this).closest('button');
+            
+            console.log('📋 [DEBUG] Dane usuwania:', {lotId, productId});
+            
+            if (!lotId || !productId) {
+                console.error('❌ [ERROR] Brak danych do usuwania:', {lotId, productId});
+                pokazKomunikatOpcji('❌ Błąd: Brak danych opcji do usunięcia', 'error');
+                return;
+            }
+            
+            // BEZ POTWIERDZENIA - usuwamy od razu
+            console.log('⏳ [DEBUG] Usuwanie bez potwierdzenia...');
+            
+            // Natychmiast zmień przycisk na "usuwanie..."
+            var originalHtml = button.html();
+            button.html('Usuwanie...');
+            button.css('opacity', '0.6');
+            
+            var ajaxUrl = (typeof srlFrontend !== 'undefined') ? srlFrontend.ajaxurl : ajaxurl;
+            var nonce = (typeof srlFrontend !== 'undefined') ? srlFrontend.nonce : '';
+            
+            if (!nonce) {
+                console.error('❌ [ERROR] Brak nonce dla usuwania');
+                pokazKomunikatOpcji('❌ Błąd: Brak uprawnień do usuwania', 'error');
+                button.html(originalHtml);
+                button.css('opacity', '1');
+                return;
+            }
+            
+            $.ajax({
+                url: ajaxUrl,
+                method: 'POST',
+                data: {
+                    action: 'srl_usun_opcje_z_koszyka',
+                    lot_id: lotId,
+                    product_id: productId,
+                    nonce: nonce
+                },
+                success: function(response) {
+                    console.log('✅ [DEBUG] Odpowiedź usuwania:', response);
+                    
+                    if (response.success) {
+                        // NATYCHMIASTOWE przywrócenie przycisku
+                        przywrocPrzyciskDoOryginalnegoStanu(button, lotId, productId);
+                        
+                        // Wyślij event o zmianie opcji
+                        $(document).trigger('srl_opcje_zmienione');
+                        
+                        // Pokaż komunikat sukcesu
+                        pokazKomunikatOpcji('✅ Opcja usunięta z koszyka', 'success');
+                        
+                        // Aktualizuj licznik koszyka
+                        if (typeof wc_add_to_cart_params !== 'undefined') {
+                            $(document.body).trigger('wc_fragment_refresh');
+                        }
+                    } else {
+                        console.error('❌ [ERROR] Błąd usuwania z koszyka:', response.data);
+                        pokazKomunikatOpcji('❌ Błąd usuwania: ' + response.data, 'error');
+                        button.html(originalHtml);
+                        button.css('opacity', '1');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('❌ [ERROR] Błąd AJAX usuwania:', {xhr, status, error});
+                    pokazKomunikatOpcji('❌ Błąd połączenia z serwerem', 'error');
+                    button.html(originalHtml);
+                    button.css('opacity', '1');
+                }
+            });
+        });
+        
+        console.log('✅ [DEBUG] Event listener podłączony, przycisków X:', $('.srl-remove-from-cart').length);
+    }
+    
+    // ==========================================================================
+    // Inicjalizacja przy ładowaniu
+    // ==========================================================================
+    
+    // Podłącz event listenery od razu
+    podlaczEventListenery();
+    
+    // I ponownie po zmianie opcji
+    $(document).on('srl_opcje_zmienione', function() {
+        console.log('🔄 [DEBUG] Opcje zmienione - ponowne podłączanie...');
+        setTimeout(podlaczEventListenery, 100);
+    });
+    
+    // Sprawdź opcje w koszyku po załadowaniu strony
+    setTimeout(function() {
+        sprawdzOpcjeWKoszyku();
+    }, 1000);
+    
+    // Ponowne sprawdzenie po załadowaniu danych klienta
+    $(document).on('srl_dane_klienta_zaladowane', function() {
+        console.log('🔄 [DEBUG] Dane klienta załadowane - sprawdzanie koszyka...');
+        setTimeout(function() {
+            sprawdzOpcjeWKoszyku();
+            podlaczEventListenery(); // Ponownie podłącz listenery
+        }, 500);
+    });
+    
+    console.log('🎯 [DEBUG] System opcji lotów zainicjalizowany');
+});
