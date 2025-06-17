@@ -1,14 +1,17 @@
 <?php
 
+/**
+ * Generuje sekcję voucherów (wspólna dla różnych miejsc)
+ */
 function srl_generuj_sekcje_voucherow($show_title = true) {
     ob_start();
     ?>
     <?php if ($show_title): ?>
     <h3>Kup lub dodaj voucher</h3>
     <?php endif; ?>
-
+    
 <div class="srl-voucher-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
-
+    
     <!-- Kup lot - PIERWSZE MIEJSCE -->
     <div class="srl-voucher-card">
         <div class="srl-voucher-header" style="background: linear-gradient(135deg, #46b450, #3ba745); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -19,7 +22,7 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
             <a href="/produkt/lot-w-tandemie/" class="srl-btn srl-btn-success" style="text-decoration: none; display: block; text-align: center;">Przejdź do sklepu</a>
         </div>
     </div>
-
+    
     <!-- Wykorzystaj Voucher Feel&Fly - DRUGIE MIEJSCE -->
     <div class="srl-voucher-card" id="srl-voucher-feelfly">
         <div class="srl-voucher-header" style="background: linear-gradient(135deg, #0073aa, #005a87); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -38,55 +41,117 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
             <button id="srl-voucher-show" class="srl-btn srl-btn-primary" style="width: 100%;">Mam voucher</button>
         </div>
     </div>
-
+    
     <!-- Wykorzystaj Voucher partnera - TRZECIE MIEJSCE -->
-    <div class="srl-voucher-card" style="opacity: 0.6;">
+    <div class="srl-voucher-card" id="srl-voucher-partner">
         <div class="srl-voucher-header" style="background: linear-gradient(135deg, #6c757d, #5a6268); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
             <h4 style="margin: 0; font-size: 18px;">🤝 Voucher partnera</h4>
-            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Wkrótce dostępne</p>
+            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">PrezentMarzeń, Groupon</p>
         </div>
-        <div class="srl-voucher-content" style="padding: 22px; border: 2px solid #6c757d; border-top: none; border-radius: 0 0 8px 8px; background: #f8f9fa;">
-            <button class="srl-btn srl-btn-secondary" style="width: 100%;" disabled>Niedostępne</button>
+        <div class="srl-voucher-content" style="padding: 22px; border: 2px solid #6c757d; border-top: none; border-radius: 0 0 8px 8px; background: white;">
+            <button id="srl-partner-voucher-show" class="srl-btn srl-btn-primary" style="width: 100%;">Mam voucher</button>
         </div>
     </div>
 </div>
+
+
+<!-- Modal vouchera partnera -->
+    <div id="srl-partner-voucher-modal" class="srl-modal" style="display: none;">
+        <div class="srl-modal-content">
+            <div class="srl-modal-header">
+                <h3>Voucher partnera</h3>
+                <span class="srl-modal-close">&times;</span>
+            </div>
+            <div class="srl-modal-body">
+                <form id="srl-partner-voucher-form">
+                    <div class="srl-form-grid">
+                        <div class="srl-form-group">
+                            <label for="srl-partner-select">Partner *</label>
+                            <select id="srl-partner-select" name="partner" required>
+                                <option value="">Wybierz partnera</option>
+                                <option value="prezent_marzen">PrezentMarzeń</option>
+                                <option value="groupon">Groupon</option>
+                            </select>
+                        </div>
+                        <div class="srl-form-group">
+                            <label for="srl-voucher-type-select">Typ vouchera *</label>
+                            <select id="srl-voucher-type-select" name="typ_vouchera" required disabled>
+                                <option value="">Najpierw wybierz partnera</option>
+                            </select>
+                        </div>
+                        <div class="srl-form-group">
+                            <label for="srl-partner-voucher-code">Kod vouchera *</label>
+                            <input type="text" id="srl-partner-voucher-code" name="kod_vouchera" required placeholder="Wprowadź kod vouchera">
+                        </div>
+                        <div class="srl-form-group">
+                            <label for="srl-security-code">Kod zabezpieczający *</label>
+                            <input type="text" id="srl-security-code" name="kod_zabezpieczajacy" required placeholder="Wprowadź kod zabezpieczający">
+                        </div>
+                        <!-- NOWE POLE: Data ważności -->
+                        <div class="srl-form-group">
+                            <label for="srl-voucher-validity-date">Data ważności vouchera *</label>
+                            <input type="date" id="srl-voucher-validity-date" name="data_waznosci" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Kontener na formularze pasażerów -->
+                    <div id="srl-passengers-container" style="display: none;">
+                        <h4>Dane pasażerów</h4>
+                        <div id="srl-passengers-forms"></div>
+                    </div>
+                    
+                    <div class="srl-modal-actions">
+                        <button type="button" id="srl-partner-voucher-cancel" class="srl-btn srl-btn-secondary">Anuluj</button>
+                        <button type="submit" id="srl-partner-voucher-submit" class="srl-btn srl-btn-primary">Wyślij do akceptacji</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <?php
     return ob_get_clean();
 }
 
+/**
+ * Generuje JavaScript dla obsługi voucherów
+ */
 function srl_generuj_js_voucherow() {
     ?>
     <script>
     jQuery(document).ready(function($) {
-
+        // Pokaż formularz vouchera
         $(document).on('click', '#srl-voucher-show', function() {
             $('#srl-voucher-show').hide();
             $('#srl-voucher-form').show();
             $('#srl-voucher-code').focus();
         });
-
+        
+        // Anuluj voucher
         $(document).on('click', '#srl-voucher-cancel', function() {
             $('#srl-voucher-form').hide();
             $('#srl-voucher-show').show();
             $('#srl-voucher-code').val('');
         });
-
+        
+        // Automatyczne formatowanie kodu vouchera
         $(document).on('input', '#srl-voucher-code', function() {
             var value = $(this).val().toUpperCase().replace(/[^A-Z0-9]/g, '');
             $(this).val(value);
         });
-
+        
+        // Zatwierdź voucher
         $(document).on('click', '#srl-voucher-submit', function() {
             var kod = $('#srl-voucher-code').val().trim();
-
+            
 			if (kod.length < 1) {
 				alert('Wprowadź kod vouchera.');
 				return;
 			}
-
+            
             var button = $(this);
             button.prop('disabled', true).text('Sprawdzanie...');
-
+            
             $.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
                 method: 'POST',
@@ -113,37 +178,303 @@ function srl_generuj_js_voucherow() {
                 }
             });
         });
+		
+	// Partner voucher modal
+        $(document).on('click', '#srl-partner-voucher-show', function() {
+            $('#srl-partner-voucher-modal').show();
+        });
+
+        $(document).on('click', '.srl-modal-close, #srl-partner-voucher-cancel', function() {
+            $('#srl-partner-voucher-modal').hide();
+            $('#srl-partner-voucher-form')[0].reset();
+            $('#srl-passengers-container').hide();
+            $('#srl-passengers-forms').empty();
+            $('#srl-voucher-type-select').prop('disabled', true).html('<option value="">Najpierw wybierz partnera</option>');
+        });
+
+        // Partner selection change
+        $(document).on('change', '#srl-partner-select', function() {
+            var partner = $(this).val();
+            var typeSelect = $('#srl-voucher-type-select');
+            
+            if (!partner) {
+                typeSelect.prop('disabled', true).html('<option value="">Najpierw wybierz partnera</option>');
+                $('#srl-passengers-container').hide();
+                return;
+            }
+            
+            // Load voucher types for selected partner
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                method: 'POST',
+                data: {
+                    action: 'srl_get_partner_voucher_types',
+                    partner: partner,
+                    nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var options = '<option value="">Wybierz typ vouchera</option>';
+                        $.each(response.data, function(key, type) {
+                            options += '<option value="' + key + '" data-passengers="' + type.liczba_osob + '">' + type.nazwa + '</option>';
+                        });
+                        typeSelect.prop('disabled', false).html(options);
+                    }
+                },
+                error: function() {
+                    alert('Błąd ładowania typów voucherów.');
+                }
+            });
+        });
+
+        // Voucher type selection change
+        $(document).on('change', '#srl-voucher-type-select', function() {
+            var selectedOption = $(this).find('option:selected');
+            var passengerCount = selectedOption.data('passengers');
+            
+            if (passengerCount) {
+                srlGeneratePassengerForms(passengerCount);
+                $('#srl-passengers-container').show();
+            } else {
+                $('#srl-passengers-container').hide();
+            }
+        });
+
+		// Partner voucher form submission
+        $(document).on('submit', '#srl-partner-voucher-form', function(e) {
+            e.preventDefault();
+            
+            var formData = {
+                action: 'srl_submit_partner_voucher',
+                partner: $('#srl-partner-select').val(),
+                typ_vouchera: $('#srl-voucher-type-select').val(),
+                kod_vouchera: $('#srl-partner-voucher-code').val(),
+                kod_zabezpieczajacy: $('#srl-security-code').val(),
+                data_waznosci: $('#srl-voucher-validity-date').val(), // NOWE POLE
+                dane_pasazerow: [],
+                nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+            };
+            
+            // Sprawdź regulamin
+            if (!$('#srl-all-passengers-regulamin').is(':checked')) {
+                alert('Musisz zaakceptować Regulamin.');
+                return;
+            }
+            
+            // Sprawdź datę ważności
+            if (!formData.data_waznosci) {
+                alert('Musisz podać datę ważności vouchera.');
+                return;
+            }
+            
+            // Collect passenger data
+            $('#srl-passengers-forms .srl-passenger-form').each(function() {
+                var passengerData = {
+                    imie: $(this).find('.passenger-imie').val(),
+                    nazwisko: $(this).find('.passenger-nazwisko').val(),
+                    rok_urodzenia: $(this).find('.passenger-rok').val(),
+                    telefon: $(this).find('.passenger-telefon').val(),
+                    kategoria_wagowa: $(this).find('.passenger-kategoria').val(),
+                    sprawnosc_fizyczna: $(this).find('.passenger-sprawnosc').val(),
+                    uwagi: $(this).find('.passenger-uwagi').val(),
+                    akceptacja_regulaminu: true
+                };
+                formData.dane_pasazerow.push(passengerData);
+            });
+            
+            var submitBtn = $('#srl-partner-voucher-submit');
+            submitBtn.prop('disabled', true).text('Wysyłanie...');
+            
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                method: 'POST',
+                data: formData,
+                success: function(response) {
+                    if (response.success) {
+                        showSuccessMessage();
+                    } else {
+                        alert('Błąd: ' + response.data);
+                        submitBtn.prop('disabled', false).text('Wyślij do akceptacji');
+                    }
+                },
+                error: function() {
+                    alert('Błąd połączenia z serwerem.');
+                    submitBtn.prop('disabled', false).text('Wyślij do akceptacji');
+                }
+            });
+        });
+
+        function showSuccessMessage() {
+            // Ukryj zawartość formularza
+            $('.srl-modal-body').html(
+                '<div class="srl-success-container" style="text-align: center; padding: 40px 20px;">' +
+                    '<div class="srl-success-icon" style="font-size: 80px; color: #27ae60; margin-bottom: 20px;">' +
+                        '✅' +
+                    '</div>' +
+                    '<h2 style="color: #27ae60; margin-bottom: 20px; font-size: 28px; font-weight: 600;">' +
+                        'Voucher przesłany do akceptacji!' +
+                    '</h2>' +
+                    '<div style="background: #eaf4ea; border: 2px solid #27ae60; border-radius: 12px; padding: 25px; margin: 20px 0; color: #155724;">' +
+                        '<h3 style="margin-top: 0; font-size: 18px;">Co dalej?</h3>' +
+                        '<ul style="text-align: left; line-height: 1.6; margin: 15px 0;">' +
+                            '<li>📧 <strong>Otrzymasz email z potwierdzeniem</strong> zgłoszenia</li>' +
+                            '<li>🔍 <strong>Nasz zespół zweryfikuje</strong> podane dane</li>' +
+                            '<li>⏰ <strong>Proces weryfikacji</strong> trwa 1-2 dni robocze</li>' +
+                            '<li>✈️ <strong>Po zatwierdzeniu</strong> otrzymasz loty do rezerwacji</li>' +
+                        '</ul>' +
+                    '</div>' +
+                    '<div style="margin-top: 30px;">' +
+                        '<button type="button" id="srl-success-close-btn" class="srl-btn srl-btn-success" style="padding: 15px 40px; font-size: 16px;">' +
+                            'Zamknij' +
+                        '</button>' +
+                    '</div>' +
+                '</div>'
+            );
+            
+            // Zmień tytuł modala
+            $('.srl-modal-header h3').text('Sukces!');
+            
+            // DODAJ EVENT HANDLER dla przycisku
+            $('#srl-success-close-btn').on('click', function() {
+                closeSuccessModal();
+            });
+        }
+
+        function closeSuccessModal() {
+            $('#srl-partner-voucher-modal').hide();
+            // Reset formularza i odświeżenie strony
+            $('#srl-partner-voucher-form')[0].reset();
+            $('#srl-passengers-container').hide();
+            $('#srl-passengers-forms').empty();
+            $('#srl-voucher-type-select').prop('disabled', true).html('<option value="">Najpierw wybierz partnera</option>');
+            
+            // Odśwież listę lotów po krótkim czasie
+            setTimeout(function() {
+                location.reload();
+            }, 300);
+        }
+		
+        // Function to generate passenger forms
+        function srlGeneratePassengerForms(count) {
+            var container = $('#srl-passengers-forms');
+            container.empty();
+            
+            for (var i = 1; i <= count; i++) {
+                var formHtml = '<div class="srl-passenger-form" style="border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px;">';
+                formHtml += '<h5>Pasażer ' + i + '</h5>';
+                formHtml += '<div class="srl-form-grid">';
+                
+                // Pierwsza kolumna
+                formHtml += '<div class="srl-form-group">';
+                formHtml += '<label>Imię *</label>';
+                formHtml += '<input type="text" class="passenger-imie" required>';
+                formHtml += '</div>';
+                
+                // Druga kolumna
+                formHtml += '<div class="srl-form-group">';
+                formHtml += '<label>Nazwisko *</label>';
+                formHtml += '<input type="text" class="passenger-nazwisko" required>';
+                formHtml += '</div>';
+                
+                // Trzecia kolumna
+                formHtml += '<div class="srl-form-group">';
+                formHtml += '<label>Rok urodzenia *</label>';
+                formHtml += '<input type="number" class="passenger-rok" min="1920" max="2020" required>';
+                formHtml += '</div>';
+                
+                // Czwarta kolumna
+                formHtml += '<div class="srl-form-group">';
+                formHtml += '<label>Telefon *</label>';
+                formHtml += '<input type="tel" class="passenger-telefon" required>';
+                formHtml += '</div>';
+                
+                // Piąta kolumna
+                formHtml += '<div class="srl-form-group">';
+                formHtml += '<label>Kategoria wagowa *</label>';
+                formHtml += '<select class="passenger-kategoria" required>';
+                formHtml += '<option value="">Wybierz kategorię</option>';
+                formHtml += '<option value="25-40kg">25-40kg</option>';
+                formHtml += '<option value="41-60kg">41-60kg</option>';
+                formHtml += '<option value="61-90kg">61-90kg</option>';
+                formHtml += '<option value="91-120kg">91-120kg</option>';
+                formHtml += '<option value="120kg+">120kg+</option>';
+                formHtml += '</select>';
+                formHtml += '</div>';
+                
+                // Szósta kolumna
+                formHtml += '<div class="srl-form-group">';
+                formHtml += '<label>Sprawność fizyczna *</label>';
+                formHtml += '<select class="passenger-sprawnosc" required>';
+                formHtml += '<option value="">Wybierz poziom</option>';
+                formHtml += '<option value="zdolnosc_do_marszu">Zdolność do marszu</option>';
+                formHtml += '<option value="zdolnosc_do_biegu">Zdolność do biegu</option>';
+                formHtml += '<option value="sprinter">Sprinter!</option>';
+                formHtml += '</select>';
+                formHtml += '</div>';
+                
+                // Pole uwagi - full width
+                formHtml += '<div class="srl-form-group srl-full-width">';
+                formHtml += '<label>Dodatkowe uwagi</label>';
+                formHtml += '<textarea class="passenger-uwagi" rows="3" placeholder="Np. alergie, obawy, specjalne potrzeby..."></textarea>';
+                formHtml += '</div>';
+                
+                formHtml += '</div>'; // koniec srl-form-grid
+                formHtml += '</div>'; // koniec srl-passenger-form
+                
+                container.append(formHtml);
+            }
+            
+            // Dodaj regulamin na końcu (tylko raz, nie dla każdego pasażera)
+            var regulaminHtml = '<div class="srl-regulamin-section" style="border-top: 2px solid #ddd; padding-top: 20px; margin-top: 20px;">';
+            regulaminHtml += '<label style="display: flex; align-items: center; gap: 8px; font-weight: 500;">';
+            regulaminHtml += '<input type="checkbox" id="srl-all-passengers-regulamin" required>';
+            regulaminHtml += 'Akceptuję <a href="/regulamin/" target="_blank" style="color: #0073aa; text-decoration: none;">Regulamin</a> w imieniu wszystkich pasażerów *';
+            regulaminHtml += '</label>';
+            regulaminHtml += '</div>';
+            
+            container.append(regulaminHtml);
+        }	
+		
+		
+		
+		
+		
     });
     </script>
     <?php
 }
 
+
+// Rejestracja shortcode dla kalendarza front-end
 add_shortcode('srl_kalendarz', 'srl_shortcode_kalendarz');
 function srl_shortcode_kalendarz() {
-
+    // Sprawdź czy użytkownik jest zalogowany
     if (!is_user_logged_in()) {
         return srl_komunikat_niezalogowany();
     }
-
+    
     $user_id = get_current_user_id();
-
+    
+    // Sprawdź czy ma jakieś loty do wykorzystania
     $loty_dostepne = srl_pobierz_dostepne_loty($user_id);
     if (empty($loty_dostepne)) {
         return srl_komunikat_brak_lotow();
     }
-
+    
+    // Enqueue scripts i styles
     wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), '1.0', true);
     wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), '1.0');
-
+    
+    // Przekaż dane do JS	
 	wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
 		'ajaxurl' => admin_url('admin-ajax.php'),
 		'nonce' => wp_create_nonce('srl_frontend_nonce'),
 		'user_id' => $user_id
 	));
-
+    
     ob_start();
     ?>
-
+    
     <div id="srl-rezerwacja-container">
         <!-- Progress Bar -->
 		<div class="srl-progress-bar">
@@ -172,7 +503,7 @@ function srl_shortcode_kalendarz() {
         <!-- Krok 1: Wybór rezerwacji -->
         <div id="srl-krok-1" class="srl-krok srl-krok-active">
             <h2>👋 Witaj!</h2>
-
+            
             <!-- Aktualne rezerwacje i wykupione loty -->
             <div id="srl-aktualne-rezerwacje">
                 <h3 style="text-transform: uppercase;">Twoje aktualne rezerwacje i wykupione loty</h3>
@@ -180,7 +511,7 @@ function srl_shortcode_kalendarz() {
                     <div class="srl-loader">Ładowanie...</div>
                 </div>
             </div>
-
+            
             <!-- Sekcja voucherów i zakupów -->
             <div id="srl-voucher-section" style="margin-top: 30px;">
                 <?php echo srl_generuj_sekcje_voucherow(true); ?>
@@ -190,13 +521,13 @@ function srl_shortcode_kalendarz() {
 		<!-- Krok 2: Twoje dane -->
 		<div id="srl-krok-2" class="srl-krok">
 			<h2 style="text-transform: uppercase;">Twoje dane</h2>
-
+			
 			<!-- Wybrany lot do rezerwacji -->
 			<div id="srl-wybrany-lot-info" style="margin-bottom:30px;">
 				<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Wybrany lot do rezerwacji:</h3>
 				<div id="srl-wybrany-lot-szczegoly"></div>
 			</div>
-
+			
 			<!-- Formularz danych pasażera -->
 			<div id="srl-dane-pasazera">
 				<h3  style="text-transform: uppercase;">Dane pasażera</h3>
@@ -240,12 +571,12 @@ function srl_shortcode_kalendarz() {
 							<option value="120kg+">120kg+</option>
 							</select>
 						</div>
-
+						
 						<!-- Komunikat o wadze na całą szerokość -->
 						<div class="srl-form-group srl-full-width">
 							<div id="srl-waga-ostrzezenie" style="display:none; margin-bottom:15px; border-radius:8px;"></div>
 						</div>
-
+						
 						<div class="srl-form-group srl-full-width">
 							<label for="srl-uwagi">Dodatkowe uwagi</label>
 							<textarea id="srl-uwagi" name="uwagi" rows="3" placeholder="Np. alergie, obawy, specjalne potrzeby..."></textarea>
@@ -257,7 +588,7 @@ function srl_shortcode_kalendarz() {
 							</label>
 						</div>
 					</div>
-
+					
 					<div class="srl-form-actions">
 						<button id="srl-powrot-krok-1" class="srl-btn srl-btn-secondary">← Powrót</button>
 						<button type="submit" class="srl-btn srl-btn-primary">
@@ -289,7 +620,7 @@ function srl_shortcode_kalendarz() {
 					</div>
 				</div>
 			</div>
-
+			
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-2" class="srl-btn srl-btn-secondary">← Powrót</button>
 			</div>
@@ -300,7 +631,7 @@ function srl_shortcode_kalendarz() {
 			<h2 style="text-transform: uppercase;">Wybierz godzinę lotu</h2>
 			<div id="srl-wybrany-dzien-info"></div>
 			<div id="srl-harmonogram-frontend"></div>
-
+			
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-3" class="srl-btn srl-btn-secondary">← Zmień dzień</button>
 				<button id="srl-dalej-krok-5" class="srl-btn srl-btn-primary" style="display:none;">
@@ -312,23 +643,23 @@ function srl_shortcode_kalendarz() {
 		<!-- Krok 5: Potwierdzenie -->
 		<div id="srl-krok-5" class="srl-krok">
 			<h2 style="text-transform: uppercase;">✅ Potwierdzenie rezerwacji</h2>
-
+			
 			<div id="srl-podsumowanie-rezerwacji">
 				<div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">
 					<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Podsumowanie rezerwacji</h3>
-
+					
 					<div class="srl-podsumowanie-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0;">
 						<div id="srl-wybrany-lot-podsumowanie"><strong>🎫 Wybrany lot:</strong><br><span id="srl-lot-details">Ładowanie...</span></div>
 						<div id="srl-data-godzina-podsumowanie"><strong>📅 Data i godzina lotu:</strong><br><span id="srl-datetime-details">Ładowanie...</span></div>
 					</div>
-
+					
 					<div class="srl-dane-pasazera-box" style="background:#f8f9fa; padding-top:30px; border-radius:8px; margin-top:20px;">
 						<h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Dane pasażera</h3>
 						<div id="srl-dane-pasazera-podsumowanie">
 							<!-- Dane będą wypełnione przez JS -->
 						</div>
 					</div>
-
+					
 					<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:20px;">
 						<h4 style="margin-top:0; color:#f57c00;">⚠️ Ważne informacje:</h4>
 						<ul style="margin:0; padding-left:20px;">
@@ -340,7 +671,7 @@ function srl_shortcode_kalendarz() {
 					</div>
 				</div>
 			</div>
-
+			
 			<div class="srl-form-actions">
 				<button id="srl-powrot-krok-4" class="srl-btn srl-btn-secondary">← Zmień godzinę</button>
 				<button id="srl-potwierdz-rezerwacje" class="srl-btn srl-btn-success">
@@ -348,23 +679,24 @@ function srl_shortcode_kalendarz() {
 				</button>
 			</div>
 		</div>
-
+        
 		<!-- Komunikaty -->
         <div id="srl-komunikaty"></div>
-
+        
         <!-- Komunikat o dodaniu do koszyka (jak w moje konto) -->
         <div id="srl-cart-notification" style="display:none; position:fixed; top:20px; right:20px; background:#46b450; color:white; padding:15px 20px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
             <div id="srl-cart-message"></div>
             <a href="<?php echo function_exists('wc_get_cart_url') ? wc_get_cart_url() : '/koszyk/'; ?>" class="button" style="margin-top:10px; background:white; color:#46b450; text-decoration:none; display:inline-block; padding:8px 15px; border-radius:4px; font-weight:600;">Przejdź do koszyka</a>
         </div>
     </div>
-
+    
 	<?php 
 	srl_generuj_js_voucherow(); 
 
 	return ob_get_clean();
 }
 
+// Komunikat dla niezalogowanych z formularzami logowania i rejestracji
 function srl_komunikat_niezalogowany() {
     ob_start();
     ?>
@@ -373,13 +705,13 @@ function srl_komunikat_niezalogowany() {
             <h3  style="text-transform: uppercase;">Logowanie wymagane</h3>
             <p>Aby dokonać rezerwacji lotu lub wykorzystać voucher, musisz być zalogowany.</p>
         </div>
-
+        
         <!-- Tabs -->
         <div class="srl-auth-tabs">
             <button class="srl-tab-btn srl-tab-active" data-tab="login">Logowanie</button>
             <button class="srl-tab-btn" data-tab="register">Rejestracja</button>
         </div>
-
+        
         <!-- Login Form -->
         <div id="srl-login-tab" class="srl-tab-content srl-tab-active">
             <form id="srl-login-form">
@@ -400,17 +732,17 @@ function srl_komunikat_niezalogowany() {
                         </label>
                     </div>
                 </div>
-
+                
                 <div class="srl-auth-actions">
                     <button type="submit" class="srl-btn srl-btn-primary srl-btn-large">Zaloguj się</button>
                 </div>
-
+                
                 <div class="srl-auth-footer">
                     <a href="<?php echo wp_lostpassword_url(get_permalink()); ?>">Zapomniałeś hasła?</a>
                 </div>
             </form>
         </div>
-
+        
         <!-- Register Form -->
         <div id="srl-register-tab" class="srl-tab-content">
             <form id="srl-register-form">
@@ -436,36 +768,37 @@ function srl_komunikat_niezalogowany() {
                         <input type="text" id="srl-register-last-name" name="last_name" required>
                     </div>
                 </div>
-
+                
                 <div class="srl-auth-actions">
                     <button type="submit" class="srl-btn srl-btn-primary srl-btn-large">Załóż konto</button>
                 </div>
             </form>
         </div>
-
+        
         <div id="srl-auth-messages"></div>
     </div>
-
+    
     <script>
     jQuery(document).ready(function($) {
-
+        // Tab switching
         $('.srl-tab-btn').on('click', function() {
             var tabId = $(this).data('tab');
-
+            
             $('.srl-tab-btn').removeClass('srl-tab-active');
             $('.srl-tab-content').removeClass('srl-tab-active');
-
+            
             $(this).addClass('srl-tab-active');
             $('#srl-' + tabId + '-tab').addClass('srl-tab-active');
         });
-
+        
+        // Login form
         $('#srl-login-form').on('submit', function(e) {
             e.preventDefault();
-
+            
             var submitBtn = $(this).find('button[type="submit"]');
             var originalText = submitBtn.text();
             submitBtn.prop('disabled', true).text('Logowanie...');
-
+            
             var formData = {
                 action: 'srl_ajax_login',
                 username: $('#srl-login-username').val(),
@@ -473,7 +806,7 @@ function srl_komunikat_niezalogowany() {
                 remember: $('#srl-login-remember').is(':checked'),
                 nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
             };
-
+            
             $.post('<?php echo admin_url('admin-ajax.php'); ?>', formData, function(response) {
                 if (response.success) {
                     $('#srl-auth-messages').html('<div class="srl-komunikat srl-komunikat-success">Zalogowano pomyślnie! Przekierowywanie...</div>');
@@ -486,22 +819,23 @@ function srl_komunikat_niezalogowany() {
                 }
             });
         });
-
+        
+        // Register form
         $('#srl-register-form').on('submit', function(e) {
             e.preventDefault();
-
+            
             var password = $('#srl-register-password').val();
             var passwordConfirm = $('#srl-register-password-confirm').val();
-
+            
             if (password !== passwordConfirm) {
                 $('#srl-auth-messages').html('<div class="srl-komunikat srl-komunikat-error">Hasła nie są identyczne.</div>');
                 return;
             }
-
+            
             var submitBtn = $(this).find('button[type="submit"]');
             var originalText = submitBtn.text();
             submitBtn.prop('disabled', true).text('Tworzenie konta...');
-
+            
             var formData = {
                 action: 'srl_ajax_register',
                 email: $('#srl-register-email').val(),
@@ -510,7 +844,7 @@ function srl_komunikat_niezalogowany() {
                 last_name: $('#srl-register-last-name').val(),
                 nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
             };
-
+            
             $.post('<?php echo admin_url('admin-ajax.php'); ?>', formData, function(response) {
                 if (response.success) {
                     $('#srl-auth-messages').html('<div class="srl-komunikat srl-komunikat-success">Konto zostało utworzone! Zalogowano automatycznie. Przekierowywanie...</div>');
@@ -529,6 +863,7 @@ function srl_komunikat_niezalogowany() {
     return ob_get_clean();
 }
 
+// Komunikat dla użytkowników bez lotów z opcjami voucherów
 function srl_komunikat_brak_lotow() {
     ob_start();
     ?>
@@ -536,26 +871,28 @@ function srl_komunikat_brak_lotow() {
         <h3>Brak dostępnych lotów</h3>
         <p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p>
     </div>
-
+    
     <!-- Sekcja voucherów i zakupów -->
     <div id="srl-voucher-section" style="margin-top: 30px;">
         <?php echo srl_generuj_sekcje_voucherow(); ?>
     </div>
-
+    
     <?php srl_generuj_js_voucherow(); ?>
     <?php
     return ob_get_clean();
 }
 
+// Pobiera dostępne loty użytkownika
 function srl_pobierz_dostepne_loty($user_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-
+    
+    // Sprawdź czy tabela istnieje
     $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela'") == $tabela;
     if (!$table_exists) {
         return array();
     }
-
+    
     $wynik = $wpdb->get_results($wpdb->prepare(
         "SELECT * FROM $tabela 
          WHERE user_id = %d 
@@ -564,6 +901,7 @@ function srl_pobierz_dostepne_loty($user_id) {
          ORDER BY data_zakupu DESC",
         $user_id
     ), ARRAY_A);
-
+    
     return $wynik;
 }
+

@@ -1,16 +1,23 @@
 <?php
+/**
+ * Zarządzanie voucherami upominkowymi - panel administratora
+ */
 
+// Sprawdź czy tabela voucherów istnieje
 function srl_voucher_table_exists() {
     global $wpdb;
     $tabela_vouchery = $wpdb->prefix . 'srl_vouchery_upominkowe';
     return $wpdb->get_var("SHOW TABLES LIKE '$tabela_vouchery'") == $tabela_vouchery;
 }
 
+
+// Strona "Zakupione Vouchery" w panelu admina
 function srl_wyswietl_zakupione_vouchery() {
     if (!current_user_can('manage_options')) {
         wp_die('Brak uprawnień.');
     }
-
+	
+	    // Sprawdź czy tabela istnieje
     if (!srl_voucher_table_exists()) {
         echo '<div class="wrap">';
         echo '<h1>🎁 Zakupione Vouchery</h1>';
@@ -18,15 +25,16 @@ function srl_wyswietl_zakupione_vouchery() {
         echo '</div>';
         return;
     }
-
+    
     global $wpdb;
     $tabela_vouchery = $wpdb->prefix . 'srl_vouchery_upominkowe';
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-
+    
+    // Obsługa akcji grupowych
     if (isset($_POST['action']) && isset($_POST['voucher_ids'])) {
         $ids = array_map('intval', $_POST['voucher_ids']);
         $action = $_POST['action'];
-
+        
         if ($action === 'bulk_delete') {
             $placeholders = implode(',', array_fill(0, count($ids), '%d'));
             $wpdb->query($wpdb->prepare(
@@ -36,30 +44,33 @@ function srl_wyswietl_zakupione_vouchery() {
             echo '<div class="notice notice-success"><p>Usunięto ' . count($ids) . ' voucherów.</p></div>';
         }
     }
-
+    
+    // Parametry paginacji i filtrowania
     $per_page = 20;
     $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
     $offset = ($current_page - 1) * $per_page;
-
+    
     $status_filter = isset($_GET['status_filter']) ? sanitize_text_field($_GET['status_filter']) : '';
     $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
-
+    
+    // Buduj WHERE clause
     $where_conditions = array();
     $where_params = array();
-
+    
     if ($status_filter) {
         $where_conditions[] = "v.status = %s";
         $where_params[] = $status_filter;
     }
-
+    
     if ($search) {
         $where_conditions[] = "(v.buyer_imie LIKE %s OR v.buyer_nazwisko LIKE %s OR v.kod_vouchera LIKE %s OR v.nazwa_produktu LIKE %s OR o.ID LIKE %s)";
         $search_param = '%' . $search . '%';
         $where_params = array_merge($where_params, [$search_param, $search_param, $search_param, $search_param, $search]);
     }
-
+    
     $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-
+    
+    // Query główny
     $query = "
         SELECT v.*, 
                buyer.user_email as buyer_email,
@@ -74,7 +85,8 @@ function srl_wyswietl_zakupione_vouchery() {
         ORDER BY v.data_zakupu DESC
         LIMIT %d OFFSET %d
     ";
-
+    
+    // Query do liczenia rekordów
     $count_query = "
         SELECT COUNT(*) 
         FROM $tabela_vouchery v
@@ -83,31 +95,35 @@ function srl_wyswietl_zakupione_vouchery() {
         LEFT JOIN {$wpdb->posts} o ON v.order_id = o.ID
         $where_clause
     ";
-
+    
+    // Przygotuj parametry dla zapytania głównego
     $main_query_params = array_merge($where_params, [$per_page, $offset]);
-
+    
+    // Wykonaj zapytanie główne
     $vouchery = $wpdb->get_results($wpdb->prepare($query, ...$main_query_params), ARRAY_A);
-
+    
+    // Count dla paginacji
     if (!empty($where_params)) {
         $total_items = $wpdb->get_var($wpdb->prepare($count_query, ...$where_params));
     } else {
         $total_items = $wpdb->get_var($count_query);
     }
-
+    
     $total_pages = ceil($total_items / $per_page);
-
+    
+    // Statystyki
     $stats = $wpdb->get_results(
         "SELECT status, COUNT(*) as count 
          FROM $tabela_vouchery 
          GROUP BY status",
         ARRAY_A
     );
-
+    
     ?>
     <div class="wrap">
         <h1 class="wp-heading-inline">Zakupione Vouchery</h1>
 		<a href="#" id="srl-dodaj-voucher-recznie" class="page-title-action">Dodaj voucher ręcznie</a>
-
+        
 		<!-- Modal dodawania vouchera -->
 		<div id="srl-modal-voucher" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
 			<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:8px; width:400px; max-width:90%;">
@@ -128,7 +144,7 @@ function srl_wyswietl_zakupione_vouchery() {
 				</form>
 			</div>
 		</div>
-
+		
         <!-- Statystyki -->
         <div class="srl-stats" style="display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
             <?php
@@ -137,12 +153,12 @@ function srl_wyswietl_zakupione_vouchery() {
                 'wykorzystany' => '🔵 Wykorzystane',
                 'przeterminowany' => '🔴 Przeterminowane'
             ];
-
+            
             $stats_array = array();
             foreach ($stats as $stat) {
                 $stats_array[$stat['status']] = $stat['count'];
             }
-
+            
             foreach ($status_labels as $status => $label) {
                 $count = isset($stats_array[$status]) ? $stats_array[$status] : 0;
                 echo '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 120px; display: flex; align-items: center; gap: 10px;">';
@@ -152,12 +168,12 @@ function srl_wyswietl_zakupione_vouchery() {
             }
             ?>
         </div>
-
+        
         <!-- Filtry i wyszukiwanie -->
         <div class="tablenav top">
             <form method="get" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <input type="hidden" name="page" value="srl-zakupione-vouchery">
-
+                
                 <select name="status_filter">
                     <option value="">Wszystkie statusy</option>
                     <?php foreach ($status_labels as $status => $label): ?>
@@ -166,16 +182,16 @@ function srl_wyswietl_zakupione_vouchery() {
                         </option>
                     <?php endforeach; ?>
                 </select>
-
+                
                 <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="Szukaj po kodzie, imieniu, nazwisku, produkcie...">
                 <button type="submit" class="button">Filtruj</button>
-
+                
                 <?php if ($status_filter || $search): ?>
                     <a href="<?php echo admin_url('admin.php?page=srl-zakupione-vouchery'); ?>" class="button">Wyczyść filtry</a>
                 <?php endif; ?>
             </form>
         </div>
-
+        
         <form method="post" id="bulk-action-form">
             <div class="tablenav top">
                 <div class="alignleft actions bulkactions">
@@ -185,7 +201,7 @@ function srl_wyswietl_zakupione_vouchery() {
                     </select>
                     <button type="submit" class="button action" onclick="return confirm('Czy na pewno chcesz usunąć zaznaczone vouchery?')">Zastosuj</button>
                 </div>
-
+                
                 <div class="tablenav-pages">
                     <?php if ($total_pages > 1): ?>
                         <span class="displaying-num"><?php echo $total_items; ?> elementów</span>
@@ -203,7 +219,7 @@ function srl_wyswietl_zakupione_vouchery() {
                     <?php endif; ?>
                 </div>
             </div>
-
+            
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -251,7 +267,7 @@ function srl_wyswietl_zakupione_vouchery() {
                                     $status_icon = '🔴';
                                     break;
                             }
-
+                            
                             $order_url = admin_url('post.php?post=' . $voucher['order_id'] . '&action=edit');
                             ?>
                             <tr>
@@ -333,58 +349,58 @@ function srl_wyswietl_zakupione_vouchery() {
             </table>
         </form>
     </div>
-
+    
     <style>
     .status-available {
         background: #d4edda;
         color: #155724;
     }
-
+    
     .status-completed {
         background: #d1ecf1;
         color: #0c5460;
     }
-
+    
     .status-expired {
         background: #f8d7da;
         color: #721c24;
     }
     </style>
-
+    
     <script>
     jQuery(document).ready(function($) {
-
+        // Select all checkbox
         $('#cb-select-all-1').on('change', function() {
             $('input[name="voucher_ids[]"]').prop('checked', $(this).is(':checked'));
         });
     });
-
+	
 	jQuery(document).ready(function($) {
     $('#srl-dodaj-voucher-recznie').on('click', function(e) {
         e.preventDefault();
         $('#srl-modal-voucher').show();
-
+        // Ustaw domyślną datę ważności na rok od dziś
         var nextYear = new Date();
         nextYear.setFullYear(nextYear.getFullYear() + 1);
         $('#srl-data-waznosci').val(nextYear.toISOString().split('T')[0]);
     });
-
+    
     $('#srl-anuluj-voucher').on('click', function() {
         $('#srl-modal-voucher').hide();
         $('#srl-form-voucher-recznie')[0].reset();
     });
-
+    
     $('#srl-form-voucher-recznie').on('submit', function(e) {
         e.preventDefault();
-
+        
         var kod = $('#srl-kod-vouchera').val().trim();
         var dataWaznosci = $('#srl-data-waznosci').val();
-
+        
         if (!kod || !dataWaznosci) {
             alert('Wypełnij wszystkie pola.');
             return;
         }
-
+        
         $.post(ajaxurl, {
             action: 'srl_dodaj_voucher_recznie',
             kod_vouchera: kod,
@@ -400,7 +416,9 @@ function srl_wyswietl_zakupione_vouchery() {
         });
     });
 });
-
+	
     </script>
     <?php
 }
+
+

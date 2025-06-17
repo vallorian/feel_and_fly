@@ -1,8 +1,9 @@
+
 System-rezerwacji-lotow/
 ├── system-rezerwacji-lotow.php                 ← Główny plik wtyczki (tylko include'y, aktywacja, podstawowe funkcje)
 ├── includes/
 │   ├── database/
-│   │   ├── database-setup.php                  ← Konfiguracja i aktualizacja bazy danych
+│   │   ├── database-setup.php                  ← Konfiguracja i aktualizacja bazy danych (+ tabela voucherów partnera)
 │   │   └── database-queries.php                ← Wspólne funkcje zapytań do bazy
 │   ├── helpers/
 │   │   ├── formatting-helpers.php              ← Funkcje formatowania dat, statusów, danych
@@ -12,20 +13,21 @@ System-rezerwacji-lotow/
 │   ├── ajax/
 │   │   ├── admin-ajax.php                      ← AJAX handlery dla panelu administracyjnego (zarządzanie slotami, klientami)
 │   │   ├── frontend-ajax.php                   ← AJAX handlery dla frontendu (rezerwacje, dane klienta, logowanie)
-│   │   ├── voucher-ajax.php                    ← AJAX handlery dla voucherów (starych i upominkowych)
+│   │   ├── voucher-ajax.php                    ← AJAX handlery dla voucherów (starych, upominkowych + VOUCHERY PARTNERA)
 │   │   └── flight-options-ajax.php             ← AJAX handlery dla opcji lotów (dodawanie do koszyka)
 │   ├── admin/
 │   │   ├── admin-menu.php                      ← Rejestruje menu admina + enqueue skryptów frontend/backend
 │   │   ├── admin-calendar.php                  ← Strona „Kalendarz" - przegląd miesięczny terminów
 │   │   ├── admin-day.php                       ← Strona „Dzień tygodnia" - planowanie slotów, harmonogram czasowy
-│   │   ├── admin-voucher.php                   ← Strona „Oczekujące na potwierdzenie" - zarządzanie voucherami (starymi)
+│   │   ├── admin-voucher.php                   ← Strona „Vouchery partnera" - zarządzanie voucherami partnera (PrezentMarzeń, Groupon)
 │   │   ├── admin-flights.php                   ← Strona „Wykupione loty" - tabela wszystkich lotów + synchronizacja + historia
 │   │   └── admin-vouchers.php                  ← Strona „Zakupione Vouchery" - zarządzanie voucherami upominkowymi Feel&Fly
 │   ├── frontend/
-│   │   └── frontend-shortcodes.php             ← Shortcode [srl_kalendarz] - 4-etapowy proces rezerwacji + logowanie/rejestracja
+│   │   └── frontend-shortcodes.php             ← Shortcode [srl_kalendarz] - 4-etapowy proces rezerwacji + logowanie/rejestracja + modal voucherów partnera
 │   ├── woocommerce-integration.php             ← Integracja WooCommerce (hooking statusów, automatyczne dodawanie lotów/voucherów, opcji)
 │   ├── voucher-functions.php                   ← Generowanie kodów voucherów (starych) + obsługa wykorzystania
 │   ├── voucher-gift-functions.php              ← Funkcje voucherów upominkowych Feel&Fly (generowanie, wykorzystanie)
+│   ├── partner-voucher-functions.php           ← Funkcje voucherów partnera (konfiguracja, walidacja, zatwierdzanie, odrzucanie, emailing)
 │   ├── flight-options.php                      ← Zarządzanie opcjami lotów (filmowanie, akrobacje, przedłużanie ważności)
 │   ├── cart-flight-options.php                 ← Obsługa koszyka dla opcji lotów (meta dane, walidacja)
 │   ├── product-flight-options.php              ← Obsługa stron produktów opcji lotów (formularz wyboru lotu, dropdown)
@@ -38,4 +40,4 @@ System-rezerwacji-lotow/
     │   └── flight-options-unified.js           ← Ujednolicony system obsługi opcji lotów (dodawanie/usuwanie z koszyka, dropdown lotów)
     └── css/
         ├── style.css                           ← Style panelu administratora (tabele, harmonogram, statusy, modały)
-        └── frontend-style.css                  ← Style procesu rezerwacji + opcji lotów (progress bar, kalendarz, formularze, vouchery, responsywność)
+        └── frontend-style.css                  ← Style procesu rezerwacji + opcji lotów + MODAL VOUCHERÓW PARTNERA (progress bar, kalendarz, formularze, vouchery, responsywność)

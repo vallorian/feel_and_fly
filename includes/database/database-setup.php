@@ -55,10 +55,35 @@ function srl_aktywacja_wtyczki() {
         KEY data_waznosci (data_waznosci)
     ) $charset_collate;";
 
+    // NOWA TABELA: Vouchery partnera
+    $tabela_vouchery_partnerzy = $wpdb->prefix . 'srl_vouchery_partnerzy';
+    $sql_vouchery_partnerzy = "CREATE TABLE $tabela_vouchery_partnerzy (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        partner varchar(100) NOT NULL,
+        typ_vouchera varchar(100) NOT NULL,
+        kod_vouchera varchar(50) NOT NULL,
+        kod_zabezpieczajacy varchar(50) NOT NULL,
+        liczba_osob tinyint(2) NOT NULL,
+        dane_pasazerow TEXT NOT NULL,
+        status ENUM('oczekuje','zatwierdzony','odrzucony') DEFAULT 'oczekuje' NOT NULL,
+        powod_odrzucenia TEXT NULL,
+        klient_id bigint(20) NOT NULL,
+        data_zgloszenia DATETIME NOT NULL,
+        data_modyfikacji DATETIME NULL,
+        id_oryginalnego mediumint(9) NULL,
+        PRIMARY KEY (id),
+        KEY klient_id (klient_id),
+        KEY status (status),
+        KEY partner (partner),
+        KEY data_zgloszenia (data_zgloszenia),
+        KEY id_oryginalnego (id_oryginalnego)
+    ) $charset_collate;";
+
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql_terminy);
     dbDelta($sql_vouchery);
     dbDelta($sql_zakupione_loty);
+    dbDelta($sql_vouchery_partnerzy); // DODANIE NOWEJ TABELI
 
     srl_aktualizuj_baze();
     srl_utworz_kategorie_produktow();
@@ -182,6 +207,59 @@ function srl_aktualizuj_baze() {
         }
 
         update_option('srl_db_version', '1.6');
+    }
+
+    // NOWA WERSJA 1.7: Dodanie tabeli voucherów partnera dla istniejących instalacji
+    if (version_compare($current_version, '1.7', '<')) {
+        $tabela_vouchery_partnerzy = $wpdb->prefix . 'srl_vouchery_partnerzy';
+        
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela_vouchery_partnerzy'") == $tabela_vouchery_partnerzy;
+        
+        if (!$table_exists) {
+            $charset_collate = $wpdb->get_charset_collate();
+            $sql_vouchery_partnerzy = "CREATE TABLE $tabela_vouchery_partnerzy (
+                id mediumint(9) NOT NULL AUTO_INCREMENT,
+                partner varchar(100) NOT NULL,
+                typ_vouchera varchar(100) NOT NULL,
+                kod_vouchera varchar(50) NOT NULL,
+                kod_zabezpieczajacy varchar(50) NOT NULL,
+                liczba_osob tinyint(2) NOT NULL,
+                dane_pasazerow TEXT NOT NULL,
+                status ENUM('oczekuje','zatwierdzony','odrzucony') DEFAULT 'oczekuje' NOT NULL,
+                powod_odrzucenia TEXT NULL,
+                klient_id bigint(20) NOT NULL,
+                data_zgloszenia DATETIME NOT NULL,
+                data_modyfikacji DATETIME NULL,
+                id_oryginalnego mediumint(9) NULL,
+                PRIMARY KEY (id),
+                KEY klient_id (klient_id),
+                KEY status (status),
+                KEY partner (partner),
+                KEY data_zgloszenia (data_zgloszenia),
+                KEY id_oryginalnego (id_oryginalnego)
+            ) $charset_collate;";
+
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            dbDelta($sql_vouchery_partnerzy);
+
+            error_log('SRL: Tabela voucherów partnera utworzona w wersji 1.7');
+        }
+
+        update_option('srl_db_version', '1.7');
+    }
+	
+	    // NOWA WERSJA 1.8: Dodanie kolumny data_waznosci_vouchera
+    if (version_compare($current_version, '1.8', '<')) {
+        $tabela_vouchery_partnerzy = $wpdb->prefix . 'srl_vouchery_partnerzy';
+        
+        $kolumna_istnieje = $wpdb->get_results("SHOW COLUMNS FROM $tabela_vouchery_partnerzy LIKE 'data_waznosci_vouchera'");
+        
+        if (empty($kolumna_istnieje)) {
+            $wpdb->query("ALTER TABLE $tabela_vouchery_partnerzy ADD COLUMN data_waznosci_vouchera DATE NULL AFTER kod_zabezpieczajacy");
+            error_log('SRL: Dodano kolumnę data_waznosci_vouchera do tabeli voucherów partnera');
+        }
+        
+        update_option('srl_db_version', '1.8');
     }
 }
 

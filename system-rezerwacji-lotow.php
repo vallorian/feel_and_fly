@@ -35,6 +35,7 @@ require_once SRL_PLUGIN_DIR . 'includes/admin/admin-flights.php';
 require_once SRL_PLUGIN_DIR . 'includes/frontend/frontend-shortcodes.php';
 
 // Feature includes
+require_once SRL_PLUGIN_DIR . 'includes/partner-voucher-functions.php';
 require_once SRL_PLUGIN_DIR . 'includes/voucher-functions.php';
 require_once SRL_PLUGIN_DIR . 'includes/voucher-gift-functions.php';
 require_once SRL_PLUGIN_DIR . 'includes/flight-options.php';

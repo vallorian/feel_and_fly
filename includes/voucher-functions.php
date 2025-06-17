@@ -1,5 +1,4 @@
 <?php
-
 function srl_generuj_unikalny_kod() {
     $znaki = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     $kod = '';
@@ -12,5 +11,4 @@ function srl_generuj_unikalny_kod() {
 add_action('init', 'srl_dodaj_produkt_tandemowy');
 function srl_dodaj_produkt_tandemowy() {
     if (!post_type_exists('product')) return;
-
 }
