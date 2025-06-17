@@ -1,43 +1,75 @@
+Proponowana struktura plików dla wtyczki System Rezerwacji Lotów:
 
-System-rezerwacji-lotow/
-├── system-rezerwacji-lotow.php                 ← Główny plik wtyczki (tylko include'y, aktywacja, podstawowe funkcje)
+system-rezerwacji-lotow/
+├── system-rezerwacji-lotow.php (główny plik wtyczki)
 ├── includes/
-│   ├── database/
-│   │   ├── database-setup.php                  ← Konfiguracja i aktualizacja bazy danych (+ tabela voucherów partnera)
-│   │   └── database-queries.php                ← Wspólne funkcje zapytań do bazy
-│   ├── helpers/
-│   │   ├── formatting-helpers.php              ← Funkcje formatowania dat, statusów, danych
-│   │   ├── validation-helpers.php              ← Funkcje walidacji formularzy i danych
-│   │   ├── email-helpers.php                   ← Funkcje obsługi email i powiadomień
-│   │   └── historia-helpers.php                ← Funkcje obsługi historii lotów, kategoryzacji, formatowania akcji
-│   ├── ajax/
-│   │   ├── admin-ajax.php                      ← AJAX handlery dla panelu administracyjnego (zarządzanie slotami, klientami)
-│   │   ├── frontend-ajax.php                   ← AJAX handlery dla frontendu (rezerwacje, dane klienta, logowanie)
-│   │   ├── voucher-ajax.php                    ← AJAX handlery dla voucherów (starych, upominkowych + VOUCHERY PARTNERA)
-│   │   └── flight-options-ajax.php             ← AJAX handlery dla opcji lotów (dodawanie do koszyka)
+│   ├── class-system-rezerwacji-lotow.php (główna klasa wtyczki)
 │   ├── admin/
-│   │   ├── admin-menu.php                      ← Rejestruje menu admina + enqueue skryptów frontend/backend
-│   │   ├── admin-calendar.php                  ← Strona „Kalendarz" - przegląd miesięczny terminów
-│   │   ├── admin-day.php                       ← Strona „Dzień tygodnia" - planowanie slotów, harmonogram czasowy
-│   │   ├── admin-voucher.php                   ← Strona „Vouchery partnera" - zarządzanie voucherami partnera (PrezentMarzeń, Groupon)
-│   │   ├── admin-flights.php                   ← Strona „Wykupione loty" - tabela wszystkich lotów + synchronizacja + historia
-│   │   └── admin-vouchers.php                  ← Strona „Zakupione Vouchery" - zarządzanie voucherami upominkowymi Feel&Fly
+│   │   ├── class-admin.php
+│   │   ├── views/
+│   │   └── js/
 │   ├── frontend/
-│   │   └── frontend-shortcodes.php             ← Shortcode [srl_kalendarz] - 4-etapowy proces rezerwacji + logowanie/rejestracja + modal voucherów partnera
-│   ├── woocommerce-integration.php             ← Integracja WooCommerce (hooking statusów, automatyczne dodawanie lotów/voucherów, opcji)
-│   ├── voucher-functions.php                   ← Generowanie kodów voucherów (starych) + obsługa wykorzystania
-│   ├── voucher-gift-functions.php              ← Funkcje voucherów upominkowych Feel&Fly (generowanie, wykorzystanie)
-│   ├── partner-voucher-functions.php           ← Funkcje voucherów partnera (konfiguracja, walidacja, zatwierdzanie, odrzucanie, emailing)
-│   ├── flight-options.php                      ← Zarządzanie opcjami lotów (filmowanie, akrobacje, przedłużanie ważności)
-│   ├── cart-flight-options.php                 ← Obsługa koszyka dla opcji lotów (meta dane, walidacja)
-│   ├── product-flight-options.php              ← Obsługa stron produktów opcji lotów (formularz wyboru lotu, dropdown)
-│   └── client-account.php                      ← Zakładki w koncie klienta WooCommerce (historia zamówień, lotów)
-└── assets/
-    ├── js/
-    │   ├── admin-calendar.js                   ← Skrypty kalendarza adminowego (tooltips, nawigacja, modały)
-    │   ├── admin-day.js                        ← Skrypty planowania dni (CRUD slotów, harmonogram, grupowe akcje, modały klientów)
-    │   ├── frontend-calendar.js                ← Skrypty procesu rezerwacji (4 kroki, AJAX, progress bar, walidacja, logowanie)
-    │   └── flight-options-unified.js           ← Ujednolicony system obsługi opcji lotów (dodawanie/usuwanie z koszyka, dropdown lotów)
-    └── css/
-        ├── style.css                           ← Style panelu administratora (tabele, harmonogram, statusy, modały)
-        └── frontend-style.css                  ← Style procesu rezerwacji + opcji lotów + MODAL VOUCHERÓW PARTNERA (progress bar, kalendarz, formularze, vouchery, responsywność)
+│   │   ├── class-frontend.php
+│   │   ├── views/
+│   │   └── js/
+│   ├── core/
+│   │   ├── class-flight-options.php
+│   │   ├── class-cart-flight-options.php
+│   │   └── class-product-flight-options.php
+│   ├── woocommerce/
+│   │   ├── class-woocommerce-integration.php
+│   │   └── class-voucher-functions.php
+│   ├── client/
+│   │   ├── class-client-account.php
+│   │   └── class-partner-voucher.php
+│   ├── database/
+│   │   └── class-database.php
+│   └── helpers/
+│       └── class-helpers.php
+├── assets/
+│   ├── css/
+│   │   ├── admin.css
+│   │   └── frontend.css
+│   ├── js/
+│   │   ├── admin.js
+│   │   └── frontend.js
+│   └── images/
+├── languages/
+│   └── system-rezerwacji-lotow.pot
+├── templates/
+│   ├── admin/
+│   └── frontend/
+├── README.md
+└── .gitignore
+
+Wyjaśnienie struktury:
+
+1. includes/ - główny katalog z logiką wtyczki
+   - class-system-rezerwacji-lotow.php - główna klasa inicjalizująca wtyczkę
+   - admin/ - funkcjonalności panelu administracyjnego
+   - frontend/ - funkcjonalności frontendu
+   - core/ - główne klasy funkcjonalne
+   - woocommerce/ - integracja z WooCommerce
+   - client/ - funkcjonalności dla klientów
+   - database/ - obsługa bazy danych
+   - helpers/ - funkcje pomocnicze
+
+2. assets/ - zasoby statyczne
+   - css/ - style CSS
+   - js/ - skrypty JavaScript
+   - images/ - obrazy
+
+3. languages/ - pliki tłumaczeń
+
+4. templates/ - szablony widoków
+   - admin/ - szablony panelu administracyjnego
+   - frontend/ - szablony frontendu
+
+Zalety nowej struktury:
+- Lepsza organizacja kodu
+- Łatwiejsze zarządzanie zależnościami
+- Zgodność z standardami WordPress
+- Łatwiejsze utrzymanie i rozbudowa
+- Lepsze rozdzielenie logiki biznesowej od prezentacji
+- Łatwiejsze testowanie
+- Łatwiejsze dodawanie nowych funkcjonalności

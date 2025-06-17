@@ -142,33 +142,60 @@ function srl_informacje_o_mnie_tresc() {
     $user_id = get_current_user_id();
 
     if (isset($_POST['srl_zapisz_info'])) {
-        $dane = array(
-            'imie' => sanitize_text_field($_POST['srl_imie']),
-            'nazwisko' => sanitize_text_field($_POST['srl_nazwisko']),
-            'rok_urodzenia' => intval($_POST['srl_rok_urodzenia']),
-            'kategoria_wagowa' => sanitize_text_field($_POST['srl_kategoria_wagowa']),
-            'sprawnosc_fizyczna' => sanitize_text_field($_POST['srl_sprawnosc_fizyczna']),
-            'telefon' => sanitize_text_field($_POST['srl_telefon']),
-            'uwagi' => sanitize_textarea_field($_POST['srl_uwagi']),
-            'akceptacja_regulaminu' => true 
-        );
+		$dane = array(
+			'imie' => sanitize_text_field($_POST['srl_imie']),
+			'nazwisko' => sanitize_text_field($_POST['srl_nazwisko']),
+			'rok_urodzenia' => intval($_POST['srl_rok_urodzenia']),
+			'kategoria_wagowa' => sanitize_text_field($_POST['srl_kategoria_wagowa']),
+			'sprawnosc_fizyczna' => sanitize_text_field($_POST['srl_sprawnosc_fizyczna']),
+			'telefon' => sanitize_text_field($_POST['srl_telefon']),
+			'uwagi' => sanitize_textarea_field($_POST['srl_uwagi']),
+			'akceptacja_regulaminu' => true 
+		);
 
-        $walidacja = srl_waliduj_dane_pasazera($dane);
+		// Dodaj walidację wieku i wagi
+		$komunikaty_dodatkowe = array();
+		
+		$walidacja_wiek = srl_waliduj_wiek($dane['rok_urodzenia']);
+		if (!empty($walidacja_wiek['komunikaty'])) {
+			foreach ($walidacja_wiek['komunikaty'] as $kom) {
+				$komunikaty_dodatkowe[] = $kom['tresc'];
+			}
+		}
+		
+		$walidacja_waga = srl_waliduj_kategorie_wagowa($dane['kategoria_wagowa']);
+		if (!$walidacja_waga['valid']) {
+			foreach ($walidacja_waga['errors'] as $error) {
+				$komunikaty_dodatkowe[] = $error['tresc'];
+			}
+		}
+
+		$walidacja = srl_waliduj_dane_pasazera($dane);
 
         if ($walidacja['valid']) {
-            foreach ($dane as $key => $value) {
-                if ($key !== 'akceptacja_regulaminu') { 
-                    update_user_meta($user_id, 'srl_' . $key, $value);
-                }
-            }
-            echo '<div class="woocommerce-message">Dane zostały zapisane pomyślnie!</div>';
-        } else {
-            echo '<div class="woocommerce-error"><ul>';
-            foreach ($walidacja['errors'] as $pole => $blad) {
-                echo '<li>' . esc_html($blad) . '</li>';
-            }
-            echo '</ul></div>';
-        }
+			foreach ($dane as $key => $value) {
+				if ($key !== 'akceptacja_regulaminu') { 
+					update_user_meta($user_id, 'srl_' . $key, $value);
+				}
+			}
+			
+			$sukces_msg = 'Dane zostały zapisane pomyślnie!';
+			if (!empty($komunikaty_dodatkowe)) {
+				$sukces_msg .= '<br><strong>Uwagi:</strong><br>' . implode('<br>', $komunikaty_dodatkowe);
+			}
+			
+			echo '<div class="woocommerce-message">' . $sukces_msg . '</div>';
+		} else {
+			echo '<div class="woocommerce-error"><ul>';
+			foreach ($walidacja['errors'] as $pole => $blad) {
+				echo '<li>' . esc_html($blad) . '</li>';
+			}
+			// Dodaj komunikaty dodatkowe jako ostrzeżenia
+			foreach ($komunikaty_dodatkowe as $kom) {
+				echo '<li style="color: #ff9800;">' . esc_html($kom) . '</li>';
+			}
+			echo '</ul></div>';
+		}
     }
 
     $imie = get_user_meta($user_id, 'srl_imie', true);
@@ -237,6 +264,46 @@ function srl_informacje_o_mnie_tresc() {
             <button type="submit" class="woocommerce-Button button" name="srl_zapisz_info" value="Zapisz zmiany">Zapisz zmiany</button>
         </p>
     </form>
+
+	<script>
+jQuery(document).ready(function($) {
+    // Walidacja na żywo
+    $('#srl_rok_urodzenia, #srl_kategoria_wagowa').on('change', function() {
+        var rokUrodzenia = $('#srl_rok_urodzenia').val();
+        var kategoria = $('#srl_kategoria_wagowa').val();
+        
+        // Usuń poprzednie komunikaty
+        $('.srl-account-warnings').remove();
+        
+        if (!rokUrodzenia || !kategoria) return;
+        
+        var warnings = [];
+        
+        // Sprawdź wiek
+        var wiek = new Date().getFullYear() - parseInt(rokUrodzenia);
+        if (wiek <= 18) {
+            warnings.push('<div style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:15px; margin:10px 0;"><strong>Uwaga:</strong> Osoby niepełnoletnie wymagają zgody rodzica/opiekuna. <a href="/zgoda-na-lot-osoba-nieletnia/" target="_blank" style="color:#f57c00; font-weight:bold;">Pobierz zgodę tutaj</a>.</div>');
+        }
+        
+        // Sprawdź wagę
+        if (kategoria === '91-120kg') {
+            warnings.push('<div style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:15px; margin:10px 0;"><strong>Uwaga:</strong> Loty z pasażerami powyżej 90 kg mogą być krótsze, brak możliwości wykonania akrobacji.</div>');
+        } else if (kategoria === '120kg+') {
+            warnings.push('<div style="background:#fdeaea; border:2px solid #d63638; border-radius:8px; padding:15px; margin:10px 0; color:#721c24;"><strong>❌ Błąd:</strong> Brak możliwości wykonania lotu z pasażerem powyżej 120 kg.</div>');
+        }
+        
+        if (warnings.length > 0) {
+            var warningsHtml = '<div class="srl-account-warnings">' + warnings.join('') + '</div>';
+            $('#srl_kategoria_wagowa').closest('.srl-form-grid').after(warningsHtml);
+        }
+    });
+    
+    // Uruchom walidację przy ładowaniu jeśli są już dane
+    if ($('#srl_rok_urodzenia').val() && $('#srl_kategoria_wagowa').val()) {
+        $('#srl_rok_urodzenia').trigger('change');
+    }
+});
+</script>
 
     <style>
     .srl-form-grid {

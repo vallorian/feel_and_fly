@@ -13,6 +13,16 @@ var srlData = srlAdmin.data;
 var srlIstniejaceGodziny = srlAdmin.istniejaceGodziny;
 var srlDomyslnaLiczbaPilotow = srlAdmin.domyslnaLiczbaPilotow;
 
+function srlObliczWiek(rokUrodzenia) {
+    if (!rokUrodzenia || rokUrodzenia < 1920) return '';
+    return new Date().getFullYear() - parseInt(rokUrodzenia);
+}
+
+function srlFormatujWiek(rokUrodzenia) {
+    var wiek = srlObliczWiek(rokUrodzenia);
+    return wiek ? wiek + ' lat' : '';
+}
+
 jQuery(document).ready(function($) {
 
     var liczbaPilotowSelect = $('#srl-liczba-pilotow');
@@ -94,10 +104,10 @@ function srl_formatujDanePasazera(slot, dlugiFormat) {
             linie.push('#' + slot.lot_id + ' | ' + nazwaProduktu + ' ' + opcjeTekst);
 
             var daneOsobowe = (dane.klient_nazwa || slot.klient_nazwa || '');
-            if (dane.rok_urodzenia) {
-                var wiek = new Date().getFullYear() - parseInt(dane.rok_urodzenia);
-                daneOsobowe += ' (' + wiek + ' lat)';
-            }
+			if (dane.rok_urodzenia) {
+				var wiek = srlObliczWiek(dane.rok_urodzenia);
+				daneOsobowe += ' (' + wiek + ' lat)';
+			}
             if (dane.kategoria_wagowa) {
                 daneOsobowe += ', ' + dane.kategoria_wagowa;
             }
@@ -1734,13 +1744,7 @@ function pokazUjednoliconyModalDanych(dane, tytul, moznaEdytowac, terminId) {
         imieNazwisko = 'Brak danych';
     }
 
-    var rokUrodzeniaText = '';
-    if (dane.rok_urodzenia) {
-        var wiek = new Date().getFullYear() - parseInt(dane.rok_urodzenia);
-        rokUrodzeniaText = dane.rok_urodzenia + ' (' + wiek + ' lat)';
-    } else {
-        rokUrodzeniaText = 'Brak danych';
-    }
+    var rokUrodzeniaText = dane.rok_urodzenia ? dane.rok_urodzenia + ' (' + srlFormatujWiek(dane.rok_urodzenia) + ')' : 'Brak danych';
 
     function formatujSprawnoscFizyczna(wartosc) {
         var mapowanie = {

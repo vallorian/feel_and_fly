@@ -13,6 +13,10 @@ add_action('wp_ajax_srl_anuluj_rezerwacje_klient', 'srl_anuluj_rezerwacje_klient
 add_action('wp_ajax_srl_zablokuj_slot_tymczasowo', 'srl_zablokuj_slot_tymczasowo');
 add_action('wp_ajax_nopriv_srl_ajax_login', 'srl_ajax_login');
 add_action('wp_ajax_nopriv_srl_ajax_register', 'srl_ajax_register');
+add_action('wp_ajax_srl_waliduj_wiek', 'srl_ajax_waliduj_wiek');
+add_action('wp_ajax_nopriv_srl_waliduj_wiek', 'srl_ajax_waliduj_wiek');
+add_action('wp_ajax_srl_waliduj_kategorie_wagowa', 'srl_ajax_waliduj_kategorie_wagowa');
+add_action('wp_ajax_nopriv_srl_waliduj_kategorie_wagowa', 'srl_ajax_waliduj_kategorie_wagowa');
 
 function srl_pobierz_dane_klienta() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
@@ -605,4 +609,23 @@ function srl_ajax_register() {
     delete_transient($register_key);
 
     wp_send_json_success('Konto zostało utworzone i zalogowano automatycznie!');
+}
+
+
+function srl_ajax_waliduj_wiek() {
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    
+    $rok_urodzenia = intval($_POST['rok_urodzenia']);
+    $wynik = srl_waliduj_wiek($rok_urodzenia, 'html');
+    
+    wp_send_json_success($wynik);
+}
+
+function srl_ajax_waliduj_kategorie_wagowa() {
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    
+    $kategoria_wagowa = sanitize_text_field($_POST['kategoria_wagowa']);
+    $wynik = srl_waliduj_kategorie_wagowa($kategoria_wagowa, 'html');
+    
+    wp_send_json_success($wynik);
 }

@@ -104,7 +104,17 @@ function srl_ajax_submit_partner_voucher() {
     $kod_zabezpieczajacy = sanitize_text_field($_POST['kod_zabezpieczajacy']);
 	$data_waznosci = sanitize_text_field($_POST['data_waznosci']);
     $dane_pasazerow = $_POST['dane_pasazerow'];
-    
+	
+	if ($data_waznosci) {
+		$data_obj = DateTime::createFromFormat('Y-m-d', $data_waznosci);
+		$dzisiaj = new DateTime();
+		$max_data = new DateTime('2050-12-31');
+		
+		if (!$data_obj || $data_obj < $dzisiaj || $data_obj > $max_data) {
+			wp_send_json_error('Bład w dacie ważności.');
+			return;
+		}
+	}	
     // Sprawdź czy dane pasażerów są tablicą
     if (!is_array($dane_pasazerow) || empty($dane_pasazerow)) {
         wp_send_json_error('Brak danych pasażerów.');
@@ -119,7 +129,7 @@ function srl_ajax_submit_partner_voucher() {
         return;
     }
     
-    // Sanityzuj dane pasażerów
+	// Sanityzuj dane pasażerów
     $sanitized_passengers = array();
     foreach ($dane_pasazerow as $pasazer) {
         $sanitized_passenger = array(
@@ -134,13 +144,45 @@ function srl_ajax_submit_partner_voucher() {
         $sanitized_passengers[] = $sanitized_passenger;
     }
     
+    // Walidacja wieku i kategorii wagowej dla każdego pasażera
+    foreach ($sanitized_passengers as $index => $pasazer) {
+        $numer_pasazera = $index + 1;
+        
+        // Walidacja wieku - ostrzeżenia (loguj, ale nie blokuj)
+        $walidacja_wiek = srl_waliduj_wiek($pasazer['rok_urodzenia']);
+        if (!empty($walidacja_wiek['komunikaty'])) {
+            foreach ($walidacja_wiek['komunikaty'] as $kom) {
+                error_log("VOUCHER PARTNERA [{$partner}] - Ostrzeżenie wiekowe dla pasażera {$numer_pasazera}: " . $kom['tresc']);
+            }
+        }
+        
+        // Walidacja kategorii wagowej - BLOKUJ przy błędach krytycznych
+        $walidacja_waga = srl_waliduj_kategorie_wagowa($pasazer['kategoria_wagowa']);
+        if (!$walidacja_waga['valid']) {
+            foreach ($walidacja_waga['errors'] as $error) {
+                wp_send_json_error("Pasażer {$numer_pasazera} ({$pasazer['imie']} {$pasazer['nazwisko']}) - " . $error['tresc']);
+                return;
+            }
+        }
+        
+        // Dodatkowa walidacja danych pasażera
+        $walidacja_pasazera = srl_waliduj_dane_pasazera($pasazer);
+        if (!$walidacja_pasazera['valid']) {
+            foreach ($walidacja_pasazera['errors'] as $field => $error) {
+                wp_send_json_error("Pasażer {$numer_pasazera} ({$pasazer['imie']} {$pasazer['nazwisko']}) - {$error}");
+                return;
+            }
+        }
+    }
+    
+   
     // Przygotuj dane do zapisu
     $voucher_data = array(
         'partner' => $partner,
         'typ_vouchera' => $typ_vouchera,
         'kod_vouchera' => $kod_vouchera,
         'kod_zabezpieczajacy' => $kod_zabezpieczajacy,
-		'data_waznosci' => $data_waznosci, 
+        'data_waznosci' => $data_waznosci, 
         'liczba_osob' => $liczba_osob,
         'dane_pasazerow' => $sanitized_passengers,
         'klient_id' => $user_id

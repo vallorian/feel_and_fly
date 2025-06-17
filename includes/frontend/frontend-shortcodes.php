@@ -90,7 +90,10 @@ function srl_generuj_sekcje_voucherow($show_title = true) {
                         <!-- NOWE POLE: Data ważności -->
                         <div class="srl-form-group">
                             <label for="srl-voucher-validity-date">Data ważności vouchera *</label>
-                            <input type="date" id="srl-voucher-validity-date" name="data_waznosci" required>
+                            <input type="date" id="srl-voucher-validity-date" name="data_waznosci" 
+								   min="<?php echo date('Y-m-d'); ?>" 
+								   max="2050-12-31" 
+								   required="">
                         </div>
                     </div>
                     
@@ -191,7 +194,20 @@ function srl_generuj_js_voucherow() {
             $('#srl-passengers-forms').empty();
             $('#srl-voucher-type-select').prop('disabled', true).html('<option value="">Najpierw wybierz partnera</option>');
         });
+		
 
+		$(document).on('change', '.passenger-rok', function() {
+			var form = $(this).closest('.srl-passenger-form');
+			var index = $('.srl-passenger-form').index(form) + 1;
+			srlValidatePassengerAge(index);
+		});
+
+		$(document).on('change', '.passenger-kategoria', function() {
+			var form = $(this).closest('.srl-passenger-form');
+			var index = $('.srl-passenger-form').index(form) + 1;
+			srlValidatePassengerWeight(index);
+		});
+		
         // Partner selection change
         $(document).on('change', '#srl-partner-select', function() {
             var partner = $(this).val();
@@ -243,6 +259,19 @@ function srl_generuj_js_voucherow() {
 		// Partner voucher form submission
         $(document).on('submit', '#srl-partner-voucher-form', function(e) {
             e.preventDefault();
+			
+			// DODAJ walidację przed wysłaniem:
+			var hasWeightErrors = false;
+			$('.srl-passenger-weight-warning-1, .srl-passenger-weight-warning-2, .srl-passenger-weight-warning-3').each(function() {
+				if ($(this).is(':visible') && $(this).html().includes('❌')) {
+					hasWeightErrors = true;
+				}
+			});
+			
+			if (hasWeightErrors) {
+				alert('Nie można wysłać formularza - jeden lub więcej pasażerów ma kategorię wagową 120kg+, która uniemożliwia lot.');
+				return;
+			}
             
             var formData = {
                 action: 'srl_submit_partner_voucher',
@@ -418,8 +447,10 @@ function srl_generuj_js_voucherow() {
                 formHtml += '<textarea class="passenger-uwagi" rows="3" placeholder="Np. alergie, obawy, specjalne potrzeby..."></textarea>';
                 formHtml += '</div>';
                 
-                formHtml += '</div>'; // koniec srl-form-grid
-                formHtml += '</div>'; // koniec srl-passenger-form
+				formHtml += '</div>'; // koniec srl-form-grid
+				formHtml += '<div class="srl-passenger-age-warning-' + i + '" style="margin-top:15px;"></div>';
+				formHtml += '<div class="srl-passenger-weight-warning-' + i + '" style="margin-top:15px;"></div>';
+				formHtml += '</div>'; // koniec srl-passenger-form
                 
                 container.append(formHtml);
             }
@@ -433,8 +464,65 @@ function srl_generuj_js_voucherow() {
             regulaminHtml += '</div>';
             
             container.append(regulaminHtml);
+			
+			setTimeout(function() {
+				for (var i = 1; i <= count; i++) {
+					var rokVal = $('.srl-passenger-form').eq(i - 1).find('.passenger-rok').val();
+					var katVal = $('.srl-passenger-form').eq(i - 1).find('.passenger-kategoria').val();
+					
+					if (rokVal) {
+						srlValidatePassengerAge(i);
+					}
+					if (katVal) {
+						srlValidatePassengerWeight(i);
+					}
+				}
+			}, 100);
         }	
 		
+		function srlValidatePassengerAge(passengerIndex) {
+			var rokInput = $('.srl-passenger-form').eq(passengerIndex - 1).find('.passenger-rok');
+			var rok = rokInput.val();
+			
+			if (!rok) {
+				$('.srl-passenger-age-warning-' + passengerIndex).hide();
+				return;
+			}
+			
+			$.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+				action: 'srl_waliduj_wiek',
+				rok_urodzenia: rok,
+				nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+			}, function(response) {
+				if (response.success && response.data.html) {
+					$('.srl-passenger-age-warning-' + passengerIndex).html(response.data.html).show();
+				} else {
+					$('.srl-passenger-age-warning-' + passengerIndex).hide();
+				}
+			});
+		}
+
+		function srlValidatePassengerWeight(passengerIndex) {
+			var kategoriaInput = $('.srl-passenger-form').eq(passengerIndex - 1).find('.passenger-kategoria');
+			var kategoria = kategoriaInput.val();
+			
+			if (!kategoria) {
+				$('.srl-passenger-weight-warning-' + passengerIndex).hide();
+				return;
+			}
+			
+			$.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+				action: 'srl_waliduj_kategorie_wagowa',
+				kategoria_wagowa: kategoria,
+				nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+			}, function(response) {
+				if (response.success && response.data.html) {
+					$('.srl-passenger-weight-warning-' + passengerIndex).html(response.data.html).show();
+				} else {
+					$('.srl-passenger-weight-warning-' + passengerIndex).hide();
+				}
+			});
+		}
 		
 		
 		
@@ -574,6 +662,7 @@ function srl_shortcode_kalendarz() {
 						
 						<!-- Komunikat o wadze na całą szerokość -->
 						<div class="srl-form-group srl-full-width">
+							<div id="srl-wiek-ostrzezenie" style="display:none; margin-bottom:15px; border-radius:8px;"></div>
 							<div id="srl-waga-ostrzezenie" style="display:none; margin-bottom:15px; border-radius:8px;"></div>
 						</div>
 						

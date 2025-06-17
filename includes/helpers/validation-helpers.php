@@ -38,47 +38,7 @@ function srl_waliduj_email($email) {
     return array('valid' => true, 'message' => '');
 }
 
-function srl_waliduj_rok_urodzenia($rok) {
-    if (empty($rok) || !is_numeric($rok)) {
-        return array('valid' => false, 'message' => 'Rok urodzenia jest wymagany.');
-    }
 
-    $rok = intval($rok);
-    $current_year = intval(date('Y'));
-
-    if ($rok < 1920) {
-        return array('valid' => false, 'message' => 'Rok urodzenia nie może być wcześniejszy niż 1920.');
-    }
-
-    if ($rok > $current_year) {
-        return array('valid' => false, 'message' => 'Rok urodzenia nie może być z przyszłości.');
-    }
-
-    $wiek = $current_year - $rok;
-    if ($wiek < 10) {
-        return array('valid' => false, 'message' => 'Pasażer musi mieć co najmniej 10 lat.');
-    }
-
-    return array('valid' => true, 'message' => '');
-}
-
-function srl_waliduj_kategorie_wagowa($kategoria) {
-    $dozwolone_kategorie = array('25-40kg', '41-60kg', '61-90kg', '91-120kg', '120kg+');
-
-    if (empty($kategoria)) {
-        return array('valid' => false, 'message' => 'Kategoria wagowa jest wymagana.');
-    }
-
-    if (!in_array($kategoria, $dozwolone_kategorie)) {
-        return array('valid' => false, 'message' => 'Nieprawidłowa kategoria wagowa.');
-    }
-
-    if ($kategoria === '120kg+') {
-        return array('valid' => false, 'message' => 'Nie można dokonać rezerwacji z kategorią wagową 120kg+. Skontaktuj się z organizatorem.');
-    }
-
-    return array('valid' => true, 'message' => '');
-}
 
 function srl_waliduj_sprawnosc_fizyczna($sprawnosc) {
     $dozwolone_sprawnosci = array('zdolnosc_do_marszu', 'zdolnosc_do_biegu', 'sprinter');
@@ -148,28 +108,19 @@ function srl_waliduj_dane_pasazera($dane) {
         $errors['nazwisko'] = $walidacja_nazwisko['message'];
     }
 
-    $walidacja_rok = srl_waliduj_rok_urodzenia($dane['rok_urodzenia'] ?? '');
-    if (!$walidacja_rok['valid']) {
-        $errors['rok_urodzenia'] = $walidacja_rok['message'];
-    }
-
     $walidacja_telefon = srl_waliduj_telefon($dane['telefon'] ?? '');
     if (!$walidacja_telefon['valid']) {
         $errors['telefon'] = $walidacja_telefon['message'];
     }
 
-    $walidacja_kategoria = srl_waliduj_kategorie_wagowa($dane['kategoria_wagowa'] ?? '');
-    if (!$walidacja_kategoria['valid']) {
-        $errors['kategoria_wagowa'] = $walidacja_kategoria['message'];
-        error_log('SRL DEBUG - Błąd kategorii wagowej: ' . $dane['kategoria_wagowa'] ?? 'BRAK');
-    }
-
+	
     $walidacja_sprawnosc = srl_waliduj_sprawnosc_fizyczna($dane['sprawnosc_fizyczna'] ?? '');
     if (!$walidacja_sprawnosc['valid']) {
         $errors['sprawnosc_fizyczna'] = $walidacja_sprawnosc['message'];
         error_log('SRL DEBUG - Błąd sprawności fizycznej: ' . $dane['sprawnosc_fizyczna'] ?? 'BRAK');
     }
-
+	
+    
     if (!isset($dane['akceptacja_regulaminu']) || $dane['akceptacja_regulaminu'] !== true) {
         $errors['akceptacja_regulaminu'] = 'Musisz zaakceptować regulamin.';
     }

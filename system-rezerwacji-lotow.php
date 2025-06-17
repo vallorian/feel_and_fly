@@ -22,6 +22,7 @@ require_once SRL_PLUGIN_DIR . 'includes/helpers/formatting-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/helpers/validation-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/helpers/email-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/helpers/historia-helpers.php';
+require_once SRL_PLUGIN_DIR . 'includes/helpers/common-validators.php';
 
 // Admin includes
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-menu.php';
