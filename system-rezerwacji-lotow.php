@@ -18,6 +18,8 @@ require_once SRL_PLUGIN_DIR . 'includes/database/database-setup.php';
 require_once SRL_PLUGIN_DIR . 'includes/database/database-queries.php';
 
 // Helper includes
+require_once SRL_PLUGIN_DIR . 'includes/helpers/ui-helpers.php';
+require_once SRL_PLUGIN_DIR . 'includes/helpers/data-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/helpers/formatting-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/helpers/validation-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/helpers/email-helpers.php';

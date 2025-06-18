@@ -84,21 +84,7 @@ function srl_moje_loty_tresc() {
 
         echo '<td class="srl-kolumna-nazwa">';
         echo '<div class="srl-nazwa-lotu">Lot w tandemie (#' . esc_html($lot['id']) . ')</div>';
-
-        $opcje_tekst = array();
-        if (!empty($lot['ma_filmowanie']) && $lot['ma_filmowanie'] != '0') {
-            $opcje_tekst[] = '<span style="color: #46b450;">z filmowaniem</span>';
-        } else {
-            $opcje_tekst[] = '<span style="color: #d63638;">bez filmowania</span>';
-        }
-
-        if (!empty($lot['ma_akrobacje']) && $lot['ma_akrobacje'] != '0') {
-            $opcje_tekst[] = '<span style="color: #46b450;">z akrobacjami</span>';
-        } else {
-            $opcje_tekst[] = '<span style="color: #d63638;">bez akrobacji</span>';
-        }
-
-        echo '<div class="srl-opcje-lotu">' . implode(', ', $opcje_tekst) . '</div>';
+        echo '<div class="srl-opcje-lotu">' . srl_format_flight_options_html($lot['ma_filmowanie'], $lot['ma_akrobacje']) . '</div>';
 
         if (!empty($lot['kod_vouchera'])) {
 

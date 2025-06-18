@@ -176,17 +176,7 @@ function srl_sprawdz_czy_mozna_anulowac_rezerwacje($data_lotu, $godzina_lotu, $g
         return array('can_cancel' => false, 'message' => 'Brak danych o terminie lotu.');
     }
 
-    $datetime_lotu = $data_lotu . ' ' . $godzina_lotu;
-    $timestamp_lotu = strtotime($datetime_lotu);
-
-    if ($timestamp_lotu === false) {
-        return array('can_cancel' => false, 'message' => 'Nieprawidłowy format daty/godziny lotu.');
-    }
-
-    $czas_do_lotu = $timestamp_lotu - time();
-    $wymagany_czas = $godzin_przed * 3600;
-
-    if ($czas_do_lotu < $wymagany_czas) {
+    if (!srl_can_cancel_reservation($data_lotu, $godzina_lotu)) {
         return array(
             'can_cancel' => false, 
             'message' => "Nie można anulować rezerwacji na mniej niż {$godzin_przed}h przed lotem."

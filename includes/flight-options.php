@@ -9,31 +9,7 @@ function srl_get_flight_option_product_ids() {
 }
 
 function srl_analiza_opcji_produktu($nazwa_produktu) {
-    $opcje = array(
-        'ma_filmowanie' => 0,
-        'ma_akrobacje' => 0
-    );
-
-    $nazwa_lower = strtolower($nazwa_produktu);
-
-    if (strpos($nazwa_lower, 'filmowani') !== false || 
-        strpos($nazwa_lower, 'film') !== false ||
-        strpos($nazwa_lower, 'video') !== false ||
-        strpos($nazwa_lower, 'nagrywani') !== false ||
-        strpos($nazwa_lower, 'kamer') !== false) {
-        $opcje['ma_filmowanie'] = 1;
-    }
-
-    if (strpos($nazwa_lower, 'akrobacj') !== false || 
-        strpos($nazwa_lower, 'trick') !== false ||
-        strpos($nazwa_lower, 'ekstr') !== false ||
-        strpos($nazwa_lower, 'adrenalin') !== false ||
-        strpos($nazwa_lower, 'spiral') !== false ||
-        strpos($nazwa_lower, 'figur') !== false) {
-        $opcje['ma_akrobacje'] = 1;
-    }
-
-    return $opcje;
+    return srl_detect_flight_options($nazwa_produktu);
 }
 
 function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
@@ -45,42 +21,10 @@ function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
         $lot_id
     ), ARRAY_A);
 
-    if (!$lot) {
-        return false;
-    }
+    if (!$lot) return false;
 
-    $stara_data = $lot['data_waznosci'];
-    $nowa_data = date('Y-m-d', strtotime($stara_data . ' +1 year'));
-
-    $result = $wpdb->update(
-        $tabela,
-        array('data_waznosci' => $nowa_data),
-        array('id' => $lot_id),
-        array('%s'),
-        array('%d')
-    );
-
-    if ($result !== false) {
-
-        $opis_zmiany = "Przedłużono ważność lotu do " . date('d.m.Y', strtotime($nowa_data)) . " (zamówienie #$order_id)";
-
-        $wpis_historii = array(
-            'data' => srl_get_current_datetime(),
-            'opis' => $opis_zmiany,
-            'typ' => 'przedluzenie_waznosci',
-            'executor' => 'Klient',
-            'szczegoly' => array(
-                'stara_data_waznosci' => $stara_data,
-                'nowa_data_waznosci' => $nowa_data,
-                'order_id' => $order_id,
-                'przedluzenie' => '12 miesięcy'
-            )
-        );
-
-        srl_dopisz_do_historii_lotu($lot_id, $wpis_historii);
-    }
-
-    return $result !== false;
+    $stara_datafunction srl_get_flight_option_product_ids() {
+    return srl_get_flight_options_config();
 }
 
 function srl_lot_ma_opcje($lot_id, $opcja) {

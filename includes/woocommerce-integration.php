@@ -56,7 +56,7 @@ function srl_dodaj_loty_po_zakupie($order_id) {
     if (!$user_id) return; 
 
     $data_zakupu = $order->get_date_created()->date('Y-m-d H:i:s');
-    $data_waznosci = date('Y-m-d', strtotime($data_zakupu . ' +1 year'));
+    $data_waznosci = srl_generate_expiry_date($data_zakupu, 1);
 
     $imie = $order->get_billing_first_name();
     $nazwisko = $order->get_billing_last_name();
