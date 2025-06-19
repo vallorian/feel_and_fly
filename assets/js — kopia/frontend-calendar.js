@@ -1,63 +1,96 @@
 jQuery(document).ready(function($) {
-    var aktualnyKrok = 1, maksymalnyKrok = 1, aktualnyMiesiac = new Date().getMonth() + 1, aktualnyRok = new Date().getFullYear();
-    var wybranaDana = null, wybranySlot = null, wybranyLot = null, daneKlienta = null, tymczasowaBlokada = null;
+
+    var aktualnyKrok = 1;
+    var maksymalnyKrok = 1;
+    var aktualnyMiesiac = new Date().getMonth() + 1;
+    var aktualnyRok = new Date().getFullYear();
+    var wybranaDana = null;
+    var wybranySlot = null;
+    var wybranyLot = null;
+    var daneKlienta = null;
+    var tymczasowaBlokada = null;
+
     window.wybranyLot = null;
     window.daneKlienta = null;
 
     function aktualizujWybranyLotInfo() {
         var aktualnyLot = wybranyLot || window.wybranyLot;
         var aktualneDane = daneKlienta || window.daneKlienta;
+
         if (!aktualnyLot || !aktualneDane || !aktualneDane.dostepne_loty) return;
 
-        var lot = aktualneDane.dostepne_loty.find(l => l.id == aktualnyLot);
-        if (!lot) return;
+        var lot = aktualneDane.dostepne_loty.find(function(l) {
+            return l.id == aktualnyLot;
+        });
 
-        var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
-        if (nazwaBezWariantu.toLowerCase().includes('voucher') || nazwaBezWariantu.toLowerCase().includes('lot') || nazwaBezWariantu.toLowerCase().includes('tandem')) {
-            nazwaBezWariantu = 'Lot w tandemie';
-        }
+        if (lot) {
+            var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
 
-        var maFilmowanie = lot.ma_filmowanie && lot.ma_filmowanie != '0';
-        var maAkrobacje = lot.ma_akrobacje && lot.ma_akrobacje != '0';
-        var opcje_tekst = [];
-        
-        opcje_tekst.push(maFilmowanie ? '<span style="color: #46b450;">z filmowaniem</span>' : '<span style="color: #d63638;">brak filmowania</span>');
-        opcje_tekst.push(maAkrobacje ? '<span style="color: #46b450;">z akrobacjami</span>' : '<span style="color: #d63638;">brak akrobacji</span>');
+            if (nazwaBezWariantu.toLowerCase().includes('voucher') || 
+                nazwaBezWariantu.toLowerCase().includes('lot') ||
+                nazwaBezWariantu.toLowerCase().includes('tandem')) {
+                nazwaBezWariantu = 'Lot w tandemie';
+            }
 
-        var html = '<strong>Lot #' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu) + ' <span style="font-weight: bold;">' + opcje_tekst.join(', ') + '</span></strong>';
+            var maFilmowanie = lot.ma_filmowanie && lot.ma_filmowanie != '0';
+            var maAkrobacje = lot.ma_akrobacje && lot.ma_akrobacje != '0';
 
-        if (!maFilmowanie || !maAkrobacje) {
-            html += '<div style="background: #f0f8ff; border: 2px solid #46b450; border-radius: 8px; padding: 20px; margin-top: 15px;">';
-            
-            if (!maFilmowanie && !maAkrobacje) {
-                html += '<h4 style="margin-top: 0; color: #46b450;">🌟 Czy wiesz, że Twój lot może być jeszcze ciekawszy?</h4>';
-                html += '<p>Nie masz dodanego <strong>filmowania</strong> ani <strong>akrobacji</strong> – to dwie opcje, które często wybierają nasi pasażerowie.</p>';
-                html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br><strong>Akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
-                html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
-                html += '<div style="text-align: center; margin-top: 15px;">';
-                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.filmowanie + '" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.filmowanie + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.filmowanie + ', \'Filmowanie lotu\')">👉 Dodaj filmowanie</button>';
-                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.akrobacje + '" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.akrobacje + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.akrobacje + ', \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje</button>';
-                html += '</div>';
-            } else if (!maFilmowanie) {
-                html += '<h4 style="margin-top: 0; color: #46b450;">Nie masz dodanego filmowania do swojego lotu?</h4>';
-                html += '<p>To nic, ale warto wiedzieć, że to bardzo lubiana opcja wśród pasażerów.</p>';
-                html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę.</p>';
-                html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
-                html += '<div style="text-align: center; margin-top: 15px;">';
-                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.filmowanie + '" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.filmowanie + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.filmowanie + ', \'Filmowanie lotu\')">👉 Dodaj filmowanie do koszyka</button>';
-                html += '</div>';
-            } else if (!maAkrobacje) {
-                html += '<h4 style="margin-top: 0; color: #46b450;">Nie wybrałeś akrobacji?</h4>';
-                html += '<p>To oczywiście nie jest obowiązkowe – ale jeśli lubisz odrobinę adrenaliny, to może być coś dla Ciebie!</p>';
-                html += '<p><strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo.</p>';
-                html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
-                html += '<div style="text-align: center; margin-top: 15px;">';
-                html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.akrobacje + '" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.akrobacje + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.akrobacje + ', \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje do koszyka</button>';
+            var opcje_tekst = [];
+            if (maFilmowanie) {
+                opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+            } else {
+                opcje_tekst.push('<span style="color: #d63638;">brak filmowania</span>');
+            }
+
+            if (maAkrobacje) {
+                opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+            } else {
+                opcje_tekst.push('<span style="color: #d63638;">brak akrobacji</span>');
+            }
+
+            var html = '<strong>Lot #' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
+            html += ' <span style="font-weight: bold;">' + opcje_tekst.join(', ') + '</span>';
+            html += '</strong>';
+
+            if (lot.kod_vouchera) {
+                // Voucher info if needed
+            }
+
+            if (!maFilmowanie || !maAkrobacje) {
+                html += '<div style="background: #f0f8ff; border: 2px solid #46b450; border-radius: 8px; padding: 20px; margin-top: 15px;">';
+
+                if (!maFilmowanie && !maAkrobacje) {
+                    html += '<h4 style="margin-top: 0; color: #46b450;">🌟 Czy wiesz, że Twój lot może być jeszcze ciekawszy?</h4>';
+                    html += '<p>Nie masz dodanego <strong>filmowania</strong> ani <strong>akrobacji</strong> – to dwie opcje, które często wybierają nasi pasażerowie.</p>';
+                    html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br><strong>Akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
+                    html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
+                    html += '<div style="text-align: center; margin-top: 15px;">';
+                    html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.filmowanie + '" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.filmowanie + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.filmowanie + ', \'Filmowanie lotu\')">👉 Dodaj filmowanie</button>';
+                    html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.akrobacje + '" class="srl-add-option srl-btn srl-btn-success" style="margin: 5px; padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.akrobacje + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.akrobacje + ', \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje</button>';
+                    html += '</div>';
+                } else if (!maFilmowanie) {
+                    html += '<h4 style="margin-top: 0; color: #46b450;">Nie masz dodanego filmowania do swojego lotu?</h4>';
+                    html += '<p>To nic, ale warto wiedzieć, że to bardzo lubiana opcja wśród pasażerów.</p>';
+                    html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę.</p>';
+                    html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
+                    html += '<div style="text-align: center; margin-top: 15px;">';
+                    html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.filmowanie + '" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.filmowanie + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.filmowanie + ', \'Filmowanie lotu\')">👉 Dodaj filmowanie do koszyka</button>';
+                    html += '</div>';
+                } else if (!maAkrobacje) {
+                    html += '<h4 style="margin-top: 0; color: #46b450;">Nie wybrałeś akrobacji?</h4>';
+                    html += '<p>To oczywiście nie jest obowiązkowe – ale jeśli lubisz odrobinę adrenaliny, to może być coś dla Ciebie!</p>';
+                    html += '<p><strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo.</p>';
+                    html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
+                    html += '<div style="text-align: center; margin-top: 15px;">';
+                    html += '<button id="srl-opcja-' + lot.id + '-' + srlFrontend.productIds.akrobacje + '" class="srl-add-option srl-btn srl-btn-success" style="padding: 10px 20px;" data-lot-id="' + lot.id + '" data-product-id="' + srlFrontend.productIds.akrobacje + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + srlFrontend.productIds.akrobacje + ', \'Akrobacje podczas lotu\')">👉 Dodaj akrobacje do koszyka</button>';
+                    html += '</div>';
+                }
+
                 html += '</div>';
             }
-            html += '</div>';
+
+            $('#srl-wybrany-lot-szczegoly').html(html);
         }
-        $('#srl-wybrany-lot-szczegoly').html(html);
     }
 
     init();
@@ -71,38 +104,68 @@ jQuery(document).ready(function($) {
         if (nrKroku < 1 || nrKroku > 5) return;
 
         $('.srl-step').removeClass('srl-step-active srl-step-completed');
-        $('.srl-progress-bar').removeClass('srl-progress-1 srl-progress-2 srl-progress-3 srl-progress-4 srl-progress-5').addClass('srl-progress-' + nrKroku);
+        $('.srl-progress-bar').removeClass('srl-progress-1 srl-progress-2 srl-progress-3 srl-progress-4 srl-progress-5');
+        $('.srl-progress-bar').addClass('srl-progress-' + nrKroku);
 
         for (var i = 1; i <= 5; i++) {
             var step = $('.srl-step[data-step="' + i + '"]');
-            if (i < nrKroku) step.addClass('srl-step-completed');
-            else if (i === nrKroku) step.addClass('srl-step-active');
+            if (i < nrKroku) {
+                step.addClass('srl-step-completed');
+            } else if (i === nrKroku) {
+                step.addClass('srl-step-active');
+            }
         }
 
         $('.srl-krok').removeClass('srl-krok-active');
         $('#srl-krok-' + nrKroku).addClass('srl-krok-active');
+
         aktualnyKrok = nrKroku;
         maksymalnyKrok = Math.max(maksymalnyKrok, nrKroku);
-        
-        $('html, body').animate({scrollTop: $('#srl-rezerwacja-container').offset().top - 50}, 300);
-        if (nrKroku === 5) pokazKrok5();
+
+        $('html, body').animate({
+            scrollTop: $('#srl-rezerwacja-container').offset().top - 50
+        }, 300);
+
+        if (nrKroku === 5) {
+            pokazKrok5();
+        }
     }
 
     function pokazKrok5() {
-        var lot = daneKlienta.dostepne_loty.find(l => l.id == wybranyLot);
+        var lot = daneKlienta.dostepne_loty.find(function(l) {
+            return l.id == wybranyLot;
+        });
+
         var slotInfo = tymczasowaBlokada ? tymczasowaBlokada.slot : null;
 
         if (lot) {
             var nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
-            if (nazwaBezWariantu.toLowerCase().includes('voucher') || nazwaBezWariantu.toLowerCase().includes('lot') || nazwaBezWariantu.toLowerCase().includes('tandem')) {
+            if (nazwaBezWariantu.toLowerCase().includes('voucher') || 
+                nazwaBezWariantu.toLowerCase().includes('lot') ||
+                nazwaBezWariantu.toLowerCase().includes('tandem')) {
                 nazwaBezWariantu = 'Lot w tandemie';
             }
 
             var opcje_tekst = [];
-            opcje_tekst.push(lot.ma_filmowanie && lot.ma_filmowanie != '0' ? '<span style="color: #46b450;">z filmowaniem</span>' : '<span style="color: #d63638;">brak filmowania</span>');
-            opcje_tekst.push(lot.ma_akrobacje && lot.ma_akrobacje != '0' ? '<span style="color: #46b450;">z akrobacjami</span>' : '<span style="color: #d63638;">brak akrobacji</span>');
+            if (lot.ma_filmowanie && lot.ma_filmowanie != '0') {
+                opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+            } else {
+                opcje_tekst.push('<span style="color: #d63638;">brak filmowania</span>');
+            }
 
-            var lotOpis = '#' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu) + ' <span style="font-weight: bold;">' + opcje_tekst.join(', ') + '</span>';
+            if (lot.ma_akrobacje && lot.ma_akrobacje != '0') {
+                opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+            } else {
+                opcje_tekst.push('<span style="color: #d63638;">brak akrobacji</span>');
+            }
+
+            var lotOpis = '#' + lot.id + ' – ' + escapeHtml(nazwaBezWariantu);
+            lotOpis += ' <span style="font-weight: bold;">' + opcje_tekst.join(', ') + '</span>';
+
+            if (lot.kod_vouchera) {
+                // Voucher info if needed
+            }
+
             $('#srl-lot-details').html(lotOpis);
         }
 
@@ -118,23 +181,20 @@ jQuery(document).ready(function($) {
         daneHtml += '<p><strong>Telefon:</strong> ' + $('#srl-telefon').val() + '</p>';
         daneHtml += '<p><strong>Sprawność fizyczna:</strong> ' + $('#srl-sprawnosc-fizyczna option:selected').text() + '</p>';
         daneHtml += '<p><strong>Kategoria wagowa:</strong> ' + $('#srl-kategoria-wagowa').val() + '</p>';
-        
-        var rokUrodzenia = $('#srl-rok-urodzenia').val();
-        var kategoriaWagowa = $('#srl-kategoria-wagowa').val();
-        if (rokUrodzenia && kategoriaWagowa) {
-            // Sprawdź aktualny wiek
-            var wiek = new Date().getFullYear() - parseInt(rokUrodzenia);
-            if (wiek <= 18) {
-                daneHtml += '<div class="srl-uwaga-warning" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:10px; color:#000;"><strong>Uwaga:</strong> Lot osoby niepełnoletniej: Osoby poniżej 18. roku życia mogą wziąć udział w locie tylko za zgodą rodzica lub opiekuna prawnego. Wymagane jest okazanie podpisanej, wydrukowanej zgody w dniu lotu, na miejscu startu. <a href="/zgoda-na-lot-osoba-nieletnia/" target="_blank" style="color:#f57c00; font-weight:bold;">Pobierz zgodę tutaj</a></div>';
-            }
-            
-            // Sprawdź aktualną kategorię wagową
-            if (kategoriaWagowa === '91-120kg') {
-                daneHtml += '<div class="srl-uwaga-warning" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:10px; color:#000;"><strong>Uwaga:</strong> Loty z pasażerami powyżej 90 kg mogą być krótsze, brak możliwości wykonania akrobacji. Pilot ma prawo odmówić wykonania lotu jeśli uzna, że zagraża to bezpieczeństwu.</div>';
-            } else if (kategoriaWagowa === '120kg+') {
-                daneHtml += '<div class="srl-uwaga-error" style="background:#fdeaea; border:2px solid #d63638; border-radius:8px; padding:20px; margin-top:10px; color:#721c24;"><strong>❌ Błąd:</strong> Brak możliwości wykonania lotu z pasażerem powyżej 120 kg.</div>';
-            }
-        }
+		var rokUrodzenia = $('#srl-rok-urodzenia').val();
+		var kategoriaWagowa = $('#srl-kategoria-wagowa').val();
+		if (rokUrodzenia && kategoriaWagowa) {
+			// Pobierz aktualne komunikaty z kontenerów
+			var wiekHtml = $('#srl-wiek-ostrzezenie').html();
+			var wagaHtml = $('#srl-waga-ostrzezenie').html();
+			
+			if (wiekHtml) {
+				daneHtml += wiekHtml;
+			}
+			if (wagaHtml) {
+				daneHtml += wagaHtml;
+			}
+		}
 
         $('#srl-dane-pasazera-podsumowanie').html(daneHtml);
     }
@@ -142,7 +202,9 @@ jQuery(document).ready(function($) {
     function podlaczNasluchy() {
         $('.srl-step').on('click', function() {
             var krok = parseInt($(this).data('step'));
-            if (krok <= maksymalnyKrok) pokazKrok(krok);
+            if (krok <= maksymalnyKrok) {
+                pokazKrok(krok);
+            }
         });
 
         $('#srl-formularz-pasazera').on('submit', function(e) {
@@ -150,13 +212,19 @@ jQuery(document).ready(function($) {
             zapiszDanePasazera();
         });
 
-        $('#srl-poprzedni-miesiac').on('click', () => zmienMiesiac(-1));
-        $('#srl-nastepny-miesiac').on('click', () => zmienMiesiac(1));
-        $('#srl-powrot-krok-1').on('click', () => pokazKrok(1));
-        $('#srl-powrot-krok-2').on('click', () => pokazKrok(2));
-        $('#srl-powrot-krok-3').on('click', () => pokazKrok(3));
-        $('#srl-powrot-krok-4').on('click', () => pokazKrok(4));
-        $('#srl-dalej-krok-5').on('click', () => pokazKrok(5));
+        $('#srl-poprzedni-miesiac').on('click', function() {
+            zmienMiesiac(-1);
+        });
+
+        $('#srl-nastepny-miesiac').on('click', function() {
+            zmienMiesiac(1);
+        });
+
+        $('#srl-powrot-krok-1').on('click', function() { pokazKrok(1); });
+        $('#srl-powrot-krok-2').on('click', function() { pokazKrok(2); });
+        $('#srl-powrot-krok-3').on('click', function() { pokazKrok(3); });
+        $('#srl-powrot-krok-4').on('click', function() { pokazKrok(4); });
+        $('#srl-dalej-krok-5').on('click', function() { pokazKrok(5); });
 
         $(document).on('click', '.srl-wybierz-lot', function() {
             var lotId = $(this).data('lot-id');
@@ -166,7 +234,17 @@ jQuery(document).ready(function($) {
             aktualizujWybranyLotInfo();
         });
 
-        $('#srl-potwierdz-rezerwacje').on('click', () => dokonajRezerwacji());
+        $('#srl-potwierdz-rezerwacje').on('click', function() {
+            dokonajRezerwacji();
+        });
+
+        function sprawdzWybranyLot() {
+            if (!wybranyLot && !window.wybranyLot) {
+                pokazKomunikat('Musisz najpierw wybrać lot do zarezerwowania.', 'error');
+                return false;
+            }
+            return true;
+        }
 
         $('.srl-step[data-step="2"]').on('click', function(e) {
             if (!wybranyLot && !window.wybranyLot) {
@@ -177,93 +255,104 @@ jQuery(document).ready(function($) {
             }
         });
 
-        $(document).on('change', '#srl-rok-urodzenia', () => srlWalidujWiek());
-        $(document).on('change', '#srl-kategoria-wagowa', function() {
-            srlWalidujKategorieWagowa();
-            sprawdzKompatybilnoscZAkrobacjami();
-        });
+		$(document).on('change', '#srl-rok-urodzenia', function() {
+			srlWalidujWiek();
+		});
+
+		$(document).on('change', '#srl-kategoria-wagowa', function() {
+			srlWalidujKategorieWagowa();
+			sprawdzKompatybilnoscZAkrobacjami();
+		});
     }
 
-    function srlWalidujWiek() {
-        var rokUrodzenia = $('#srl-rok-urodzenia').val();
-        if (!rokUrodzenia) {
-            srlUkryjKomunikatWiekowy();
-            return;
-        }
-        
-        $.post(srlFrontend.ajaxurl, {
-            action: 'srl_waliduj_wiek',
-            rok_urodzenia: rokUrodzenia,
-            nonce: srlFrontend.nonce
-        }, function(response) {
-            if (response.success && response.data.html) {
-                srlPokazKomunikatWiekowy(response.data.html);
-            } else {
-                srlUkryjKomunikatWiekowy();
-            }
-        });
-    }
+	
+	function srlWalidujWiek() {
+		var rokUrodzenia = $('#srl-rok-urodzenia').val();
+		
+		if (!rokUrodzenia) {
+			srlUkryjKomunikatWiekowy();
+			return;
+		}
+		
+		$.post(srlFrontend.ajaxurl, {
+			action: 'srl_waliduj_wiek',
+			rok_urodzenia: rokUrodzenia,
+			nonce: srlFrontend.nonce
+		}, function(response) {
+			if (response.success && response.data.html) {
+				srlPokazKomunikatWiekowy(response.data.html);
+			} else {
+				srlUkryjKomunikatWiekowy();
+			}
+		});
+	}
 
-    function srlWalidujKategorieWagowa() {
-        var kategoria = $('#srl-kategoria-wagowa').val();
-        if (!kategoria) {
-            srlUkryjKomunikatWagowy();
-            return;
-        }
-        
-        $.post(srlFrontend.ajaxurl, {
-            action: 'srl_waliduj_kategorie_wagowa',
-            kategoria_wagowa: kategoria,
-            nonce: srlFrontend.nonce
-        }, function(response) {
-            if (response.success && response.data.html) {
-                srlPokazKomunikatWagowy(response.data.html);
-            } else {
-                srlUkryjKomunikatWagowy();
-            }
-        });
-    }
+	function srlWalidujKategorieWagowa() {
+		var kategoria = $('#srl-kategoria-wagowa').val();
+		
+		if (!kategoria) {
+			srlUkryjKomunikatWagowy();
+			return;
+		}
+		
+		$.post(srlFrontend.ajaxurl, {
+			action: 'srl_waliduj_kategorie_wagowa',
+			kategoria_wagowa: kategoria,
+			nonce: srlFrontend.nonce
+		}, function(response) {
+			if (response.success && response.data.html) {
+				srlPokazKomunikatWagowy(response.data.html);
+			} else {
+				srlUkryjKomunikatWagowy();
+			}
+		});
+	}
 
-    function srlPokazKomunikatWiekowy(html) {
-        var container = $('#srl-wiek-ostrzezenie');
-        if (container.length === 0) {
-            container = $('<div id="srl-wiek-ostrzezenie"></div>');
-            $('#srl-waga-ostrzezenie').before(container);
-        }
-        container.html(html).show();
-    }
+	function srlPokazKomunikatWiekowy(html) {
+		var container = $('#srl-wiek-ostrzezenie');
+		if (container.length === 0) {
+			container = $('<div id="srl-wiek-ostrzezenie"></div>');
+			$('#srl-waga-ostrzezenie').before(container);
+		}
+		container.html(html).show();
+	}
 
-    function srlUkryjKomunikatWiekowy() {
-        $('#srl-wiek-ostrzezenie').hide();
-    }
+	function srlUkryjKomunikatWiekowy() {
+		$('#srl-wiek-ostrzezenie').hide();
+	}
 
-    function srlPokazKomunikatWagowy(html) {
-        $('#srl-waga-ostrzezenie').html(html).show();
-    }
+	function srlPokazKomunikatWagowy(html) {
+		$('#srl-waga-ostrzezenie').html(html).show();
+	}
 
-    function srlUkryjKomunikatWagowy() {
-        $('#srl-waga-ostrzezenie').hide();
-    }
-
+	function srlUkryjKomunikatWagowy() {
+		$('#srl-waga-ostrzezenie').hide();
+	}
+	
     function zaladujDaneKlienta() {
         pokazKomunikat('Ładowanie danych...', 'info');
 
         $.ajax({
             url: srlFrontend.ajaxurl,
             method: 'GET',
-            data: {action: 'srl_pobierz_dane_klienta', nonce: srlFrontend.nonce},
+            data: {
+                action: 'srl_pobierz_dane_klienta',
+                nonce: srlFrontend.nonce
+            },
             success: function(response) {
                 ukryjKomunikat();
+
                 if (response.success) {
                     daneKlienta = response.data;
                     window.daneKlienta = response.data;
                     wypelnijDaneKlienta();
+
                     $(document).trigger('srl_dane_klienta_zaladowane');
                 } else {
                     pokazKomunikat('Błąd ładowania danych: ' + response.data, 'error');
                 }
             },
-            error: () => {
+            error: function(xhr, status, error) {
                 ukryjKomunikat();
                 pokazKomunikat('Błąd połączenia z serwerem.', 'error');
             }
@@ -278,17 +367,34 @@ jQuery(document).ready(function($) {
             return;
         }
 
-        var html = '<table class="srl-tabela-lotow"><thead><tr><th class="srl-kolumna-nazwa">Nazwa</th><th class="srl-kolumna-status">Status i termin</th><th class="srl-kolumna-opcje">Opcje</th><th class="srl-kolumna-akcje">Akcje</th></tr></thead><tbody>';
+        var html = '<table class="srl-tabela-lotow">';
+        html += '<thead><tr><th class="srl-kolumna-nazwa">Nazwa</th><th class="srl-kolumna-status">Status i termin</th><th class="srl-kolumna-opcje">Opcje</th><th class="srl-kolumna-akcje">Akcje</th></tr></thead>';
+        html += '<tbody>';
 
         lotySpolaczone.forEach(function(lot) {
-            html += '<tr><td class="srl-kolumna-nazwa">';
+            html += '<tr>';
+
+            html += '<td class="srl-kolumna-nazwa">';
             html += '<div class="srl-nazwa-lotu">Lot w tandemie (#' + lot.id + ')</div>';
 
             var opcje_tekst = [];
-            opcje_tekst.push(lot.ma_filmowanie && lot.ma_filmowanie != '0' ? '<span style="color: #46b450;">z filmowaniem</span>' : '<span style="color: #d63638;">bez filmowania</span>');
-            opcje_tekst.push(lot.ma_akrobacje && lot.ma_akrobacje != '0' ? '<span style="color: #46b450;">z akrobacjami</span>' : '<span style="color: #d63638;">bez akrobacji</span>');
+            if (lot.ma_filmowanie && lot.ma_filmowanie != '0') {
+                opcje_tekst.push('<span style="color: #46b450;">z filmowaniem</span>');
+            } else {
+                opcje_tekst.push('<span style="color: #d63638;">bez filmowania</span>');
+            }
+
+            if (lot.ma_akrobacje && lot.ma_akrobacje != '0') {
+                opcje_tekst.push('<span style="color: #46b450;">z akrobacjami</span>');
+            } else {
+                opcje_tekst.push('<span style="color: #d63638;">bez akrobacji</span>');
+            }
 
             html += '<div class="srl-opcje-lotu">' + opcje_tekst.join(', ') + '</div>';
+
+            if (lot.kod_vouchera) {
+                // Voucher info if needed
+            }
 
             if (lot.data_waznosci) {
                 html += '<div class="srl-data-waznosci">(Ważny do: ' + new Date(lot.data_waznosci).toLocaleDateString('pl-PL') + ')</div>';
@@ -304,7 +410,10 @@ jQuery(document).ready(function($) {
                     var dzienTygodnia = nazwyDni[dataLotu.getDay()];
                     var dataStr = dataLotu.toLocaleDateString('pl-PL');
                     var godzinaStr = lot.godzina_start.substring(0, 5);
-                    html += '<div class="srl-termin-info"><div class="srl-termin-data">' + dataStr + ', godz: ' + godzinaStr + '</div><div class="srl-termin-dzien">' + dzienTygodnia + '</div></div>';
+                    html += '<div class="srl-termin-info">';
+                    html += '<div class="srl-termin-data">' + dataStr + ', godz: ' + godzinaStr + '</div>';	
+                    html += '<div class="srl-termin-dzien">' + dzienTygodnia + '</div>';
+                    html += '</div>';
                 }
             } else if (lot.status === 'wolny') {
                 html += '<div class="srl-status-badge srl-status-wolny">Czeka na rezerwację</div>';
@@ -327,8 +436,13 @@ jQuery(document).ready(function($) {
                     }
 
                     if (dostepneOpcje.length > 0) {
-                        dostepneOpcje.forEach(function(opcja) {
-                            html += '<button id="srl-opcja-' + lot.id + '-' + opcja.id + '" class="srl-add-option srl-opcja-btn" data-lot-id="' + lot.id + '" data-product-id="' + opcja.id + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + opcja.id + ', \'' + opcja.nazwa + '\')">+ ' + opcja.nazwa + '</button>';
+                        dostepneOpcje.forEach(function(opcja, index) {
+                            html += '<button id="srl-opcja-' + lot.id + '-' + opcja.id + '" ' +
+                                   'class="srl-add-option srl-opcja-btn" ' +
+                                   'data-lot-id="' + lot.id + '" ' +
+                                   'data-product-id="' + opcja.id + '" ' +
+                                   'onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + opcja.id + ', \'' + opcja.nazwa + '\')">' +
+                                   '+ ' + opcja.nazwa + '</button>';
                         });
                     } else {
                         html += '<div class="srl-opcje-info">—</div>';
@@ -353,8 +467,13 @@ jQuery(document).ready(function($) {
                 }
 
                 if (dostepneOpcje.length > 0) {
-                    dostepneOpcje.forEach(function(opcja) {
-                        html += '<button id="srl-opcja-' + lot.id + '-' + opcja.id + '" class="srl-add-option srl-opcja-btn" data-lot-id="' + lot.id + '" data-product-id="' + opcja.id + '" onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + opcja.id + ', \'' + opcja.nazwa + '\')">+ ' + opcja.nazwa + '</button>';
+                    dostepneOpcje.forEach(function(opcja, index) {
+                        html += '<button id="srl-opcja-' + lot.id + '-' + opcja.id + '" ' +
+                               'class="srl-add-option srl-opcja-btn" ' +
+                               'data-lot-id="' + lot.id + '" ' +
+                               'data-product-id="' + opcja.id + '" ' +
+                               'onclick="srlDodajOpcjeLotu(' + lot.id + ', ' + opcja.id + ', \'' + opcja.nazwa + '\')">' +
+                               '+ ' + opcja.nazwa + '</button>';
                     });
                 } else {
                     html += '<div class="srl-opcje-info">—</div>';
@@ -378,14 +497,17 @@ jQuery(document).ready(function($) {
             } else if (lot.status === 'wolny') {
                 html += '<button class="srl-wybierz-lot srl-akcja-btn srl-btn-wybierz" data-lot-id="' + lot.id + '">Wybierz termin</button>';
             }
-            html += '</td></tr>';
+            html += '</td>';
+
+            html += '</tr>';
         });
 
         html += '</tbody></table>';
         container.html(html);
 
         $('.srl-anuluj-rezerwacje').on('click', function() {
-            anulujRezerwacje($(this).data('lot-id'));
+            var lotId = $(this).data('lot-id');
+            anulujRezerwacje(lotId);
         });
     }
 
@@ -393,11 +515,17 @@ jQuery(document).ready(function($) {
         aktualizujPowitanie();
 
         var lotySpolaczone = [];
+
         if (daneKlienta.rezerwacje) {
-            daneKlienta.rezerwacje.forEach(rezerwacja => lotySpolaczone.push(rezerwacja));
+            daneKlienta.rezerwacje.forEach(function(rezerwacja) {
+                lotySpolaczone.push(rezerwacja);
+            });
         }
+
         if (daneKlienta.dostepne_loty) {
-            daneKlienta.dostepne_loty.forEach(lot => lotySpolaczone.push(lot));
+            daneKlienta.dostepne_loty.forEach(function(lot) {
+                lotySpolaczone.push(lot);
+            });
         }
 
         lotySpolaczone.sort(function(a, b) {
@@ -412,15 +540,18 @@ jQuery(document).ready(function($) {
 
     function aktualizujPowitanie() {
         var powitanie = 'Cześć';
+
         if (daneKlienta && daneKlienta.dane_osobowe) {
             var imie = daneKlienta.dane_osobowe.imie;
             var nazwisko = daneKlienta.dane_osobowe.nazwisko;
+
             if (imie && nazwisko) {
                 powitanie = 'Cześć, ' + imie + ' ' + nazwisko;
             } else if (imie) {
                 powitanie = 'Cześć, ' + imie;
             }
         }
+
         $('#srl-krok-1 h2').text(powitanie + '! 👋');
     }
 
@@ -433,8 +564,13 @@ jQuery(document).ready(function($) {
         $('#srl-telefon').val(dane.telefon || '');
         $('#srl-uwagi').val(dane.uwagi || '');
 
-        if (dane.rok_urodzenia) srlWalidujWiek();
-        if (dane.kategoria_wagowa) srlWalidujKategorieWagowa();
+        // Uruchom walidację wieku i wagi po załadowaniu danych
+		if (dane.rok_urodzenia) {
+			srlWalidujWiek();
+		}
+		if (dane.kategoria_wagowa) {
+			srlWalidujKategorieWagowa();
+		}
     }
 
     function zapiszDanePasazera() {
@@ -444,6 +580,7 @@ jQuery(document).ready(function($) {
         }
 
         ukryjKomunikaty();
+
         var bledy = [];
 
         if (!$('#srl-akceptacja-regulaminu').is(':checked')) {
@@ -468,7 +605,9 @@ jQuery(document).ready(function($) {
         }
 
         if (bledy.length > 0) {
-            bledy.forEach(blad => pokazKomunikat(blad, 'error'));
+            bledy.forEach(function(blad) {
+                pokazKomunikat(blad, 'error');
+            });
             return;
         }
 
@@ -510,18 +649,28 @@ jQuery(document).ready(function($) {
                     pokazKomunikat('Błąd: ' + response.data, 'error');
                 }
             },
-            error: () => pokazKomunikat('Błąd połączenia z serwerem.', 'error'),
-            complete: () => submitBtn.prop('disabled', false).text('Zapisz i przejdź dalej →')
+            error: function() {
+                pokazKomunikat('Błąd połączenia z serwerem.', 'error');
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).text('Zapisz i przejdź dalej →');
+            }
         });
     }
 
     function anulujRezerwacje(lotId) {
-        if (!confirm('Czy na pewno chcesz anulować tę rezerwację?')) return;
+        if (!confirm('Czy na pewno chcesz anulować tę rezerwację?')) {
+            return;
+        }
 
         $.ajax({
             url: srlFrontend.ajaxurl,
             method: 'POST',
-            data: {action: 'srl_anuluj_rezerwacje_klient', nonce: srlFrontend.nonce, lot_id: lotId},
+            data: {
+                action: 'srl_anuluj_rezerwacje_klient',
+                nonce: srlFrontend.nonce,
+                lot_id: lotId
+            },
             success: function(response) {
                 if (response.success) {
                     pokazKomunikat('Rezerwacja została anulowana.', 'success');
@@ -530,7 +679,9 @@ jQuery(document).ready(function($) {
                     pokazKomunikat('Błąd: ' + response.data, 'error');
                 }
             },
-            error: () => pokazKomunikat('Błąd połączenia z serwerem.', 'error')
+            error: function() {
+                pokazKomunikat('Błąd połączenia z serwerem.', 'error');
+            }
         });
     }
 
@@ -540,12 +691,17 @@ jQuery(document).ready(function($) {
     }
 
     function aktualizujNawigacjeKalendarza() {
-        var nazwyMiesiecy = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+        var nazwyMiesiecy = [
+            'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+            'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'
+        ];
+
         $('#srl-miesiac-rok').text(nazwyMiesiecy[aktualnyMiesiac - 1] + ' ' + aktualnyRok);
     }
 
     function zmienMiesiac(kierunek) {
         aktualnyMiesiac += kierunek;
+
         if (aktualnyMiesiac > 12) {
             aktualnyMiesiac = 1;
             aktualnyRok++;
@@ -553,6 +709,7 @@ jQuery(document).ready(function($) {
             aktualnyMiesiac = 12;
             aktualnyRok--;
         }
+
         aktualizujNawigacjeKalendarza();
         pobierzDostepneDni();
     }
@@ -563,7 +720,12 @@ jQuery(document).ready(function($) {
         $.ajax({
             url: srlFrontend.ajaxurl,
             method: 'GET',
-            data: {action: 'srl_pobierz_dostepne_dni', nonce: srlFrontend.nonce, rok: aktualnyRok, miesiac: aktualnyMiesiac},
+            data: {
+                action: 'srl_pobierz_dostepne_dni',
+                nonce: srlFrontend.nonce,
+                rok: aktualnyRok,
+                miesiac: aktualnyMiesiac
+            },
             success: function(response) {
                 if (response.success) {
                     wygenerujKalendarz(response.data);
@@ -571,22 +733,31 @@ jQuery(document).ready(function($) {
                     $('#srl-kalendarz-tabela').html('<p class="srl-komunikat srl-komunikat-error">Błąd: ' + response.data + '</p>');
                 }
             },
-            error: () => $('#srl-kalendarz-tabela').html('<p class="srl-komunikat srl-komunikat-error">Błąd połączenia z serwerem.</p>')
+            error: function() {
+                $('#srl-kalendarz-tabela').html('<p class="srl-komunikat srl-komunikat-error">Błąd połączenia z serwerem.</p>');
+            }
         });
     }
 
     function wygenerujKalendarz(dostepneDni) {
         var pierwszyDzienMiesiaca = new Date(aktualnyRok, aktualnyMiesiac - 1, 1);
         var dniWMiesiacu = new Date(aktualnyRok, aktualnyMiesiac, 0).getDate();
-        var pierwszyDzienTygodnia = pierwszyDzienMiesiaca.getDay();
+        var pierwszyDzienTygodnia = pierwszyDzienMiesiaca.getDay(); 
+
         pierwszyDzienTygodnia = pierwszyDzienTygodnia === 0 ? 7 : pierwszyDzienTygodnia;
 
-        var html = '<table class="srl-kalendarz-tabela"><thead><tr><th>Pon</th><th>Wt</th><th>Śr</th><th>Czw</th><th>Pt</th><th>Sob</th><th>Nd</th></tr></thead><tbody>';
-        var dzien = 1, pustePrzed = pierwszyDzienTygodnia - 1;
+        var html = '<table class="srl-kalendarz-tabela">';
+        html += '<thead><tr><th>Pon</th><th>Wt</th><th>Śr</th><th>Czw</th><th>Pt</th><th>Sob</th><th>Nd</th></tr></thead>';
+        html += '<tbody>';
+
+        var dzien = 1;
+        var pustePrzed = pierwszyDzienTygodnia - 1;
         var calkowiteKomorki = Math.ceil((dniWMiesiacu + pustePrzed) / 7) * 7;
 
         for (var i = 0; i < calkowiteKomorki; i++) {
-            if (i % 7 === 0) html += '<tr>';
+            if (i % 7 === 0) {
+                html += '<tr>';
+            }
 
             if (i < pustePrzed || dzien > dniWMiesiacu) {
                 html += '<td class="srl-dzien-pusty"></td>';
@@ -602,10 +773,13 @@ jQuery(document).ready(function($) {
                     html += '<div class="srl-dzien-sloty">' + iloscSlotow + ' wolnych</div>';
                 }
                 html += '</td>';
+
                 dzien++;
             }
 
-            if ((i + 1) % 7 === 0) html += '</tr>';
+            if ((i + 1) % 7 === 0) {
+                html += '</tr>';
+            }
         }
 
         html += '</tbody></table>';
@@ -613,8 +787,10 @@ jQuery(document).ready(function($) {
 
         $('.srl-dzien-dostepny').on('click', function() {
             wybranaDana = $(this).data('data');
+
             $('.srl-dzien-wybrany').removeClass('srl-dzien-wybrany');
             $(this).addClass('srl-dzien-wybrany');
+
             pokazKrok(4);
             zaladujHarmonogram();
         });
@@ -627,7 +803,11 @@ jQuery(document).ready(function($) {
         $.ajax({
             url: srlFrontend.ajaxurl,
             method: 'GET',
-            data: {action: 'srl_pobierz_dostepne_godziny', nonce: srlFrontend.nonce, data: wybranaDana},
+            data: {
+                action: 'srl_pobierz_dostepne_godziny',
+                nonce: srlFrontend.nonce,
+                data: wybranaDana
+            },
             success: function(response) {
                 if (response.success) {
                     wygenerujHarmonogram(response.data);
@@ -635,7 +815,9 @@ jQuery(document).ready(function($) {
                     $('#srl-harmonogram-frontend').html('<p class="srl-komunikat srl-komunikat-error">Błąd: ' + response.data + '</p>');
                 }
             },
-            error: () => $('#srl-harmonogram-frontend').html('<p class="srl-komunikat srl-komunikat-error">Błąd połączenia z serwerem.</p>')
+            error: function() {
+                $('#srl-harmonogram-frontend').html('<p class="srl-komunikat srl-komunikat-error">Błąd połączenia z serwerem.</p>');
+            }
         });
     }
 
@@ -645,27 +827,35 @@ jQuery(document).ready(function($) {
             return;
         }
 
-        sloty.sort((a, b) => a.godzina_start.localeCompare(b.godzina_start));
+        sloty.sort(function(a, b) {
+            return a.godzina_start.localeCompare(b.godzina_start);
+        });
 
         var html = '<div class="srl-godziny-grid">';
+
         sloty.forEach(function(slot) {
             html += '<div class="srl-slot-godzina" data-slot-id="' + slot.id + '">';
             html += '<div class="srl-slot-czas">' + slot.godzina_start.substring(0, 5) + ' - ' + slot.godzina_koniec.substring(0, 5) + '</div>';
             html += '</div>';
         });
+
         html += '</div>';
         $('#srl-harmonogram-frontend').html(html);
 
         $('.srl-slot-godzina').on('click', function() {
-            wybierzSlot($(this).data('slot-id'), $(this));
+            var slotId = $(this).data('slot-id');
+            wybierzSlot(slotId, $(this));
         });
     }
 
     function wybierzSlot(slotId, element) {
         $('.srl-slot-wybrany').removeClass('srl-slot-wybrany');
         element.addClass('srl-slot-wybrany');
+
         wybranySlot = slotId;
+
         $('#srl-dalej-krok-5').show();
+
         zablokujSlotTymczasowo(slotId);
     }
 
@@ -673,18 +863,24 @@ jQuery(document).ready(function($) {
         $.ajax({
             url: srlFrontend.ajaxurl,
             method: 'POST',
-            data: {action: 'srl_zablokuj_slot_tymczasowo', nonce: srlFrontend.nonce, termin_id: slotId},
+            data: {
+                action: 'srl_zablokuj_slot_tymczasowo',
+                nonce: srlFrontend.nonce,
+                termin_id: slotId
+            },
             success: function(response) {
                 if (response.success) {
                     tymczasowaBlokada = response.data;
                     pokazKomunikat('Termin został zarezerwowany na 15 minut.', 'info');
+
                     setTimeout(function() {
                         pokazKomunikat('Blokada terminu wygasła. Wybierz termin ponownie.', 'warning');
                         $('.srl-slot-wybrany').removeClass('srl-slot-wybrany');
                         $('#srl-dalej-krok-5').hide();
                         wybranySlot = null;
                         tymczasowaBlokada = null;
-                    }, 15 * 60 * 1000);
+                    }, 15 * 60 * 1000); 
+
                 } else {
                     pokazKomunikat('Błąd blokady: ' + response.data, 'error');
                     $('.srl-slot-wybrany').removeClass('srl-slot-wybrany');
@@ -692,7 +888,9 @@ jQuery(document).ready(function($) {
                     $('#srl-dalej-krok-5').hide();
                 }
             },
-            error: () => pokazKomunikat('Błąd połączenia z serwerem.', 'error')
+            error: function() {
+                pokazKomunikat('Błąd połączenia z serwerem.', 'error');
+            }
         });
     }
 
@@ -708,7 +906,12 @@ jQuery(document).ready(function($) {
         $.ajax({
             url: srlFrontend.ajaxurl,
             method: 'POST',
-            data: {action: 'srl_dokonaj_rezerwacji', nonce: srlFrontend.nonce, termin_id: wybranySlot, lot_id: wybranyLot},
+            data: {
+                action: 'srl_dokonaj_rezerwacji',
+                nonce: srlFrontend.nonce,
+                termin_id: wybranySlot,
+                lot_id: wybranyLot
+            },
             success: function(response) {
                 if (response.success) {
                     pokazKomunikatSukcesu();
@@ -717,7 +920,7 @@ jQuery(document).ready(function($) {
                     btn.prop('disabled', false).text('🎯 Potwierdź rezerwację');
                 }
             },
-            error: () => {
+            error: function() {
                 pokazKomunikat('Błąd połączenia z serwerem.', 'error');
                 btn.prop('disabled', false).text('🎯 Potwierdź rezerwację');
             }
@@ -729,7 +932,11 @@ jQuery(document).ready(function($) {
         html += '<h2 style="color:#46b450; margin-bottom:20px;text-transform: uppercase;">Rezerwacja potwierdzona!</h2>';
         html += '<p style="font-size:18px; margin-bottom:30px;">Twój lot tandemowy został zarezerwowany na <strong>' + formatujDate(wybranaDana) + '</strong></p>';
         html += '<p>Na podany adres email została wysłana informacja z szczegółami rezerwacji.</p>';
-        html += '<div style="margin-top:30px;"><a href="' + window.location.href + '" class="srl-btn srl-btn-primary">Zarezerwuj kolejny lot</a></div></div>';
+        html += '<div style="margin-top:30px;">';
+        html += '<a href="' + window.location.href + '" class="srl-btn srl-btn-primary">Zarezerwuj kolejny lot</a>';
+        html += '</div>';
+        html += '</div>';
+
         $('#srl-rezerwacja-container').html(html);
     }
 
@@ -742,13 +949,19 @@ jQuery(document).ready(function($) {
         var html = '<div class="srl-komunikat ' + klasa + '">' + tekst + '</div>';
 
         var komunikatyElement = $('#srl-komunikaty');
+
         if (komunikatyElement.length === 0) {
             $('#srl-formularz-pasazera').prepend('<div id="srl-komunikaty"></div>');
             komunikatyElement = $('#srl-komunikaty');
         }
 
         komunikatyElement.append(html).show();
-        setTimeout(() => komunikatyElement.fadeOut(() => komunikatyElement.empty()), 15000);
+
+        setTimeout(function() {
+            komunikatyElement.fadeOut(function() {
+                komunikatyElement.empty(); 
+            });
+        }, 15000);
     }
 
     function ukryjKomunikat() {
@@ -757,9 +970,32 @@ jQuery(document).ready(function($) {
 
     function formatujDate(dataStr) {
         var data = new Date(dataStr);
+        var dzien = data.getDate();
+        var miesiac = data.getMonth() + 1;
+        var rok = data.getFullYear();
+
         var nazwyDni = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
-        var nazwyMiesiecy = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
-        return nazwyDni[data.getDay()] + ', ' + data.getDate() + ' ' + nazwyMiesiecy[data.getMonth()] + ' ' + data.getFullYear();
+        var nazwyMiesiecy = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 
+                           'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+
+        return nazwyDni[data.getDay()] + ', ' + dzien + ' ' + nazwyMiesiecy[miesiac - 1] + ' ' + rok;
+    }
+
+    function formatujDateICzas(dataStr, czasStr) {
+        var data = new Date(dataStr);
+        var dzien = data.getDate();
+        var miesiac = data.getMonth() + 1;
+        var rok = data.getFullYear();
+        var godzina = czasStr.substring(0, 5);
+
+        var nazwyDni = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
+        var nazwyMiesiecy = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 
+                           'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+
+        var dzien_tygodnia = nazwyDni[data.getDay()];
+        var nazwa_miesiaca = nazwyMiesiecy[miesiac - 1];
+
+        return dzien + '&nbsp;' + nazwa_miesiaca + '&nbsp;' + rok + '<br>godz.&nbsp;' + godzina + '<br>' + dzien_tygodnia;
     }
 
     function pad2(n) {
@@ -778,14 +1014,24 @@ jQuery(document).ready(function($) {
 
         if (!wybranyLotId || !kategoria) return true;
 
-        var lot = daneKlienta.dostepne_loty.find(l => l.id == wybranyLotId);
+        var lot = daneKlienta.dostepne_loty.find(function(l) {
+            return l.id == wybranyLotId;
+        });
+
         if (!lot) return true;
 
-        var czyAkrobatyczny = lot.nazwa_produktu.toLowerCase().indexOf('akrobacj') !== -1 || lot.ma_akrobacje == '1';
+        var czyAkrobatyczny = lot.nazwa_produktu.toLowerCase().indexOf('akrobacj') !== -1 ||
+                             lot.ma_akrobacje == '1';
 
-        if (czyAkrobatyczny && (kategoria === '91-120kg' || kategoria === '120kg+')) return false;
-        if (kategoria === '120kg+') return false;
+        if (czyAkrobatyczny && (kategoria === '91-120kg' || kategoria === '120kg+')) {
+            return false;
+        }
+
+        if (kategoria === '120kg+') {
+            return false;
+        }
 
         return true;
     }
+
 });
