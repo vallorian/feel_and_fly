@@ -1,8 +1,4 @@
-<?php
-
-if (!defined('ABSPATH')) {
-    exit;
-}
+<?php if (!defined('ABSPATH')) {exit;}
 
 add_action('wp_ajax_srl_pobierz_dane_klienta', 'srl_pobierz_dane_klienta');
 add_action('wp_ajax_srl_zapisz_dane_pasazera', 'srl_zapisz_dane_pasazera');
@@ -18,12 +14,10 @@ add_action('wp_ajax_nopriv_srl_waliduj_wiek', 'srl_ajax_waliduj_wiek');
 add_action('wp_ajax_srl_waliduj_kategorie_wagowa', 'srl_ajax_waliduj_kategorie_wagowa');
 add_action('wp_ajax_nopriv_srl_waliduj_kategorie_wagowa', 'srl_ajax_waliduj_kategorie_wagowa');
 
+
 function srl_pobierz_dane_klienta() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $user_id = get_current_user_id();
     global $wpdb;
@@ -59,15 +53,7 @@ function srl_pobierz_dane_klienta() {
         $user_id
     ), ARRAY_A);
 
-    $dane_osobowe = array(
-        'imie' => get_user_meta($user_id, 'srl_imie', true),
-        'nazwisko' => get_user_meta($user_id, 'srl_nazwisko', true),
-        'rok_urodzenia' => get_user_meta($user_id, 'srl_rok_urodzenia', true),
-        'kategoria_wagowa' => get_user_meta($user_id, 'srl_kategoria_wagowa', true),
-        'sprawnosc_fizyczna' => get_user_meta($user_id, 'srl_sprawnosc_fizyczna', true),
-        'telefon' => get_user_meta($user_id, 'srl_telefon', true),
-        'uwagi' => get_user_meta($user_id, 'srl_uwagi', true)
-    );
+    $dane_osobowe = srl_get_user_full_data($user_id);
 
     $dane_kompletne = !empty($dane_osobowe['imie']) && !empty($dane_osobowe['nazwisko']) 
                      && !empty($dane_osobowe['rok_urodzenia']) && !empty($dane_osobowe['kategoria_wagowa']) 
@@ -83,10 +69,7 @@ function srl_pobierz_dane_klienta() {
 
 function srl_zapisz_dane_pasazera() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $user_id = get_current_user_id();
 
@@ -161,10 +144,7 @@ function srl_zapisz_dane_pasazera() {
 
 function srl_pobierz_dostepne_dni() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $rok = intval($_GET['rok']);
     $miesiac = intval($_GET['miesiac']);
@@ -202,10 +182,7 @@ function srl_pobierz_dostepne_dni() {
 
 function srl_pobierz_dostepne_godziny() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $data = sanitize_text_field($_GET['data']);
 
@@ -236,10 +213,7 @@ function srl_pobierz_dostepne_godziny() {
 
 function srl_zablokuj_slot_tymczasowo() {
 	check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $termin_id = intval($_POST['termin_id']);
     $user_id = get_current_user_id();
@@ -267,10 +241,7 @@ function srl_zablokuj_slot_tymczasowo() {
 
 function srl_dokonaj_rezerwacji() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $user_id = get_current_user_id();
     $termin_id = intval($_POST['termin_id']);
@@ -306,15 +277,7 @@ function srl_dokonaj_rezerwacji() {
         return;
     }
 
-    $dane_pasazera = array(
-        'imie' => get_user_meta($user_id, 'srl_imie', true),
-        'nazwisko' => get_user_meta($user_id, 'srl_nazwisko', true),
-        'rok_urodzenia' => get_user_meta($user_id, 'srl_rok_urodzenia', true),
-        'kategoria_wagowa' => get_user_meta($user_id, 'srl_kategoria_wagowa', true),
-        'sprawnosc_fizyczna' => get_user_meta($user_id, 'srl_sprawnosc_fizyczna', true),
-        'telefon' => get_user_meta($user_id, 'srl_telefon', true),
-        'uwagi' => get_user_meta($user_id, 'srl_uwagi', true)
-    );
+    $dane_osobowe = srl_get_user_full_data($user_id);
 
     $wpdb->query('START TRANSACTION');
 
@@ -400,10 +363,7 @@ function srl_dokonaj_rezerwacji() {
 
 function srl_anuluj_rezerwacje_klient() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Musisz być zalogowany.');
-        return;
-    }
+    srl_require_login();
 
     $user_id = get_current_user_id();
     $lot_id = intval($_POST['lot_id']);
@@ -611,21 +571,187 @@ function srl_ajax_register() {
     wp_send_json_success('Konto zostało utworzone i zalogowano automatycznie!');
 }
 
-
 function srl_ajax_waliduj_wiek() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     $rok_urodzenia = intval($_POST['rok_urodzenia']);
-    $wynik = srl_waliduj_wiek($rok_urodzenia, 'html');
     
-    wp_send_json_success($wynik);
+    if (!$rok_urodzenia || $rok_urodzenia < 1920 || $rok_urodzenia > date('Y')) {
+        wp_send_json_success(array('html' => ''));
+        return;
+    }
+    
+    $walidacja = srl_waliduj_wiek($rok_urodzenia, 'html');
+    
+    if (!empty($walidacja['html'])) {
+        wp_send_json_success(array('html' => $walidacja['html']));
+    } else {
+        wp_send_json_success(array('html' => ''));
+    }
 }
 
 function srl_ajax_waliduj_kategorie_wagowa() {
     check_ajax_referer('srl_frontend_nonce', 'nonce', true);
     
     $kategoria_wagowa = sanitize_text_field($_POST['kategoria_wagowa']);
-    $wynik = srl_waliduj_kategorie_wagowa($kategoria_wagowa, 'html');
     
-    wp_send_json_success($wynik);
+    if (empty($kategoria_wagowa)) {
+        wp_send_json_success(array('html' => ''));
+        return;
+    }
+    
+    $walidacja = srl_waliduj_kategorie_wagowa($kategoria_wagowa, 'html');
+    
+    if (!empty($walidacja['html'])) {
+        wp_send_json_success(array('html' => $walidacja['html']));
+    } else {
+        wp_send_json_success(array('html' => ''));
+    }
+}
+
+
+add_action('wp_ajax_srl_pobierz_dostepne_loty', 'srl_ajax_pobierz_dostepne_loty');
+function srl_ajax_pobierz_dostepne_loty() {
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    srl_require_login();
+
+    $user_id = get_current_user_id();
+    $user_data = srl_get_user_full_data($user_id);
+    
+    global $wpdb;
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+
+    $loty = $wpdb->get_results($wpdb->prepare(
+        "SELECT zl.*, t.data as data_lotu, t.godzina_start, t.godzina_koniec, t.pilot_id,
+                v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
+         FROM $tabela_loty zl 
+         LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
+         LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
+         WHERE zl.user_id = %d 
+         ORDER BY 
+            CASE 
+                WHEN zl.status = 'zarezerwowany' THEN 1
+                WHEN zl.status = 'wolny' THEN 2
+                WHEN zl.status = 'zrealizowany' THEN 3
+                WHEN zl.status = 'przedawniony' THEN 4
+            END,
+            t.data ASC, zl.data_zakupu DESC",
+        $user_id
+    ), ARRAY_A);
+
+    $html = '';
+    
+    if (empty($loty)) {
+        $html = '<div class="srl-brak-lotow">';
+        $html .= '<h3>Brak dostępnych lotów</h3>';
+        $html .= '<p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p>';
+        $html .= '</div>';
+    } else {
+        foreach ($loty as $lot) {
+            $html .= '<div class="srl-lot-item" data-lot-id="' . $lot['id'] . '" data-status="' . $lot['status'] . '">';
+            $html .= '<div class="srl-lot-header">';
+            $html .= '<h4>Lot w tandemie (#' . $lot['id'] . ')</h4>';
+            $html .= srl_generate_status_badge($lot['status'], 'lot');
+            $html .= '</div>';
+            
+            $html .= '<div class="srl-lot-details">';
+            $html .= '<div class="srl-lot-options">' . srl_format_flight_options_html($lot['ma_filmowanie'], $lot['ma_akrobacje']) . '</div>';
+            
+            if ($lot['status'] === 'zarezerwowany' && !empty($lot['data_lotu'])) {
+                $html .= '<div class="srl-lot-termin">';
+                $html .= srl_formatuj_date_i_czas_polski($lot['data_lotu'], $lot['godzina_start']);
+                $html .= '</div>';
+            }
+            
+            $html .= '<div class="srl-lot-waznosc">' . srl_formatuj_waznosc_lotu($lot['data_waznosci']) . '</div>';
+            $html .= '</div>';
+            
+            $html .= '<div class="srl-lot-actions">';
+            if ($lot['status'] === 'wolny') {
+                $html .= '<button class="srl-btn srl-btn-primary srl-rezerwuj-lot" data-lot-id="' . $lot['id'] . '">Zarezerwuj lot</button>';
+            } elseif ($lot['status'] === 'zarezerwowany') {
+                if (srl_can_cancel_reservation($lot['data_lotu'], $lot['godzina_start'])) {
+                    $html .= '<button class="srl-btn srl-btn-secondary srl-anuluj-rezerwacje" data-lot-id="' . $lot['id'] . '">Anuluj rezerwację</button>';
+                }
+                $html .= '<button class="srl-btn srl-btn-primary srl-zmien-termin" data-lot-id="' . $lot['id'] . '">Zmień termin</button>';
+            }
+            $html .= '</div>';
+            
+            $html .= '</div>';
+        }
+    }
+
+    wp_send_json_success(array(
+        'html' => $html,
+        'user_data' => $user_data,
+        'message' => 'Dane pobrane pomyślnie.'
+    ));
+}
+
+add_action('wp_ajax_srl_pobierz_dane_dnia', 'srl_ajax_pobierz_dane_dnia');
+function srl_ajax_pobierz_dane_dnia() {
+    check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+    srl_require_login();
+
+    $data = sanitize_text_field($_POST['data']);
+    
+    $validation = srl_waliduj_date($data);
+    if (!$validation['valid']) {
+        wp_send_json_error($validation['message']);
+    }
+
+    if (srl_is_date_past($data)) {
+        wp_send_json_error('Nie można rezerwować lotów w przeszłości.');
+    }
+
+    global $wpdb;
+    $tabela = $wpdb->prefix . 'srl_terminy';
+
+    $dostepne_sloty = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM $tabela 
+         WHERE data = %s 
+         AND status = 'Wolny' 
+         ORDER BY pilot_id ASC, godzina_start ASC",
+        $data
+    ), ARRAY_A);
+
+    if (empty($dostepne_sloty)) {
+        wp_send_json_error('Brak dostępnych terminów w wybranym dniu.');
+    }
+
+    $html = '<div class="srl-sloty-lista">';
+    $html .= '<h3>Dostępne terminy na dzień ' . srl_formatuj_date($data) . '</h3>';
+    
+    $poprzedni_pilot = null;
+    foreach ($dostepne_sloty as $slot) {
+        if ($poprzedni_pilot !== $slot['pilot_id']) {
+            if ($poprzedni_pilot !== null) {
+                $html .= '</div>';
+            }
+            $html .= '<div class="srl-pilot-group">';
+            $html .= '<h4>Pilot ' . $slot['pilot_id'] . '</h4>';
+            $html .= '<div class="srl-pilot-sloty">';
+            $poprzedni_pilot = $slot['pilot_id'];
+        }
+        
+        $html .= '<button class="srl-btn srl-btn-outline srl-slot-btn" ';
+        $html .= 'data-slot-id="' . $slot['id'] . '" ';
+        $html .= 'data-pilot="' . $slot['pilot_id'] . '" ';
+        $html .= 'data-start="' . substr($slot['godzina_start'], 0, 5) . '" ';
+        $html .= 'data-end="' . substr($slot['godzina_koniec'], 0, 5) . '">';
+        $html .= substr($slot['godzina_start'], 0, 5) . ' - ' . substr($slot['godzina_koniec'], 0, 5);
+        $html .= '</button>';
+    }
+    
+    if ($poprzedni_pilot !== null) {
+        $html .= '</div></div>';
+    }
+    
+    $html .= '</div>';
+
+    wp_send_json_success(array(
+        'html' => $html,
+        'sloty_count' => count($dostepne_sloty)
+    ));
 }

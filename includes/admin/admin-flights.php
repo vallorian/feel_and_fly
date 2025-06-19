@@ -1,75 +1,69 @@
 <?php
 function srl_wyswietl_wykupione_loty() {
-    if (!current_user_can('manage_options')) {
-        wp_die('Brak uprawnień.');
-    }
+    srl_check_admin_permissions();
     
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
     $tabela_terminy = $wpdb->prefix . 'srl_terminy';
     
     // Obsługa akcji grupowych
-	if (isset($_POST['action']) && isset($_POST['loty_ids'])) {
-		$ids = array_map('intval', $_POST['loty_ids']);
-		$action = $_POST['action'];
-		
-		if ($action === 'bulk_delete') {
-			$placeholders = implode(',', array_fill(0, count($ids), '%d'));
-			$wpdb->query($wpdb->prepare(
-				"DELETE FROM $tabela_loty WHERE id IN ($placeholders)",
-				...$ids
-			));
-			echo '<div class="notice notice-success"><p>Usunięto ' . count($ids) . ' lotów.</p></div>';
-		} 
-		elseif (in_array($action, ['bulk_status_wolny', 'bulk_status_zarezerwowany', 'bulk_status_zrealizowany', 'bulk_status_przedawniony'])) {
-			$nowy_status = str_replace('bulk_status_', '', $action);
-			
-			foreach ($ids as $lot_id) {
-				// Pobierz szczegóły lotu
-				$lot = $wpdb->get_row($wpdb->prepare(
-					"SELECT * FROM $tabela_loty WHERE id = %d",
-					$lot_id
-				), ARRAY_A);
-				
-				if ($lot) {
-					// Jeśli lot był zarezerwowany i zmieniamy na "wolny", zwolnij slot
-					if ($lot['status'] === 'zarezerwowany' && $lot['termin_id'] && $nowy_status === 'wolny') {
-						$wpdb->update(
-							$tabela_terminy,
-							array('status' => 'Wolny', 'klient_id' => null),
-							array('id' => $lot['termin_id']),
-							array('%s', '%d'),
-							array('%d')
-						);
-						
-						// Usuń dane rezerwacji tylko gdy zmieniamy na "wolny"
-						$wpdb->update(
-							$tabela_loty,
-							array(
-								'status' => $nowy_status,
-								'termin_id' => null,
-								'data_rezerwacji' => null
-							),
-							array('id' => $lot_id),
-							array('%s', '%d', '%s'),
-							array('%d')
-						);
-					} else {
-						// Dla wszystkich innych zmian statusu - zachowaj dane rezerwacji
-						$wpdb->update(
-							$tabela_loty,
-							array('status' => $nowy_status),
-							array('id' => $lot_id),
-							array('%s'),
-							array('%d')
-						);
-					}
-				}
-			}
-			
-			echo '<div class="notice notice-success"><p>Zmieniono status ' . count($ids) . ' lotów na "' . $nowy_status . '".</p></div>';
-		}
-	}
+    if (isset($_POST['action']) && isset($_POST['loty_ids'])) {
+        $ids = array_map('intval', $_POST['loty_ids']);
+        $action = $_POST['action'];
+        
+        if ($action === 'bulk_delete') {
+            $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+            $wpdb->query($wpdb->prepare(
+                "DELETE FROM $tabela_loty WHERE id IN ($placeholders)",
+                ...$ids
+            ));
+            echo srl_generate_message('Usunięto ' . count($ids) . ' lotów.', 'success');
+        } 
+        elseif (in_array($action, ['bulk_status_wolny', 'bulk_status_zarezerwowany', 'bulk_status_zrealizowany', 'bulk_status_przedawniony'])) {
+            $nowy_status = str_replace('bulk_status_', '', $action);
+            
+            foreach ($ids as $lot_id) {
+                $lot = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM $tabela_loty WHERE id = %d",
+                    $lot_id
+                ), ARRAY_A);
+                
+                if ($lot) {
+                    if ($lot['status'] === 'zarezerwowany' && $lot['termin_id'] && $nowy_status === 'wolny') {
+                        $wpdb->update(
+                            $tabela_terminy,
+                            array('status' => 'Wolny', 'klient_id' => null),
+                            array('id' => $lot['termin_id']),
+                            array('%s', '%d'),
+                            array('%d')
+                        );
+                        
+                        $wpdb->update(
+                            $tabela_loty,
+                            array(
+                                'status' => $nowy_status,
+                                'termin_id' => null,
+                                'data_rezerwacji' => null
+                            ),
+                            array('id' => $lot_id),
+                            array('%s', '%d', '%s'),
+                            array('%d')
+                        );
+                    } else {
+                        $wpdb->update(
+                            $tabela_loty,
+                            array('status' => $nowy_status),
+                            array('id' => $lot_id),
+                            array('%s'),
+                            array('%d')
+                        );
+                    }
+                }
+            }
+            
+            echo srl_generate_message('Zmieniono status ' . count($ids) . ' lotów na "' . $nowy_status . '".', 'success');
+        }
+    }
     
     // Parametry paginacji i filtrowania
     $per_page = 20;
@@ -78,108 +72,108 @@ function srl_wyswietl_wykupione_loty() {
     
     $status_filter = isset($_GET['status_filter']) ? sanitize_text_field($_GET['status_filter']) : '';
     $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
-	$search_field = isset($_GET['search_field']) ? sanitize_text_field($_GET['search_field']) : 'wszedzie';
-	$date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : '';
-	$date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : '';
+    $search_field = isset($_GET['search_field']) ? sanitize_text_field($_GET['search_field']) : 'wszedzie';
+    $date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : '';
+    $date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : '';
 
-	// Buduj WHERE clause
-	$where_conditions = array();
-	$where_params = array();
+    // Buduj WHERE clause
+    $where_conditions = array();
+    $where_params = array();
 
-	if ($status_filter) {
-		$where_conditions[] = "zl.status = %s";
-		$where_params[] = $status_filter;
-	}
+    if ($status_filter) {
+        $where_conditions[] = "zl.status = %s";
+        $where_params[] = $status_filter;
+    }
 
-	if ($date_from && $date_to) {
-		$where_conditions[] = "t.data BETWEEN %s AND %s";
-		$where_params = array_merge($where_params, [$date_from, $date_to]);
-	} elseif ($date_from) {
-		$where_conditions[] = "t.data >= %s";
-		$where_params[] = $date_from;
-	} elseif ($date_to) {
-		$where_conditions[] = "t.data <= %s";
-		$where_params[] = $date_to;
-	}
+    if ($date_from && $date_to) {
+        $where_conditions[] = "t.data BETWEEN %s AND %s";
+        $where_params = array_merge($where_params, [$date_from, $date_to]);
+    } elseif ($date_from) {
+        $where_conditions[] = "t.data >= %s";
+        $where_params[] = $date_from;
+    } elseif ($date_to) {
+        $where_conditions[] = "t.data <= %s";
+        $where_params[] = $date_to;
+    }
 
-	if ($search) {
-		switch ($search_field) {
-			case 'id_lotu':
-				$where_conditions[] = "zl.id = %s";
-				$where_params[] = $search;
-				break;
-			case 'id_zamowienia':
-				$where_conditions[] = "zl.order_id = %s";
-				$where_params[] = $search;
-				break;
-			case 'email':
-				$where_conditions[] = "u.user_email LIKE %s";
-				$where_params[] = '%' . $search . '%';
-				break;
-			case 'telefon':
-				$where_conditions[] = "EXISTS (SELECT 1 FROM {$wpdb->usermeta} um WHERE um.user_id = zl.user_id AND um.meta_key = 'srl_telefon' AND um.meta_value LIKE %s)";
-				$where_params[] = '%' . $search . '%';
-				break;
-			case 'imie_nazwisko':
-				$where_conditions[] = "(zl.imie LIKE %s OR zl.nazwisko LIKE %s OR CONCAT(zl.imie, ' ', zl.nazwisko) LIKE %s)";
-				$search_param = '%' . $search . '%';
-				$where_params = array_merge($where_params, [$search_param, $search_param, $search_param]);
-				break;
-			case 'login':
-				$where_conditions[] = "u.user_login LIKE %s";
-				$where_params[] = '%' . $search . '%';
-				break;
-			default: // wszedzie
-				$where_conditions[] = "(zl.id LIKE %s OR zl.order_id LIKE %s OR zl.imie LIKE %s OR zl.nazwisko LIKE %s OR zl.nazwa_produktu LIKE %s OR u.user_email LIKE %s OR u.user_login LIKE %s OR EXISTS (SELECT 1 FROM {$wpdb->usermeta} um WHERE um.user_id = zl.user_id AND um.meta_key = 'srl_telefon' AND um.meta_value LIKE %s))";
-				$search_param = '%' . $search . '%';
-				$where_params = array_merge($where_params, [$search, $search, $search_param, $search_param, $search_param, $search_param, $search_param, $search_param]);
-				break;
-		}
-	}
+    if ($search) {
+        switch ($search_field) {
+            case 'id_lotu':
+                $where_conditions[] = "zl.id = %s";
+                $where_params[] = $search;
+                break;
+            case 'id_zamowienia':
+                $where_conditions[] = "zl.order_id = %s";
+                $where_params[] = $search;
+                break;
+            case 'email':
+                $where_conditions[] = "u.user_email LIKE %s";
+                $where_params[] = '%' . $search . '%';
+                break;
+            case 'telefon':
+                $where_conditions[] = "EXISTS (SELECT 1 FROM {$wpdb->usermeta} um WHERE um.user_id = zl.user_id AND um.meta_key = 'srl_telefon' AND um.meta_value LIKE %s)";
+                $where_params[] = '%' . $search . '%';
+                break;
+            case 'imie_nazwisko':
+                $where_conditions[] = "(zl.imie LIKE %s OR zl.nazwisko LIKE %s OR CONCAT(zl.imie, ' ', zl.nazwisko) LIKE %s)";
+                $search_param = '%' . $search . '%';
+                $where_params = array_merge($where_params, [$search_param, $search_param, $search_param]);
+                break;
+            case 'login':
+                $where_conditions[] = "u.user_login LIKE %s";
+                $where_params[] = '%' . $search . '%';
+                break;
+            default: // wszedzie
+                $where_conditions[] = "(zl.id LIKE %s OR zl.order_id LIKE %s OR zl.imie LIKE %s OR zl.nazwisko LIKE %s OR zl.nazwa_produktu LIKE %s OR u.user_email LIKE %s OR u.user_login LIKE %s OR EXISTS (SELECT 1 FROM {$wpdb->usermeta} um WHERE um.user_id = zl.user_id AND um.meta_key = 'srl_telefon' AND um.meta_value LIKE %s))";
+                $search_param = '%' . $search . '%';
+                $where_params = array_merge($where_params, [$search, $search, $search_param, $search_param, $search_param, $search_param, $search_param, $search_param]);
+                break;
+        }
+    }
     
     $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
     
-// Query główny - przywróć oryginalny bez voucherów
-$query = "
-    SELECT zl.*, 
-           t.data as data_lotu, 
-           t.godzina_start, 
-           t.godzina_koniec,
-           u.user_email,
-           o.post_status as order_status
-    FROM $tabela_loty zl
-    LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
-    LEFT JOIN {$wpdb->users} u ON zl.user_id = u.ID
-    LEFT JOIN {$wpdb->posts} o ON zl.order_id = o.ID
-    $where_clause
-    ORDER BY zl.data_zakupu DESC
-    LIMIT %d OFFSET %d
-";
+    // Query główny
+    $query = "
+        SELECT zl.*, 
+               t.data as data_lotu, 
+               t.godzina_start, 
+               t.godzina_koniec,
+               u.user_email,
+               o.post_status as order_status
+        FROM $tabela_loty zl
+        LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
+        LEFT JOIN {$wpdb->users} u ON zl.user_id = u.ID
+        LEFT JOIN {$wpdb->posts} o ON zl.order_id = o.ID
+        $where_clause
+        ORDER BY zl.data_zakupu DESC
+        LIMIT %d OFFSET %d
+    ";
 
-// Query do liczenia rekordów - przywróć oryginalny
-$count_query = "
-    SELECT COUNT(*) 
-    FROM $tabela_loty zl
-    LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
-    LEFT JOIN {$wpdb->users} u ON zl.user_id = u.ID
-    LEFT JOIN {$wpdb->posts} o ON zl.order_id = o.ID
-    $where_clause
-";
+    // Query do liczenia rekordów
+    $count_query = "
+        SELECT COUNT(*) 
+        FROM $tabela_loty zl
+        LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
+        LEFT JOIN {$wpdb->users} u ON zl.user_id = u.ID
+        LEFT JOIN {$wpdb->posts} o ON zl.order_id = o.ID
+        $where_clause
+    ";
 
-// Przygotuj parametry dla zapytania głównego
-$main_query_params = array_merge($where_params, [$per_page, $offset]);
+    // Przygotuj parametry dla zapytania głównego
+    $main_query_params = array_merge($where_params, [$per_page, $offset]);
 
-// Wykonaj zapytanie główne
-$loty = $wpdb->get_results($wpdb->prepare($query, ...$main_query_params), ARRAY_A);
+    // Wykonaj zapytanie główne
+    $loty = $wpdb->get_results($wpdb->prepare($query, ...$main_query_params), ARRAY_A);
 
-// Count dla paginacji
-if (!empty($where_params)) {
-    $total_items = $wpdb->get_var($wpdb->prepare($count_query, ...$where_params));
-} else {
-    $total_items = $wpdb->get_var($count_query);
-}
+    // Count dla paginacji
+    if (!empty($where_params)) {
+        $total_items = $wpdb->get_var($wpdb->prepare($count_query, ...$where_params));
+    } else {
+        $total_items = $wpdb->get_var($count_query);
+    }
 
-$total_pages = ceil($total_items / $per_page);
+    $total_pages = ceil($total_items / $per_page);
     
     // Statystyki
     $stats = $wpdb->get_results(
@@ -192,7 +186,7 @@ $total_pages = ceil($total_items / $per_page);
     ?>
     <div class="wrap">
         <h1 class="wp-heading-inline">🎫 Wykupione loty tandemowe</h1>
-        <a href="<?php echo admin_url('admin.php?page=srl-sync-flights'); ?>" class="page-title-action">Synchronizuj loty</a>
+        <?php echo srl_generate_link(admin_url('admin.php?page=srl-sync-flights'), 'Synchronizuj loty', 'page-title-action'); ?>
         
         <!-- Statystyki -->
         <div class="srl-stats" style="display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
@@ -211,10 +205,10 @@ $total_pages = ceil($total_items / $per_page);
             
             foreach ($status_labels as $status => $label) {
                 $count = isset($stats_array[$status]) ? $stats_array[$status] : 0;
-				echo '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 120px; display: flex; align-items: center; gap: 10px;">';
-				echo '<div style="font-size: 24px; font-weight: bold; color: #0073aa;">' . $count . '</div>';
-				echo '<div style="font-size: 13px; color: #666;">' . $label . '</div>';
-				echo '</div>';
+                echo '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 120px; display: flex; align-items: center; gap: 10px;">';
+                echo '<div style="font-size: 24px; font-weight: bold; color: #0073aa;">' . $count . '</div>';
+                echo '<div style="font-size: 13px; color: #666;">' . $label . '</div>';
+                echo '</div>';
             }
             ?>
         </div>
@@ -224,69 +218,68 @@ $total_pages = ceil($total_items / $per_page);
             <form method="get" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <input type="hidden" name="page" value="srl-wykupione-loty">
                 
-                <select name="status_filter">
-                    <option value="">Wszystkie statusy</option>
-                    <?php foreach ($status_labels as $status => $label): ?>
-                        <option value="<?php echo $status; ?>" <?php selected($status_filter, $status); ?>>
-                            <?php echo $label; ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <?php echo srl_generate_select('status_filter', array_merge(
+                    ['' => 'Wszystkie statusy'],
+                    $status_labels
+                ), $status_filter); ?>
                 
-                <select name="search_field">
-					<option value="wszedzie" <?php selected($search_field, 'wszedzie'); ?>>Wszędzie</option>
-					<option value="email" <?php selected($search_field, 'email'); ?>>Email</option>
-					<option value="id_lotu" <?php selected($search_field, 'id_lotu'); ?>>ID lotu</option>
-					<option value="id_zamowienia" <?php selected($search_field, 'id_zamowienia'); ?>>ID zamówienia</option>
-					<option value="imie_nazwisko" <?php selected($search_field, 'imie_nazwisko'); ?>>Imię i nazwisko</option>
-					<option value="login" <?php selected($search_field, 'login'); ?>>Login</option>
-					<option value="telefon" <?php selected($search_field, 'telefon'); ?>>Telefon</option>
-				</select>
+                <?php echo srl_generate_select('search_field', [
+                    'wszedzie' => 'Wszędzie',
+                    'email' => 'Email',
+                    'id_lotu' => 'ID lotu',
+                    'id_zamowienia' => 'ID zamówienia',
+                    'imie_nazwisko' => 'Imię i nazwisko',
+                    'login' => 'Login',
+                    'telefon' => 'Telefon'
+                ], $search_field); ?>
 
-				<button type="button" id="srl-date-range-btn" class="button" style="margin-left: 5px;">
-					<?php if ($date_from || $date_to): ?>
-						📅 <?php echo $date_from ? date('d.m.Y', strtotime($date_from)) : ''; ?><?php echo ($date_from && $date_to) ? ' - ' : ''; ?><?php echo $date_to ? date('d.m.Y', strtotime($date_to)) : ''; ?>
-					<?php else: ?>
-						📅 Wybierz zakres daty lotu
-					<?php endif; ?>
-				</button>
+                <button type="button" id="srl-date-range-btn" class="button" style="margin-left: 5px;">
+                    <?php if ($date_from || $date_to): ?>
+                        📅 <?php echo $date_from ? srl_formatuj_date($date_from) : ''; ?><?php echo ($date_from && $date_to) ? ' - ' : ''; ?><?php echo $date_to ? srl_formatuj_date($date_to) : ''; ?>
+                    <?php else: ?>
+                        📅 Wybierz zakres daty lotu
+                    <?php endif; ?>
+                </button>
 
-				<div id="srl-date-range-panel" style="display: none; position: absolute; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000; margin-top: 5px;">
-					<div style="margin-bottom: 10px;">
-						<label>Data od:</label><br>
-						<input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" style="width: 150px;">
-					</div>
-					<div style="margin-bottom: 15px;">
-						<label>Data do:</label><br>
-						<input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" style="width: 150px;">
-					</div>
-					<div>
-						<button type="button" id="srl-clear-dates" class="button" style="margin-right: 10px;">Wyczyść</button>
-						<button type="button" id="srl-close-panel" class="button button-primary">OK</button>
-					</div>
-				</div>
+                <div id="srl-date-range-panel" style="display: none; position: absolute; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000; margin-top: 5px;">
+                    <div style="margin-bottom: 10px;">
+                        <label>Data od:</label><br>
+                        <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" style="width: 150px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label>Data do:</label><br>
+                        <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" style="width: 150px;">
+                    </div>
+                    <div>
+                        <?php echo srl_generate_button('Wyczyść', 'button', array('type' => 'button', 'id' => 'srl-clear-dates', 'style' => 'margin-right: 10px;')); ?>
+                        <?php echo srl_generate_button('OK', 'button button-primary', array('type' => 'button', 'id' => 'srl-close-panel')); ?>
+                    </div>
+                </div>
 
-				<input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="Wprowadź szukaną frazę...">
-                <button type="submit" class="button">Filtruj</button>
+                <input type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="Wprowadź szukaną frazę...">
+                <?php echo srl_generate_button('Filtruj', 'button', array('type' => 'submit')); ?>
                 
                 <?php if ($status_filter || $search || $date_from || $date_to): ?>
-					<a href="<?php echo admin_url('admin.php?page=srl-wykupione-loty'); ?>" class="button">Wyczyść filtry</a>
-				<?php endif; ?>
+                    <?php echo srl_generate_link(admin_url('admin.php?page=srl-wykupione-loty'), 'Wyczyść filtry', 'button'); ?>
+                <?php endif; ?>
             </form>
         </div>
         
         <form method="post" id="bulk-action-form">
             <div class="tablenav top">
                 <div class="alignleft actions bulkactions">
-					<select name="action">
-						<option value="">Akcje grupowe</option>
-						<option value="bulk_delete">Usuń zaznaczone</option>
-						<option value="bulk_status_wolny">Zmień status na: Wolny</option>
-						<option value="bulk_status_zarezerwowany">Zmień status na: Zarezerwowany</option>
-						<option value="bulk_status_zrealizowany">Zmień status na: Zrealizowany</option>
-						<option value="bulk_status_przedawniony">Zmień status na: Przedawniony</option>
-					</select>
-                    <button type="submit" class="button action" onclick="return confirm('Czy na pewno chcesz usunąć zaznaczone loty?')">Zastosuj</button>
+                    <?php echo srl_generate_select('action', [
+                        '' => 'Akcje grupowe',
+                        'bulk_delete' => 'Usuń zaznaczone',
+                        'bulk_status_wolny' => 'Zmień status na: Wolny',
+                        'bulk_status_zarezerwowany' => 'Zmień status na: Zarezerwowany',
+                        'bulk_status_zrealizowany' => 'Zmień status na: Zrealizowany',
+                        'bulk_status_przedawniony' => 'Zmień status na: Przedawniony'
+                    ], ''); ?>
+                    <?php echo srl_generate_button('Zastosuj', 'button action', array(
+                        'type' => 'submit',
+                        'onclick' => "return confirm('Czy na pewno chcesz usunąć zaznaczone loty?')"
+                    )); ?>
                 </div>
                 
                 <div class="tablenav-pages">
@@ -308,196 +301,144 @@ $total_pages = ceil($total_items / $per_page);
             </div>
             
             <table class="wp-list-table widefat striped">
-				<thead>
-					<tr>
-						<td class="manage-column check-column">
-							<input type="checkbox" id="cb-select-all-1">
-						</td>
-						<th scope="col" class="manage-column">ID lotu (zam.)</th>
-						<th scope="col" class="manage-column">Klient</th>
-						<th scope="col" class="manage-column">Produkt</th>
-						<th scope="col" class="manage-column">Status</th>
-						<th scope="col" class="manage-column">Data zakupu</th>
-						<th scope="col" class="manage-column">Ważność</th>
-						<th scope="col" class="manage-column">Rezerwacja</th>
-						<th scope="col" class="manage-column">Odwoływanie</th>
-						<th scope="col" class="manage-column">Zatwierdzanie</th>
-						<th scope="col" class="manage-column">Szczegóły</th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php if (empty($loty)): ?>
-						<tr>
-							<td colspan="11" style="text-align: center; padding: 40px; color: #666;">
-								<p style="font-size: 16px;">Brak lotów do wyświetlenia</p>
-								<?php if ($search || $status_filter || $date_from || $date_to): ?>
-									<p><a href="<?php echo admin_url('admin.php?page=srl-wykupione-loty'); ?>">Wyczyść filtry</a></p>
-								<?php endif; ?>
-							</td>
-						</tr>
-					<?php else: ?>
-						<?php foreach ($loty as $lot): ?>
-							<?php
-							$status_class = '';
-							$status_icon = '';
-							switch ($lot['status']) {
-								case 'wolny':
-									$status_class = 'status-available';
-									$status_icon = '🟢';
-									break;
-								case 'zarezerwowany':
-									$status_class = 'status-reserved';
-									$status_icon = '🟡';
-									break;
-								case 'zrealizowany':
-									$status_class = 'status-completed';
-									$status_icon = '🔵';
-									break;
-								case 'przedawniony':
-									$status_class = 'status-expired';
-									$status_icon = '🔴';
-									break;
-							}
-							
-							$telefon = get_user_meta($lot['user_id'], 'srl_telefon', true);
-							$order_url = admin_url('post.php?post=' . $lot['order_id'] . '&action=edit');
-							?>
-							<tr>
-								<th scope="row" class="check-column">
-									<input type="checkbox" name="loty_ids[]" value="<?php echo $lot['id']; ?>">
-								</th>
-								
-								<!-- Kolumna ID lotu (zam.) - połączona -->
-								<td>
-									<strong>ID lotu: #<?php echo $lot['id']; ?></strong>
-									<br>Nr. zam: <a href="<?php echo $order_url; ?>" target="_blank" style="color: #0073aa;">
-											#<?php echo $lot['order_id']; ?>
-									</a>
-								</td>
-								
-								<!-- Kolumna Klient -->
-								<td>
-									<strong>
-										<a href="<?php echo admin_url('admin.php?page=wc-orders&customer=' . $lot['user_id']); ?>" target="_blank" style="color: #0073aa; text-decoration: none;">
-											<?php echo esc_html($lot['user_email']); ?>
-										</a>
-									</strong>
-									
-									<?php if (!empty($lot['kod_vouchera'])): ?>
-										<br><small style="color: #d63638; font-weight: bold;">
-											🎁 Voucher: <?php echo esc_html($lot['kod_vouchera']); ?>
-										</small>
-										<br><small style="color: #666;">
-											Kupujący: <?php echo esc_html($lot['voucher_buyer_imie'] . ' ' . $lot['voucher_buyer_nazwisko']); ?>
-										</small>
-									<?php endif; ?>
-									
-									<?php if ($telefon): ?>
-										<br><small>📞 <?php echo esc_html($telefon); ?></small>
-									<?php endif; ?>
-								</td>
-								
-								<!-- Kolumna Produkt - stylizowana jak w panelu klienta -->
-								<td>
-									<strong>Lot w tandemie</strong>
-									<?php 
-									// Pokaż opcje lotu - zawsze wyświetl status filmowania i akrobacji
-									$opcje_tekst = array();
-									if (!empty($lot['ma_filmowanie'])) {
-										$opcje_tekst[] = '<span style="color: #46b450;">z filmowaniem</span>';
-									} else {
-										$opcje_tekst[] = '<span style="color: #d63638;">bez filmowania</span>';
-									}
-
-									if (!empty($lot['ma_akrobacje'])) {
-										$opcje_tekst[] = '<span style="color: #46b450;">z akrobacjami</span>';
-									} else {
-										$opcje_tekst[] = '<span style="color: #d63638;">bez akrobacji</span>';
-									}
-
-									echo '<br><small style="font-weight: bold;">' . implode(',&nbsp;', $opcje_tekst) . '</small>';
-									?>
-								</td>
-								
-								<!-- Kolumna Status -->
-								<td>
-									<span class="<?php echo $status_class; ?>" style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
-										<?php echo $status_icon; ?> <?php echo ucfirst($lot['status']); ?>
-									</span>
-								</td>
-								
-								<!-- Kolumna Data zakupu - bez godziny -->
-								<td>
-									<?php echo date('d.m.Y', strtotime($lot['data_zakupu'])); ?>
-								</td>
-								
-								<!-- Kolumna Ważność -->
-								<td>
-									<?php 
-									$data_waznosci = new DateTime($lot['data_waznosci']);
-									$dzisiaj = new DateTime();
-									$dni_do_wygasniecia = $dzisiaj->diff($data_waznosci)->days;
-									$kolor = $dni_do_wygasniecia <= 30 ? 'color: #d63638; font-weight: bold;' : '';
-									?>
-									<span style="<?php echo $kolor; ?>">
-										<?php echo date('d.m.Y', strtotime($lot['data_waznosci'])); ?>
-										<?php if ($data_waznosci > $dzisiaj && $dni_do_wygasniecia <= 30): ?>
-											<br><small>(za <?php echo $dni_do_wygasniecia; ?> dni)</small>
-										<?php endif; ?>
-									</span>
-								</td>
-								
-								<!-- Kolumna Rezerwacja -->
-								<td>
-									<?php if ($lot['status'] === 'zarezerwowany' && $lot['data_lotu']): ?>
-										<strong><?php echo date('d.m.Y', strtotime($lot['data_lotu'])); ?></strong>
-										<br><small><?php echo substr($lot['godzina_start'], 0, 5); ?> - <?php echo substr($lot['godzina_koniec'], 0, 5); ?></small>
-										<?php if ($lot['data_rezerwacji']): ?>
-											<br><small style="color: #666;">Rez: <?php echo date('d.m.Y H:i', strtotime($lot['data_rezerwacji'])); ?></small>
-										<?php endif; ?>
-									<?php elseif ($lot['status'] === 'zrealizowany' && $lot['data_lotu']): ?>
-										<span style="color: #46b450;">✅ <?php echo date('d.m.Y', strtotime($lot['data_lotu'])); ?></span>
-										<br><small style="color: #46b450;"><?php echo substr($lot['godzina_start'], 0, 5); ?> - <?php echo substr($lot['godzina_koniec'], 0, 5); ?></small>
-									<?php else: ?>
-										<span style="color: #999;">—</span>
-									<?php endif; ?>
-								</td>
-								
-								<!-- Kolumna Odwoływanie -->
-								<td>
-									<?php if ($lot['status'] !== 'wolny'): ?>
-										<button type="button" class="button button-small srl-cancel-lot" data-lot-id="<?php echo $lot['id']; ?>">
-											Odwołaj
-										</button>
-									<?php else: ?>
-										<span style="color:#999;">—</span>
-									<?php endif; ?>
-								</td>
-								
-								<!-- Kolumna Zatwierdzanie -->
-								<td>
-									<?php if ($lot['status'] === 'zarezerwowany'): ?>
-										<button type="button" class="button button-primary button-small srl-complete-lot" data-lot-id="<?php echo $lot['id']; ?>">
-											Zrealizuj
-										</button>
-									<?php else: ?>
-										<span style="color:#999;">—</span>
-									<?php endif; ?>
-								</td>
-								
-								<!-- Kolumna Szczegóły -->
-								<td>
-									<button type="button" class="button button-small srl-info-lot" data-lot-id="<?php echo $lot['id']; ?>" data-user-id="<?php echo $lot['user_id']; ?>">
-										INFO
-									</button>
-									<button type="button" class="button button-small srl-historia-lot" data-lot-id="<?php echo $lot['id']; ?>" style="margin-left: 5px;">
-										Historia
-									</button>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					<?php endif; ?>
-				</tbody>
+                <thead>
+                    <tr>
+                        <td class="manage-column check-column">
+                            <input type="checkbox" id="cb-select-all-1">
+                        </td>
+                        <th scope="col" class="manage-column">ID lotu (zam.)</th>
+                        <th scope="col" class="manage-column">Klient</th>
+                        <th scope="col" class="manage-column">Produkt</th>
+                        <th scope="col" class="manage-column">Status</th>
+                        <th scope="col" class="manage-column">Data zakupu</th>
+                        <th scope="col" class="manage-column">Ważność</th>
+                        <th scope="col" class="manage-column">Rezerwacja</th>
+                        <th scope="col" class="manage-column">Odwoływanie</th>
+                        <th scope="col" class="manage-column">Zatwierdzanie</th>
+                        <th scope="col" class="manage-column">Szczegóły</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($loty)): ?>
+                        <tr>
+                            <td colspan="11" style="text-align: center; padding: 40px; color: #666;">
+                                <p style="font-size: 16px;">Brak lotów do wyświetlenia</p>
+                                <?php if ($search || $status_filter || $date_from || $date_to): ?>
+                                    <p><?php echo srl_generate_link(admin_url('admin.php?page=srl-wykupione-loty'), 'Wyczyść filtry'); ?></p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($loty as $lot): ?>
+                            <?php
+                            $telefon = get_user_meta($lot['user_id'], 'srl_telefon', true);
+                            $order_url = admin_url('post.php?post=' . $lot['order_id'] . '&action=edit');
+                            ?>
+                            <tr>
+                                <th scope="row" class="check-column">
+                                    <input type="checkbox" name="loty_ids[]" value="<?php echo $lot['id']; ?>">
+                                </th>
+                                
+                                <!-- Kolumna ID lotu (zam.) -->
+                                <td>
+                                    <strong>ID lotu: #<?php echo $lot['id']; ?></strong>
+                                    <br>Nr. zam: <?php echo srl_generate_link($order_url, '#' . $lot['order_id'], '', array('target' => '_blank', 'style' => 'color: #0073aa;')); ?>
+                                </td>
+                                
+                                <!-- Kolumna Klient -->
+                                <td>
+                                    <strong>
+                                        <?php echo srl_generate_link(
+                                            admin_url('admin.php?page=wc-orders&customer=' . $lot['user_id']),
+                                            esc_html($lot['user_email']),
+                                            '',
+                                            array('target' => '_blank', 'style' => 'color: #0073aa; text-decoration: none;')
+                                        ); ?>
+                                    </strong>
+                                    
+                                    <?php if ($telefon): ?>
+                                        <br><small>📞 <?php echo esc_html($telefon); ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                
+                                <!-- Kolumna Produkt -->
+                                <td>
+                                    <strong>Lot w tandemie</strong>
+                                    <?php echo '<br><small style="font-weight: bold;">' . srl_format_flight_options_html($lot['ma_filmowanie'], $lot['ma_akrobacje']) . '</small>'; ?>
+                                </td>
+                                
+                                <!-- Kolumna Status -->
+                                <td>
+                                    <?php echo srl_generate_status_badge($lot['status'], 'lot'); ?>
+                                </td>
+                                
+                                <!-- Kolumna Data zakupu -->
+                                <td>
+                                    <?php echo srl_formatuj_date($lot['data_zakupu']); ?>
+                                </td>
+                                
+                                <!-- Kolumna Ważność -->
+                                <td>
+                                    <?php echo srl_formatuj_waznosc_lotu($lot['data_waznosci']); ?>
+                                </td>
+                                
+                                <!-- Kolumna Rezerwacja -->
+                                <td>
+                                    <?php if ($lot['status'] === 'zarezerwowany' && $lot['data_lotu']): ?>
+                                        <strong><?php echo srl_formatuj_date($lot['data_lotu']); ?></strong>
+                                        <br><small><?php echo substr($lot['godzina_start'], 0, 5); ?> - <?php echo substr($lot['godzina_koniec'], 0, 5); ?></small>
+                                        <?php if ($lot['data_rezerwacji']): ?>
+                                            <br><small style="color: #666;">Rez: <?php echo date('d.m.Y H:i', strtotime($lot['data_rezerwacji'])); ?></small>
+                                        <?php endif; ?>
+                                    <?php elseif ($lot['status'] === 'zrealizowany' && $lot['data_lotu']): ?>
+                                        <span style="color: #46b450;">✅ <?php echo srl_formatuj_date($lot['data_lotu']); ?></span>
+                                        <br><small style="color: #46b450;"><?php echo substr($lot['godzina_start'], 0, 5); ?> - <?php echo substr($lot['godzina_koniec'], 0, 5); ?></small>
+                                    <?php else: ?>
+                                        <span style="color: #999;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                
+                                <!-- Kolumna Odwoływanie -->
+                                <td>
+                                    <?php if ($lot['status'] !== 'wolny'): ?>
+                                        <?php echo srl_generate_button('Odwołaj', 'button button-small srl-cancel-lot', array(
+                                            'type' => 'button',
+                                            'data-lot-id' => $lot['id']
+                                        )); ?>
+                                    <?php else: ?>
+                                        <span style="color:#999;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                
+                                <!-- Kolumna Zatwierdzanie -->
+                                <td>
+                                    <?php if ($lot['status'] === 'zarezerwowany'): ?>
+                                        <?php echo srl_generate_button('Zrealizuj', 'button button-primary button-small srl-complete-lot', array(
+                                            'type' => 'button',
+                                            'data-lot-id' => $lot['id']
+                                        )); ?>
+                                    <?php else: ?>
+                                        <span style="color:#999;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                
+                                <!-- Kolumna Szczegóły -->
+                                <td>
+                                    <?php echo srl_generate_button('INFO', 'button button-small srl-info-lot', array(
+                                        'type' => 'button',
+                                        'data-lot-id' => $lot['id'],
+                                        'data-user-id' => $lot['user_id']
+                                    )); ?>
+                                    <?php echo srl_generate_button('Historia', 'button button-small srl-historia-lot', array(
+                                        'type' => 'button',
+                                        'data-lot-id' => $lot['id'],
+                                        'style' => 'margin-left: 5px;'
+                                    )); ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
             </table>
         </form>
     </div>
@@ -634,23 +575,22 @@ jQuery(document).ready(function($) {
                 
                 $('body').append(modal);
                 
-				modal.find('button').on('click', function() {
-					modal.remove();
-					$(document).off('keydown.srl-info-modal'); // Usuń nasłuch
-				});
+                modal.find('button').on('click', function() {
+                    modal.remove();
+                    $(document).off('keydown.srl-info-modal');
+                });
 
-				// Obsługa klawisza Escape dla modalu INFO
-				$(document).on('keydown.srl-info-modal', function(e) {
-					if (e.keyCode === 27) { // Escape key
-						modal.remove();
-						$(document).off('keydown.srl-info-modal'); // Usuń nasłuch po zamknięciu
-					}
-				});
+                // Obsługa klawisza Escape dla modalu INFO
+                $(document).on('keydown.srl-info-modal', function(e) {
+                    if (e.keyCode === 27) { // Escape key
+                        modal.remove();
+                        $(document).off('keydown.srl-info-modal');
+                    }
+                });
 
-				// Usuń nasłuch po zamknięciu modalu (dla pewności)
-				modal.on('remove', function() {
-					$(document).off('keydown.srl-info-modal');
-				});
+                modal.on('remove', function() {
+                    $(document).off('keydown.srl-info-modal');
+                });
             } else {
                 alert('Błąd: ' + response.data);
             }
@@ -661,7 +601,6 @@ jQuery(document).ready(function($) {
     $('#srl-date-range-btn').on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Kliknięto przycisk daty'); // Debug
         $('#srl-date-range-panel').toggle();
     });
     
@@ -706,93 +645,90 @@ jQuery(document).ready(function($) {
         var date = new Date(dateStr);
         return date.toLocaleDateString('pl-PL');
     }
-	
-	// Show history
-	$('.srl-historia-lot').on('click', function() {
-		var lotId = $(this).data('lot-id');
-		
-		$.post(ajaxurl, {
-			action: 'srl_pobierz_historie_lotu',
-			lot_id: lotId,
-			nonce: '<?php echo wp_create_nonce('srl_admin_nonce'); ?>'
-		}, function(response) {
-			if (response.success) {
-				pokazHistorieLotu(response.data);
-			} else {
-				alert('Błąd: ' + response.data);
-			}
-		});
-	});
-
-	function pokazHistorieLotu(historia) {
-    var content = '<div class="srl-historia-container">';
-    content += '<h3 style="margin-top: 0; color: #0073aa; border-bottom: 2px solid #0073aa; padding-bottom: 10px;">📋 Historia lotu #' + historia.lot_id + '</h3>';
     
-    if (historia.events.length === 0) {
-        content += '<p style="text-align: center; color: #6c757d; padding: 40px;">Brak zdarzeń w historii tego lotu.</p>';
-    } else {
-        content += '<table class="srl-historia-table">';
-        content += '<thead><tr><th>Data</th><th>Akcja</th><th>Wykonawca</th><th>Szczegóły</th></tr></thead>';
-        content += '<tbody>';
+    // Show history
+    $('.srl-historia-lot').on('click', function() {
+        var lotId = $(this).data('lot-id');
         
-        historia.events.forEach(function(event) {
-            // Określ klasę CSS na podstawie kategorii
-            var rowClass = 'srl-historia-row';
-            if (event.action_name === 'ZMIANA STATUSU') {
-                rowClass += ' srl-historia-zmiana_statusu';
-            } else if (event.action_name === 'DOKUPIENIE WARIANTU') {
-                rowClass += ' srl-historia-dokupienie';
-            } else if (event.action_name === 'SYSTEMOWE') {
-                rowClass += ' srl-historia-systemowe';
-            } else if (event.action_name === 'ZMIANA DANYCH') {
-                rowClass += ' srl-historia-zmiana_danych';
+        $.post(ajaxurl, {
+            action: 'srl_pobierz_historie_lotu',
+            lot_id: lotId,
+            nonce: '<?php echo wp_create_nonce('srl_admin_nonce'); ?>'
+        }, function(response) {
+            if (response.success) {
+                pokazHistorieLotu(response.data);
+            } else {
+                alert('Błąd: ' + response.data);
             }
+        });
+    });
+
+    function pokazHistorieLotu(historia) {
+        var content = '<div class="srl-historia-container">';
+        content += '<h3 style="margin-top: 0; color: #0073aa; border-bottom: 2px solid #0073aa; padding-bottom: 10px;">📋 Historia lotu #' + historia.lot_id + '</h3>';
+        
+        if (historia.events.length === 0) {
+            content += '<p style="text-align: center; color: #6c757d; padding: 40px;">Brak zdarzeń w historii tego lotu.</p>';
+        } else {
+            content += '<table class="srl-historia-table">';
+            content += '<thead><tr><th>Data</th><th>Akcja</th><th>Wykonawca</th><th>Szczegóły</th></tr></thead>';
+            content += '<tbody>';
             
-            content += '<tr class="' + rowClass + '">';
-            content += '<td class="srl-historia-data">' + event.formatted_date + '</td>';
-            content += '<td class="srl-historia-akcja">' + event.action_name + '</td>';
-            content += '<td class="srl-historia-wykonawca">' + event.executor + '</td>';
-            content += '<td class="srl-historia-szczegoly">' + event.details + '</td>';
-            content += '</tr>';
+            historia.events.forEach(function(event) {
+                var rowClass = 'srl-historia-row';
+                if (event.action_name === 'ZMIANA STATUSU') {
+                    rowClass += ' srl-historia-zmiana_statusu';
+                } else if (event.action_name === 'DOKUPIENIE WARIANTU') {
+                    rowClass += ' srl-historia-dokupienie';
+                } else if (event.action_name === 'SYSTEMOWE') {
+                    rowClass += ' srl-historia-systemowe';
+                } else if (event.action_name === 'ZMIANA DANYCH') {
+                    rowClass += ' srl-historia-zmiana_danych';
+                }
+                
+                content += '<tr class="' + rowClass + '">';
+                content += '<td class="srl-historia-data">' + event.formatted_date + '</td>';
+                content += '<td class="srl-historia-akcja">' + event.action_name + '</td>';
+                content += '<td class="srl-historia-wykonawca">' + event.executor + '</td>';
+                content += '<td class="srl-historia-szczegoly">' + event.details + '</td>';
+                content += '</tr>';
+            });
+            
+            content += '</tbody></table>';
+        }
+        
+        content += '</div>';
+        
+        // Utwórz modal
+        var modal = $('<div class="srl-modal-historia">' +
+            '<div class="srl-modal-content">' +
+            content +
+            '<div class="srl-modal-actions"><button class="button button-primary srl-modal-close">Zamknij</button></div>' +
+            '</div></div>');
+        
+        $('body').append(modal);
+        
+        // Obsługa zamykania
+        modal.find('.srl-modal-close').on('click', function() {
+            modal.remove();
+            $(document).off('keydown.srl-modal');
         });
         
-        content += '</tbody></table>';
+        modal.on('click', function(e) {
+            if (e.target === this) {
+                modal.remove();
+                $(document).off('keydown.srl-modal');
+            }
+        });
+        
+        // Obsługa klawisza Escape
+        $(document).on('keydown.srl-modal', function(e) {
+            if (e.keyCode === 27) { // Escape key
+                modal.remove();
+                $(document).off('keydown.srl-modal');
+            }
+        });
     }
-    
-    content += '</div>';
-    
-    // Utwórz modal
-    var modal = $('<div class="srl-modal-historia">' +
-        '<div class="srl-modal-content">' +
-        content +
-        '<div class="srl-modal-actions"><button class="button button-primary srl-modal-close">Zamknij</button></div>' +
-        '</div></div>');
-    
-    $('body').append(modal);
-    
-    // Obsługa zamykania
-    modal.find('.srl-modal-close').on('click', function() {
-        modal.remove();
-        $(document).off('keydown.srl-modal');
-    });
-    
-    modal.on('click', function(e) {
-        if (e.target === this) {
-            modal.remove();
-            $(document).off('keydown.srl-modal');
-        }
-    });
-    
-    // Obsługa klawisza Escape
-    $(document).on('keydown.srl-modal', function(e) {
-        if (e.keyCode === 27) { // Escape key
-            modal.remove();
-            $(document).off('keydown.srl-modal');
-        }
-    });
-}
-	
-	
 });
 </script>
 
@@ -970,9 +906,7 @@ jQuery(document).ready(function($) {
 
 // Strona synchronizacji lotów
 function srl_wyswietl_synchronizacje() {
-    if (!current_user_can('manage_options')) {
-        wp_die('Brak uprawnień.');
-    }
+    srl_check_admin_permissions();
     
     if (isset($_POST['sync_flights'])) {
         $result = srl_synchronizuj_loty_z_zamowieniami();
@@ -1026,10 +960,7 @@ function srl_wyswietl_synchronizacje() {
 add_action('wp_ajax_srl_usun_lot', 'srl_ajax_usun_lot');
 function srl_ajax_usun_lot() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
+	srl_check_admin_permissions();
     
     $lot_id = intval($_POST['lot_id']);
     
@@ -1108,10 +1039,7 @@ function srl_synchronizuj_loty_z_zamowieniami() {
 add_action('wp_ajax_srl_admin_zmien_status_lotu', 'srl_ajax_admin_zmien_status_lotu');
 function srl_ajax_admin_zmien_status_lotu() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
     
     $lot_id = intval($_POST['lot_id']);
     $nowy_status = sanitize_text_field($_POST['nowy_status']);
@@ -1296,10 +1224,7 @@ function srl_ajax_admin_zmien_status_lotu() {
 add_action('wp_ajax_srl_pobierz_szczegoly_lotu', 'srl_ajax_pobierz_szczegoly_lotu');
 function srl_ajax_pobierz_szczegoly_lotu() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
+	srl_check_admin_permissions();
     
     $lot_id = intval($_POST['lot_id']);
     $user_id = intval($_POST['user_id']);
@@ -1321,17 +1246,9 @@ function srl_ajax_pobierz_szczegoly_lotu() {
     }
     
     // Jeśli brak danych w rezerwacji lub niekompletne, pobierz z profilu użytkownika
-    if (empty($dane) || !isset($dane['imie'])) {
-        $dane = array(
-            'imie' => get_user_meta($user_id, 'srl_imie', true),
-            'nazwisko' => get_user_meta($user_id, 'srl_nazwisko', true),
-            'rok_urodzenia' => get_user_meta($user_id, 'srl_rok_urodzenia', true),
-            'kategoria_wagowa' => get_user_meta($user_id, 'srl_kategoria_wagowa', true),
-            'sprawnosc_fizyczna' => get_user_meta($user_id, 'srl_sprawnosc_fizyczna', true),
-            'telefon' => get_user_meta($user_id, 'srl_telefon', true),
-            'uwagi' => get_user_meta($user_id, 'srl_uwagi', true)
-        );
-    }
+	if (empty($dane) || !isset($dane['imie'])) {
+		$dane = srl_get_user_full_data($user_id);
+	}
     
     // Dodaj wiek jeśli jest rok urodzenia
     if (!empty($dane['rok_urodzenia'])) {

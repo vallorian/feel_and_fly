@@ -57,8 +57,6 @@ function srl_dodaj_strony_admin() {
         'srl-voucher',
         'srl_wyswietl_vouchery'
     );
-
-	if (function_exists('srl_voucher_table_exists') && srl_voucher_table_exists()) {
 		add_submenu_page(
 			'srl-dashboard',
 			'Zakupione Vouchery',
@@ -67,7 +65,7 @@ function srl_dodaj_strony_admin() {
 			'srl-zakupione-vouchery',
 			'srl_wyswietl_zakupione_vouchery'
 		);
-	}
+	
 
 }
 

@@ -1,8 +1,4 @@
-<?php
-
-if (!defined('ABSPATH')) {
-    exit;
-}
+<?php if (!defined('ABSPATH')) {exit;}
 
 function srl_kategoryzuj_akcje($typ) {
     $kategorie = array(
@@ -292,9 +288,7 @@ function srl_get_current_datetime() {
 }
 
 function srl_wyczysc_historie_wszystkich_lotow() {
-    if (!current_user_can('manage_options')) {
-        return false;
-    }
+    if (!current_user_can('manage_options')) {  return false;  }
 
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
@@ -307,9 +301,7 @@ function srl_wyczysc_historie_wszystkich_lotow() {
 }
 
 function srl_przebuduj_historie_lotow() {
-    if (!current_user_can('manage_options')) {
-        return false;
-    }
+    if (!current_user_can('manage_options')) {  return false;  }
 
     global $wpdb;
     $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';

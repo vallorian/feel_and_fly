@@ -1,9 +1,8 @@
 <?php
 
 function srl_wyswietl_dzien() {
-    if (!current_user_can('manage_options')) {
-        wp_die('Brak uprawnień.');
-    }
+    srl_check_admin_permissions();
+    
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_terminy';
 
@@ -15,25 +14,20 @@ function srl_wyswietl_dzien() {
 
     $numer_dnia = date('N', strtotime($data));
     $dni_tyg = array(
-        1 => 'Poniedziałek',
-        2 => 'Wtorek',
-        3 => 'Środa',
-        4 => 'Czwartek',
-        5 => 'Piątek',
-        6 => 'Sobota',
-        7 => 'Niedziela'
+        1 => 'Poniedziałek', 2 => 'Wtorek', 3 => 'Środa', 4 => 'Czwartek',
+        5 => 'Piątek', 6 => 'Sobota', 7 => 'Niedziela'
     );
     $nazwa_dnia = $dni_tyg[$numer_dnia];
 
-	$istniejace_godziny = $wpdb->get_results($wpdb->prepare(
-		"SELECT t.id, t.pilot_id, t.godzina_start, t.godzina_koniec, t.status, t.klient_id, t.notatka,
-				zl.id as lot_id, zl.user_id as lot_user_id
-		   FROM $tabela t
-		   LEFT JOIN {$wpdb->prefix}srl_zakupione_loty zl ON t.id = zl.termin_id
-		  WHERE t.data = %s
-		  ORDER BY t.pilot_id ASC, t.godzina_start ASC",
-		$data
-	), ARRAY_A);
+    $istniejace_godziny = $wpdb->get_results($wpdb->prepare(
+        "SELECT t.id, t.pilot_id, t.godzina_start, t.godzina_koniec, t.status, t.klient_id, t.notatka,
+                zl.id as lot_id, zl.user_id as lot_user_id
+           FROM $tabela t
+           LEFT JOIN {$wpdb->prefix}srl_zakupione_loty zl ON t.id = zl.termin_id
+          WHERE t.data = %s
+          ORDER BY t.pilot_id ASC, t.godzina_start ASC",
+        $data
+    ), ARRAY_A);
 
     $godziny_wg_pilota = array();
     foreach ($istniejace_godziny as $wiersz) {
@@ -42,55 +36,55 @@ function srl_wyswietl_dzien() {
             $godziny_wg_pilota[$pid] = array();
         }
 
-		$klient_nazwa = '';
-		$link_zamowienia = '';
-		if (($wiersz['status'] === 'Zarezerwowany' || $wiersz['status'] === 'Zrealizowany') && intval($wiersz['klient_id']) > 0) {
+        $klient_nazwa = '';
+        $link_zamowienia = '';
+        
+        if (($wiersz['status'] === 'Zarezerwowany' || $wiersz['status'] === 'Zrealizowany') && intval($wiersz['klient_id']) > 0) {
+            $user_data = srl_get_user_full_data(intval($wiersz['klient_id']));
+            if ($user_data) {
+                if ($user_data['imie'] && $user_data['nazwisko']) {
+                    $klient_nazwa = $user_data['imie'] . ' ' . $user_data['nazwisko'];
+                } else {
+                    $klient_nazwa = $user_data['display_name'];
+                }
+                $link_zamowienia = admin_url('edit.php?post_type=shop_order&customer=' . intval($wiersz['klient_id']));
 
-			$user = get_userdata(intval($wiersz['klient_id']));
-			if ($user) {
+                $lot = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}srl_zakupione_loty WHERE termin_id = %d AND status IN ('zarezerwowany', 'zrealizowany')",
+                    $wiersz['id']
+                ));
+                $lot_id = $lot ? intval($lot) : null;
+            }
+        } elseif ($wiersz['status'] === 'Prywatny' && !empty($wiersz['notatka'])) {
+            $dane_prywatne = json_decode($wiersz['notatka'], true);
+            if ($dane_prywatne && isset($dane_prywatne['imie']) && isset($dane_prywatne['nazwisko'])) {
+                $klient_nazwa = $dane_prywatne['imie'] . ' ' . $dane_prywatne['nazwisko'];
+            }
+        }
 
-				$imie = get_user_meta(intval($wiersz['klient_id']), 'srl_imie', true);
-				$nazwisko = get_user_meta(intval($wiersz['klient_id']), 'srl_nazwisko', true);
-
-				if ($imie && $nazwisko) {
-					$klient_nazwa = $imie . ' ' . $nazwisko;
-				} else {
-
-					$klient_nazwa = $user->display_name;
-				}
-				$link_zamowienia = admin_url('edit.php?post_type=shop_order&customer=' . intval($wiersz['klient_id']));
-
-				$lot = $wpdb->get_var($wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}srl_zakupione_loty WHERE termin_id = %d AND status IN ('zarezerwowany', 'zrealizowany')",
-					$wiersz['id']
-				));
-				$lot_id = $lot ? intval($lot) : null;
-			}
-		}
         $godziny_wg_pilota[$pid][] = array(
-			'id'               => intval($wiersz['id']),
-			'start'            => substr($wiersz['godzina_start'], 0, 5),
-			'koniec'           => substr($wiersz['godzina_koniec'], 0, 5),
-			'status'           => $wiersz['status'],
-			'klient_id'        => intval($wiersz['klient_id']),
-			'klient_nazwa'     => $klient_nazwa,
-			'link_zamowienia'  => $link_zamowienia,
-			'lot_id'           => $wiersz['lot_id'] ? intval($wiersz['lot_id']) : null,
-			'notatka'          => $wiersz['notatka']
-		);
+            'id' => intval($wiersz['id']),
+            'start' => substr($wiersz['godzina_start'], 0, 5),
+            'koniec' => substr($wiersz['godzina_koniec'], 0, 5),
+            'status' => $wiersz['status'],
+            'klient_id' => intval($wiersz['klient_id']),
+            'klient_nazwa' => $klient_nazwa,
+            'link_zamowienia' => $link_zamowienia,
+            'lot_id' => $wiersz['lot_id'] ? intval($wiersz['lot_id']) : null,
+            'notatka' => $wiersz['notatka']
+        );
     }
 
     $poprzedni_dzien = date('Y-m-d', strtotime($data . ' -1 day'));
-    $nastepny_dzien  = date('Y-m-d', strtotime($data . ' +1 day'));
-    $url_poprzedni = add_query_arg('data', $poprzedni_dzien);
-    $url_nastepny  = add_query_arg('data', $nastepny_dzien);
-
+    $nastepny_dzien = date('Y-m-d', strtotime($data . ' +1 day'));
+    
     echo '<div class="wrap">';
     echo '<h1>Planowanie godzin lotów – ' . esc_html($nazwa_dnia) . ', ' . esc_html($data) . '</h1>';
+    
     echo '<div style="margin-bottom:20px;">';
-    echo '<a class="button" href="' . esc_url($url_poprzedni) . '">&laquo; Poprzedni dzień</a> ';
-    echo '<input type="date" id="srl-wybierz-date" value="' . esc_attr($data) . '" style="margin:0 10px;" /> ';
-    echo '<a class="button" href="' . esc_url($url_nastepny) . '">Następny dzień &raquo;</a>';
+    echo srl_generate_link(add_query_arg('data', $poprzedni_dzien), '← Poprzedni dzień', 'button');
+    echo '<input type="date" id="srl-wybierz-date" value="' . esc_attr($data) . '" style="margin:0 10px;" />';
+    echo srl_generate_link(add_query_arg('data', $nastepny_dzien), 'Następny dzień →', 'button');
     echo '</div>';
 
     $ma_sloty = (count($istniejace_godziny) > 0);
@@ -108,23 +102,20 @@ function srl_wyswietl_dzien() {
             $domyslna_liczba = 4;
         }
     }
+    
     echo '<p><label>Ile pilotów? ';
-    echo '<select id="srl-liczba-pilotow">';
-    for ($i = 1; $i <= 4; $i++) {
-        $sel = ($i == $domyslna_liczba) ? 'selected' : '';
-        echo '<option value="' . $i . '" ' . $sel . '>' . $i . '</option>';
-    }
-    echo '</select></label>';
+    echo srl_generate_select('srl-liczba-pilotow', array(
+        1 => '1', 2 => '2', 3 => '3', 4 => '4'
+    ), $domyslna_liczba, array('id' => 'srl-liczba-pilotow'));
+    echo '</label>';
 
     $domyslny_interwal = 15;
-    echo '   <label>Interwał czasowy: ';
-    echo '<select id="srl-interwal">';
-    $interwaly = array(1,5,10,15,20,30,45,60);
-    foreach ($interwaly as $ival) {
-        $sel = ($ival == $domyslny_interwal) ? 'selected' : '';
-        echo '<option value="' . $ival . '" ' . $sel . '>' . $ival . ' min</option>';
-    }
-    echo '</select></label></p>';
+    echo '<label>Interwał czasowy: ';
+    echo srl_generate_select('srl-interwal', array(
+        1 => '1 min', 5 => '5 min', 10 => '10 min', 15 => '15 min',
+        20 => '20 min', 30 => '30 min', 45 => '45 min', 60 => '60 min'
+    ), $domyslny_interwal, array('id' => 'srl-interwal'));
+    echo '</label></p>';
 
     echo '<div style="margin-top:20px; margin-bottom:20px; padding:10px; border:1px solid #ccc; border-radius:4px; background:#f9f9f9;">';
     echo '<strong>Generuj sloty: </strong>';

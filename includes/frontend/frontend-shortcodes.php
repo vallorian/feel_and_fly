@@ -1,8 +1,5 @@
 <?php
 
-/**
- * Generuje sekcję voucherów (wspólna dla różnych miejsc)
- */
 function srl_generuj_sekcje_voucherow($show_title = true) {
     ob_start();
     ?>

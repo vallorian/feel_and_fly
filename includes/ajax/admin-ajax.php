@@ -1,8 +1,4 @@
-<?php
-
-if (!defined('ABSPATH')) {
-    exit;
-}
+<?php if (!defined('ABSPATH')) {exit;}
 
 add_action('wp_ajax_srl_dodaj_godzine', 'srl_dodaj_godzine');
 add_action('wp_ajax_srl_zmien_slot', 'srl_zmien_slot');
@@ -26,13 +22,13 @@ add_action('wp_ajax_srl_zrealizuj_lot', 'srl_ajax_zrealizuj_lot');
 add_action('wp_ajax_srl_zrealizuj_lot_prywatny', 'srl_ajax_zrealizuj_lot_prywatny');
 add_action('wp_ajax_srl_pobierz_dostepne_terminy_do_zmiany', 'srl_ajax_pobierz_dostepne_terminy_do_zmiany');
 add_action('wp_ajax_srl_zmien_termin_lotu', 'srl_ajax_zmien_termin_lotu');
+add_action('wp_ajax_srl_dodaj_godzine', 'srl_ajax_dodaj_godzine');
+add_action('wp_ajax_srl_usun_godzine', 'srl_ajax_usun_godzine');
+add_action('wp_ajax_srl_zmien_status_godziny', 'srl_ajax_zmien_status_godziny');
 
 function srl_dodaj_godzine() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     if (!isset($_POST['data']) || !isset($_POST['pilot_id'])) {
         wp_send_json_error('Nieprawidłowe dane.');
@@ -82,10 +78,7 @@ function srl_dodaj_godzine() {
 
 function srl_zmien_slot() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     if (!isset($_POST['termin_id'])) {
         wp_send_json_error('Nieprawidłowe dane.');
@@ -136,10 +129,7 @@ function srl_zmien_slot() {
 
 function srl_usun_godzine() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     if (!isset($_POST['termin_id'])) {
         wp_send_json_error('Nieprawidłowe dane.');
@@ -188,10 +178,7 @@ function srl_usun_godzine() {
 
 function srl_zmien_status_godziny() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     if (!isset($_POST['termin_id']) || !isset($_POST['status'])) {
         wp_send_json_error('Nieprawidłowe dane.');
@@ -340,10 +327,7 @@ function srl_zmien_status_godziny() {
 
 function srl_anuluj_lot_przez_organizatora() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     if (!isset($_POST['termin_id'])) {
         wp_send_json_error('Nieprawidłowe dane.');
@@ -487,10 +471,7 @@ function srl_anuluj_lot_przez_organizatora() {
 
 function srl_ajax_zrealizuj_lot() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
 
@@ -561,10 +542,7 @@ function srl_ajax_zrealizuj_lot() {
 
 function srl_ajax_przypisz_wykupiony_lot() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
     $lot_id = intval($_POST['lot_id']);
@@ -668,10 +646,7 @@ function srl_ajax_przypisz_wykupiony_lot() {
 
 function srl_wyszukaj_klientow_loty() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true); 
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    } 
+    srl_check_admin_permissions(); 
 
     if (!isset($_GET['q'])) {
         wp_send_json_error('Brak frazy wyszukiwania.');
@@ -715,63 +690,73 @@ function srl_wyszukaj_klientow_loty() {
 
 function srl_ajax_dodaj_voucher_recznie() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
-
-    $kod_vouchera = sanitize_text_field($_POST['kod_vouchera']);
-    $data_waznosci = sanitize_text_field($_POST['data_waznosci']);
-
-    if (empty($kod_vouchera) || empty($data_waznosci)) {
-        wp_send_json_error('Wypełnij wszystkie pola.');
+    srl_check_admin_permissions();
+    
+    if (!function_exists('srl_voucher_table_exists') || !srl_voucher_table_exists()) {
+        wp_send_json_error('Tabela voucherów nie istnieje.');
     }
-
+    
+    $kod_vouchera = strtoupper(sanitize_text_field($_POST['kod_vouchera']));
+    $data_waznosci = sanitize_text_field($_POST['data_waznosci']);
+    
+    $validation_kod = srl_waliduj_kod_vouchera($kod_vouchera);
+    if (!$validation_kod['valid']) {
+        wp_send_json_error($validation_kod['message']);
+    }
+    
+    $validation_data = srl_waliduj_date($data_waznosci);
+    if (!$validation_data['valid']) {
+        wp_send_json_error('Nieprawidłowa data ważności: ' . $validation_data['message']);
+    }
+    
+    if (srl_is_date_past($data_waznosci)) {
+        wp_send_json_error('Data ważności nie może być z przeszłości.');
+    }
+    
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_vouchery_upominkowe';
-
-    $exists = $wpdb->get_var($wpdb->prepare(
+    
+    // Sprawdź czy kod już istnieje
+    $existing = srl_execute_query(
         "SELECT COUNT(*) FROM $tabela WHERE kod_vouchera = %s",
-        $kod_vouchera
-    ));
-
-    if ($exists > 0) {
-        wp_send_json_error('Voucher o tym kodzie już istnieje.');
+        array($validation_kod['kod']),
+        'count'
+    );
+    
+    if ($existing > 0) {
+        wp_send_json_error('Voucher z tym kodem już istnieje.');
     }
-
-    $user_id = get_current_user_id();
-    $user = get_userdata($user_id);
-
+    
+    $current_user = wp_get_current_user();
+    $data_zakupu = current_time('mysql');
+    
     $result = $wpdb->insert(
         $tabela,
         array(
             'order_item_id' => 0,
             'order_id' => 0,
-            'buyer_user_id' => $user_id,
-            'buyer_imie' => $user->first_name ?: 'Admin',
-            'buyer_nazwisko' => $user->last_name ?: 'Manual',
+            'buyer_user_id' => $current_user->ID,
+            'buyer_imie' => $current_user->first_name ?: 'Admin',
+            'buyer_nazwisko' => $current_user->last_name ?: 'Manual',
             'nazwa_produktu' => 'Voucher dodany ręcznie',
-            'kod_vouchera' => $kod_vouchera,
+            'kod_vouchera' => $validation_kod['kod'],
             'status' => 'do_wykorzystania',
-            'data_zakupu' => srl_get_current_datetime(),
+            'data_zakupu' => $data_zakupu,
             'data_waznosci' => $data_waznosci
         ),
         array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s')
     );
-
+    
     if ($result !== false) {
-        wp_send_json_success('Voucher został dodany.');
+        wp_send_json_success('Voucher został dodany pomyślnie.');
     } else {
-        wp_send_json_error('Błąd zapisu do bazy danych.');
+        wp_send_json_error('Błąd podczas dodawania vouchera do bazy danych.');
     }
 }
 
 function srl_ajax_wyszukaj_dostepnych_klientow() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true); 
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    } 
+    srl_check_admin_permissions(); 
 
     $query = sanitize_text_field($_POST['query']);
 
@@ -819,10 +804,7 @@ function srl_ajax_wyszukaj_dostepnych_klientow() {
 
 function srl_ajax_przypisz_klienta_do_slotu() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
     $lot_id = intval($_POST['lot_id']);
@@ -936,10 +918,7 @@ function srl_ajax_przypisz_klienta_do_slotu() {
 
 function srl_ajax_zapisz_dane_prywatne() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
     $imie = sanitize_text_field($_POST['imie']);
@@ -955,11 +934,11 @@ function srl_ajax_zapisz_dane_prywatne() {
         return;
     }
 
-    $telefon_clean = str_replace([' ', '-', '(', ')', '+48'], '', $telefon);
-    if (strlen($telefon_clean) < 9) {
-        wp_send_json_error('Numer telefonu musi mieć minimum 9 cyfr.');
-        return;
-    }
+    $validation = srl_waliduj_telefon($telefon);
+	if (!$validation['valid']) {
+		wp_send_json_error($validation['message']);
+		return;
+	}
 
     $dane_pasazera = array(
         'imie' => $imie,
@@ -995,10 +974,7 @@ function srl_ajax_zapisz_dane_prywatne() {
 
 function srl_ajax_pobierz_dane_prywatne() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
 
@@ -1023,11 +999,8 @@ function srl_ajax_pobierz_dane_prywatne() {
 }
 
 function srl_ajax_pobierz_aktualne_godziny() {
-	check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
+    check_ajax_referer('srl_admin_nonce', 'nonce', true); 
+    srl_check_admin_permissions(); 
 
     $data = sanitize_text_field($_GET['data'] ?? $_POST['data']);
     if (!$data) {
@@ -1038,11 +1011,8 @@ function srl_ajax_pobierz_aktualne_godziny() {
 }
 
 function srl_ajax_wyszukaj_wolne_loty() {
-    check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
+    check_ajax_referer('srl_admin_nonce', 'nonce', true); 
+    srl_check_admin_permissions(); 
 
     $search_field = sanitize_text_field($_POST['search_field']);
     $query = sanitize_text_field($_POST['query']);
@@ -1110,11 +1080,8 @@ function srl_ajax_wyszukaj_wolne_loty() {
 }
 
 function srl_ajax_zapisz_lot_prywatny() {
-    check_ajax_referer('srl_admin_nonce', 'nonce', true);
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error('Brak uprawnień.');
-		return;
-	}
+    check_ajax_referer('srl_admin_nonce', 'nonce', true); 
+    srl_check_admin_permissions(); 
 
     $termin_id = intval($_POST['termin_id']);
     $imie = sanitize_text_field($_POST['imie']);
@@ -1130,11 +1097,11 @@ function srl_ajax_zapisz_lot_prywatny() {
         return;
     }
 
-    $telefon_clean = str_replace([' ', '-', '(', ')', '+48'], '', $telefon);
-    if (strlen($telefon_clean) < 9) {
-        wp_send_json_error('Numer telefonu musi mieć minimum 9 cyfr.');
-        return;
-    }
+    $validation = srl_waliduj_telefon($telefon);
+	if (!$validation['valid']) {
+		wp_send_json_error($validation['message']);
+		return;
+	}
 
     $dane_pasazera = array(
         'imie' => $imie,
@@ -1170,10 +1137,7 @@ function srl_ajax_zapisz_lot_prywatny() {
 
 function srl_ajax_pobierz_historie_lotu() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $lot_id = intval($_POST['lot_id']);
 
@@ -1189,10 +1153,7 @@ function srl_ajax_pobierz_historie_lotu() {
 
 function srl_ajax_przywroc_rezerwacje() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
 
@@ -1314,10 +1275,7 @@ function srl_ajax_przywroc_rezerwacje() {
 
 function srl_ajax_pobierz_dane_odwolanego() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
 
@@ -1343,10 +1301,7 @@ function srl_ajax_pobierz_dane_odwolanego() {
 
 function srl_ajax_zrealizuj_lot_prywatny() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
 
@@ -1386,10 +1341,7 @@ function srl_ajax_zrealizuj_lot_prywatny() {
 
 function srl_ajax_pobierz_dostepne_terminy_do_zmiany() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $termin_id = intval($_POST['termin_id']);
 
@@ -1469,10 +1421,7 @@ function srl_ajax_pobierz_dostepne_terminy_do_zmiany() {
 
 function srl_ajax_zmien_termin_lotu() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Brak uprawnień.');
-        return;
-    }
+    srl_check_admin_permissions();
 
     $stary_termin_id = intval($_POST['stary_termin_id']);
     $nowy_termin_id = intval($_POST['nowy_termin_id']);
@@ -1636,4 +1585,151 @@ function srl_ajax_zmien_termin_lotu() {
         wp_send_json_error($e->getMessage());
     }
 }
+
+function srl_ajax_dodaj_godzine() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+    srl_check_admin_permissions();
+
+    $data = sanitize_text_field($_POST['data']);
+    $pilot_id = intval($_POST['pilot_id']);
+    $godzina_start = sanitize_text_field($_POST['godzina_start']);
+    $godzina_koniec = sanitize_text_field($_POST['godzina_koniec']);
+    $status = sanitize_text_field($_POST['status']);
+
+    $validation = srl_waliduj_date($data);
+    if (!$validation['valid']) {
+        wp_send_json_error($validation['message']);
+    }
+
+    $validation_start = srl_waliduj_godzine($godzina_start);
+    if (!$validation_start['valid']) {
+        wp_send_json_error($validation_start['message']);
+    }
+
+    $validation_end = srl_waliduj_godzine($godzina_koniec);
+    if (!$validation_end['valid']) {
+        wp_send_json_error($validation_end['message']);
+    }
+
+    if (srl_time_to_minutes($godzina_start) >= srl_time_to_minutes($godzina_koniec)) {
+        wp_send_json_error('Godzina końca musi być późniejsza niż godzina początku.');
+    }
+
+    global $wpdb;
+    $tabela = $wpdb->prefix . 'srl_terminy';
+
+    $result = $wpdb->insert(
+        $tabela,
+        array(
+            'data' => $data,
+            'pilot_id' => $pilot_id,
+            'godzina_start' => $godzina_start . ':00',
+            'godzina_koniec' => $godzina_koniec . ':00',
+            'status' => $status
+        ),
+        array('%s', '%d', '%s', '%s', '%s')
+    );
+
+    if ($result === false) {
+        wp_send_json_error('Błąd dodawania godziny do bazy danych.');
+    }
+
+    wp_send_json_success(array(
+        'id' => $wpdb->insert_id,
+        'message' => 'Godzina została dodana pomyślnie.'
+    ));
+}
+
+function srl_ajax_usun_godzine() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+    srl_check_admin_permissions();
+
+    $slot_id = intval($_POST['slot_id']);
+
+    global $wpdb;
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+
+    $slot = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $tabela_terminy WHERE id = %d",
+        $slot_id
+    ), ARRAY_A);
+
+    if (!$slot) {
+        wp_send_json_error('Slot nie istnieje.');
+    }
+
+    if ($slot['status'] !== 'Wolny') {
+        wp_send_json_error('Nie można usunąć zarezerwowanego slotu. Najpierw anuluj rezerwację.');
+    }
+
+    $result = $wpdb->delete($tabela_terminy, array('id' => $slot_id), array('%d'));
+
+    if ($result === false) {
+        wp_send_json_error('Błąd usuwania slotu z bazy danych.');
+    }
+
+    wp_send_json_success('Slot został usunięty pomyślnie.');
+}
+
+function srl_ajax_zmien_status_godziny() {
+    check_ajax_referer('srl_admin_nonce', 'nonce', true);
+    srl_check_admin_permissions();
+
+    $slot_id = intval($_POST['slot_id']);
+    $nowy_status = sanitize_text_field($_POST['nowy_status']);
+
+    $dozwolone_statusy = array('Wolny', 'Prywatny', 'Zarezerwowany', 'Zrealizowany', 'Odwołany przez organizatora');
+    if (!in_array($nowy_status, $dozwolone_statusy)) {
+        wp_send_json_error('Nieprawidłowy status.');
+    }
+
+    global $wpdb;
+    $tabela_terminy = $wpdb->prefix . 'srl_terminy';
+    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+
+    $slot = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $tabela_terminy WHERE id = %d",
+        $slot_id
+    ), ARRAY_A);
+
+    if (!$slot) {
+        wp_send_json_error('Slot nie istnieje.');
+    }
+
+    if ($slot['status'] === 'Zarezerwowany' && $nowy_status === 'Wolny') {
+        $wpdb->update(
+            $tabela_loty,
+            array('status' => 'wolny', 'termin_id' => null, 'data_rezerwacji' => null),
+            array('termin_id' => $slot_id),
+            array('%s', '%d', '%s'),
+            array('%d')
+        );
+
+        $wpdb->update(
+            $tabela_terminy,
+            array('status' => 'Wolny', 'klient_id' => null),
+            array('id' => $slot_id),
+            array('%s', '%d'),
+            array('%d')
+        );
+    } else {
+        $wpdb->update(
+            $tabela_terminy,
+            array('status' => $nowy_status),
+            array('id' => $slot_id),
+            array('%s'),
+            array('%d')
+        );
+    }
+
+    wp_send_json_success('Status został zmieniony.');
+}
+
+
+
+
+
 ?>
+
+

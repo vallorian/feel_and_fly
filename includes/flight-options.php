@@ -23,8 +23,18 @@ function srl_przedluz_waznosc_lotu($lot_id, $order_id) {
 
     if (!$lot) return false;
 
-    $stara_datafunction srl_get_flight_option_product_ids() {
-    return srl_get_flight_options_config();
+    $stara_data = $lot['data_waznosci'];
+    $nowa_data = srl_generate_expiry_date($stara_data, 1);
+
+    $result = $wpdb->update(
+        $tabela,
+        array('data_waznosci' => $nowa_data),
+        array('id' => $lot_id),
+        array('%s'),
+        array('%d')
+    );
+
+    return $result !== false;
 }
 
 function srl_lot_ma_opcje($lot_id, $opcja) {

@@ -1,12 +1,5 @@
-<?php
+<?php if (!defined('ABSPATH')) {exit;}
 
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-/**
- * Walidacja wieku z generowaniem komunikatów o osobach nieletnich
- */
 function srl_waliduj_wiek($rok_urodzenia, $format = 'html') {
     $komunikaty = array();
     
@@ -39,9 +32,6 @@ function srl_waliduj_wiek($rok_urodzenia, $format = 'html') {
     return $result;
 }
 
-/**
- * Walidacja kategorii wagowej z generowaniem ostrzeżeń
- */
 function srl_waliduj_kategorie_wagowa($kategoria_wagowa, $format = 'html') {
     $komunikaty = array();
     $errors = array();
@@ -76,9 +66,6 @@ function srl_waliduj_kategorie_wagowa($kategoria_wagowa, $format = 'html') {
     return $result;
 }
 
-/**
- * Sprawdza kompatybilność z akrobacjami
- */
 function srl_sprawdz_kompatybilnosc_akrobacje($kategoria_wagowa, $ma_akrobacje = false) {
     if (!$ma_akrobacje) {
         return array('compatible' => true, 'message' => '');

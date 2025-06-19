@@ -1,12 +1,5 @@
-<?php
+<?php if (!defined('ABSPATH')) {exit;}
 
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-/**
- * Konfiguracja partnerów i typów voucherów
- */
 function srl_get_partner_voucher_config() {
     return array(
         'prezent_marzen' => array(
@@ -26,9 +19,6 @@ function srl_get_partner_voucher_config() {
     );
 }
 
-/**
- * Pobiera listę partnerów do selecta
- */
 function srl_get_partners_list() {
     $config = srl_get_partner_voucher_config();
     $partners = array();
@@ -40,9 +30,6 @@ function srl_get_partners_list() {
     return $partners;
 }
 
-/**
- * Pobiera typy voucherów dla danego partnera
- */
 function srl_get_partner_voucher_types($partner_key) {
     $config = srl_get_partner_voucher_config();
     
@@ -53,9 +40,6 @@ function srl_get_partner_voucher_types($partner_key) {
     return $config[$partner_key]['typy'];
 }
 
-/**
- * Pobiera liczbę osób dla danego typu vouchera
- */
 function srl_get_voucher_passenger_count($partner_key, $voucher_type) {
     $config = srl_get_partner_voucher_config();
     
@@ -66,9 +50,6 @@ function srl_get_voucher_passenger_count($partner_key, $voucher_type) {
     return $config[$partner_key]['typy'][$voucher_type]['liczba_osob'];
 }
 
-/**
- * Zapisuje voucher partnera do bazy danych
- */
 function srl_save_partner_voucher($data) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_vouchery_partnerzy';
@@ -120,8 +101,6 @@ function srl_save_partner_voucher($data) {
     
     return array('success' => true, 'voucher_id' => $voucher_id);
 }
-
-// ===== ZMIEŃ W partner-voucher-functions.php FUNKCJĘ srl_validate_partner_voucher_data() =====
 
 function srl_validate_partner_voucher_data($data) {
     $errors = array();
@@ -180,9 +159,6 @@ function srl_validate_partner_voucher_data($data) {
     );
 }
 
-/**
- * Pobiera vouchery partnera dla admina
- */
 function srl_get_partner_vouchers($status = null, $limit = 50) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_vouchery_partnerzy';
@@ -201,9 +177,6 @@ function srl_get_partner_vouchers($status = null, $limit = 50) {
     return $wpdb->get_results($wpdb->prepare($query, ...$params), ARRAY_A);
 }
 
-/**
- * Pobiera szczegóły vouchera partnera
- */
 function srl_get_partner_voucher($voucher_id) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_vouchery_partnerzy';
@@ -220,9 +193,6 @@ function srl_get_partner_voucher($voucher_id) {
     return $voucher;
 }
 
-/**
- * Zatwierdza voucher partnera i tworzy loty
- */
 function srl_approve_partner_voucher($voucher_id) {
     global $wpdb;
     $tabela_vouchery = $wpdb->prefix . 'srl_vouchery_partnerzy';
@@ -328,9 +298,6 @@ function srl_approve_partner_voucher($voucher_id) {
     }
 }
 
-/**
- * Odrzuca voucher partnera
- */
 function srl_reject_partner_voucher($voucher_id, $reason) {
     global $wpdb;
     $tabela = $wpdb->prefix . 'srl_vouchery_partnerzy';
@@ -362,9 +329,6 @@ function srl_reject_partner_voucher($voucher_id, $reason) {
     return array('success' => true, 'message' => 'Voucher został odrzucony.');
 }
 
-/**
- * Wysyła email powiadomienia do administratora o nowym voucherze
- */
 function srl_send_partner_voucher_notification_email($voucher_id) {
     $voucher = srl_get_partner_voucher($voucher_id);
     if (!$voucher) return false;
@@ -389,9 +353,6 @@ function srl_send_partner_voucher_notification_email($voucher_id) {
     return srl_wyslij_email_administratora($subject, $message);
 }
 
-/**
- * Wysyła email do klienta o zatwierdzeniu vouchera
- */
 function srl_send_partner_voucher_approval_email($voucher_id, $created_flights) {
     $voucher = srl_get_partner_voucher($voucher_id);
     if (!$voucher) return false;
@@ -423,9 +384,6 @@ function srl_send_partner_voucher_approval_email($voucher_id, $created_flights) 
     return wp_mail($user->user_email, $subject, $message, $headers);
 }
 
-/**
- * Wysyła email do klienta o odrzuceniu vouchera
- */
 function srl_send_partner_voucher_rejection_email($voucher_id, $reason) {
     $voucher = srl_get_partner_voucher($voucher_id);
     if (!$voucher) return false;

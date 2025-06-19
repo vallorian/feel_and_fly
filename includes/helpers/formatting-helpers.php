@@ -1,8 +1,4 @@
-<?php
-
-if (!defined('ABSPATH')) {
-    exit;
-}
+<?php if (!defined('ABSPATH')) {exit;}
 
 function srl_formatuj_date($data, $format = 'd.m.Y') {
     if (empty($data)) return '';

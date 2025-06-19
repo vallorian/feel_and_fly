@@ -1,8 +1,4 @@
-<?php
-
-if (!defined('ABSPATH')) {
-    exit;
-}
+<?php if (!defined('ABSPATH')) {exit;}
 
 add_action('init', 'srl_dodaj_endpointy');
 function srl_dodaj_endpointy() {
@@ -40,7 +36,7 @@ function srl_moje_loty_tresc() {
 
     echo '<h2>Twoje loty tandemowe</h2>';
     echo '<div style="margin-bottom: 30px;">';
-    echo '<a href="/rezerwuj-lot/" class="srl-zarzadzaj-btn">🎯 Zarządzaj lotami</a>';
+    echo srl_generate_link('/rezerwuj-lot/', '🎯 Zarządzaj lotami', 'srl-zarzadzaj-btn');
     echo '</div>';
 
     $wszystkie_loty = $wpdb->get_results($wpdb->prepare(
@@ -70,7 +66,7 @@ function srl_moje_loty_tresc() {
     if (empty($wszystkie_loty)) {
         echo '<div class="woocommerce-message woocommerce-message--info">';
         echo '<p>Nie masz jeszcze żadnych lotów tandemowych.</p>';
-        echo '<a href="/produkt/lot-w-tandemie/" class="button">Kup lot tandemowy</a>';
+        echo srl_generate_link('/produkt/lot-w-tandemie/', 'Kup lot tandemowy', 'button');
         echo '</div>';
         return;
     }
@@ -86,10 +82,6 @@ function srl_moje_loty_tresc() {
         echo '<div class="srl-nazwa-lotu">Lot w tandemie (#' . esc_html($lot['id']) . ')</div>';
         echo '<div class="srl-opcje-lotu">' . srl_format_flight_options_html($lot['ma_filmowanie'], $lot['ma_akrobacje']) . '</div>';
 
-        if (!empty($lot['kod_vouchera'])) {
-
-        }
-
         if (!empty($lot['data_waznosci'])) {
             echo '<div class="srl-data-waznosci">(Ważny do: ' . srl_formatuj_date($lot['data_waznosci']) . ')</div>';
         }
@@ -98,21 +90,21 @@ function srl_moje_loty_tresc() {
         echo '<td class="srl-kolumna-status">';
 
         if ($lot['status'] === 'zarezerwowany') {
-            echo '<div class="srl-status-badge srl-status-zarezerwowany">' . srl_formatuj_status_lotu('zarezerwowany') . '</div>';
+            echo srl_generate_status_badge('zarezerwowany', 'lot');
             if (!empty($lot['data']) && !empty($lot['godzina_start'])) {
                 $data_formatowana = srl_formatuj_date_i_czas_polski($lot['data'], $lot['godzina_start']);
                 echo '<div class="srl-termin-info">' . $data_formatowana . '</div>';
             }
         } elseif ($lot['status'] === 'wolny') {
-            echo '<div class="srl-status-badge srl-status-wolny">' . srl_formatuj_status_lotu('wolny') . '</div>';
+            echo srl_generate_status_badge('wolny', 'lot');
         } elseif ($lot['status'] === 'zrealizowany') {
-            echo '<div class="srl-status-badge srl-status-zrealizowany">' . srl_formatuj_status_lotu('zrealizowany') . '</div>';
+            echo srl_generate_status_badge('zrealizowany', 'lot');
             if (!empty($lot['data']) && !empty($lot['godzina_start'])) {
                 $data_formatowana = srl_formatuj_date_i_czas_polski($lot['data'], $lot['godzina_start']);
                 echo '<div class="srl-termin-info">' . $data_formatowana . '</div>';
             }
         } elseif ($lot['status'] === 'przedawniony') {
-            echo '<div class="srl-status-badge srl-status-przedawniony">' . srl_formatuj_status_lotu('przedawniony') . '</div>';
+            echo srl_generate_status_badge('przedawniony', 'lot');
             echo '<div class="srl-termin-info">Wygasł: ' . srl_formatuj_date($lot['data_waznosci']) . '</div>';
         }
 
@@ -128,69 +120,62 @@ function srl_informacje_o_mnie_tresc() {
     $user_id = get_current_user_id();
 
     if (isset($_POST['srl_zapisz_info'])) {
-		$dane = array(
-			'imie' => sanitize_text_field($_POST['srl_imie']),
-			'nazwisko' => sanitize_text_field($_POST['srl_nazwisko']),
-			'rok_urodzenia' => intval($_POST['srl_rok_urodzenia']),
-			'kategoria_wagowa' => sanitize_text_field($_POST['srl_kategoria_wagowa']),
-			'sprawnosc_fizyczna' => sanitize_text_field($_POST['srl_sprawnosc_fizyczna']),
-			'telefon' => sanitize_text_field($_POST['srl_telefon']),
-			'uwagi' => sanitize_textarea_field($_POST['srl_uwagi']),
-			'akceptacja_regulaminu' => true 
-		);
+        $dane = array(
+            'imie' => sanitize_text_field($_POST['srl_imie']),
+            'nazwisko' => sanitize_text_field($_POST['srl_nazwisko']),
+            'rok_urodzenia' => intval($_POST['srl_rok_urodzenia']),
+            'kategoria_wagowa' => sanitize_text_field($_POST['srl_kategoria_wagowa']),
+            'sprawnosc_fizyczna' => sanitize_text_field($_POST['srl_sprawnosc_fizyczna']),
+            'telefon' => sanitize_text_field($_POST['srl_telefon']),
+            'uwagi' => sanitize_textarea_field($_POST['srl_uwagi']),
+            'akceptacja_regulaminu' => true 
+        );
 
-		// Dodaj walidację wieku i wagi
-		$komunikaty_dodatkowe = array();
-		
-		$walidacja_wiek = srl_waliduj_wiek($dane['rok_urodzenia']);
-		if (!empty($walidacja_wiek['komunikaty'])) {
-			foreach ($walidacja_wiek['komunikaty'] as $kom) {
-				$komunikaty_dodatkowe[] = $kom['tresc'];
-			}
-		}
-		
-		$walidacja_waga = srl_waliduj_kategorie_wagowa($dane['kategoria_wagowa']);
-		if (!$walidacja_waga['valid']) {
-			foreach ($walidacja_waga['errors'] as $error) {
-				$komunikaty_dodatkowe[] = $error['tresc'];
-			}
-		}
+        // Dodaj walidację wieku i wagi
+        $komunikaty_dodatkowe = array();
+        
+        $walidacja_wiek = srl_waliduj_wiek($dane['rok_urodzenia']);
+        if (!empty($walidacja_wiek['komunikaty'])) {
+            foreach ($walidacja_wiek['komunikaty'] as $kom) {
+                $komunikaty_dodatkowe[] = $kom['tresc'];
+            }
+        }
+        
+        $walidacja_waga = srl_waliduj_kategorie_wagowa($dane['kategoria_wagowa']);
+        if (!$walidacja_waga['valid']) {
+            foreach ($walidacja_waga['errors'] as $error) {
+                $komunikaty_dodatkowe[] = $error['tresc'];
+            }
+        }
 
-		$walidacja = srl_waliduj_dane_pasazera($dane);
+        $walidacja = srl_waliduj_dane_pasazera($dane);
 
         if ($walidacja['valid']) {
-			foreach ($dane as $key => $value) {
-				if ($key !== 'akceptacja_regulaminu') { 
-					update_user_meta($user_id, 'srl_' . $key, $value);
-				}
-			}
-			
-			$sukces_msg = 'Dane zostały zapisane pomyślnie!';
-			if (!empty($komunikaty_dodatkowe)) {
-				$sukces_msg .= '<br><strong>Uwagi:</strong><br>' . implode('<br>', $komunikaty_dodatkowe);
-			}
-			
-			echo '<div class="woocommerce-message">' . $sukces_msg . '</div>';
-		} else {
-			echo '<div class="woocommerce-error"><ul>';
-			foreach ($walidacja['errors'] as $pole => $blad) {
-				echo '<li>' . esc_html($blad) . '</li>';
-			}
-			// Dodaj komunikaty dodatkowe jako ostrzeżenia
-			foreach ($komunikaty_dodatkowe as $kom) {
-				echo '<li style="color: #ff9800;">' . esc_html($kom) . '</li>';
-			}
-			echo '</ul></div>';
-		}
+            foreach ($dane as $key => $value) {
+                if ($key !== 'akceptacja_regulaminu') { 
+                    update_user_meta($user_id, 'srl_' . $key, $value);
+                }
+            }
+            
+            $sukces_msg = 'Dane zostały zapisane pomyślnie!';
+            if (!empty($komunikaty_dodatkowe)) {
+                $sukces_msg .= '<br><strong>Uwagi:</strong><br>' . implode('<br>', $komunikaty_dodatkowe);
+            }
+            
+            echo srl_generate_message($sukces_msg, 'success');
+        } else {
+            $errors_list = '';
+            foreach ($walidacja['errors'] as $pole => $blad) {
+                $errors_list .= '<li>' . esc_html($blad) . '</li>';
+            }
+            foreach ($komunikaty_dodatkowe as $kom) {
+                $errors_list .= '<li style="color: #ff9800;">' . esc_html($kom) . '</li>';
+            }
+            echo srl_generate_message('<ul>' . $errors_list . '</ul>', 'error');
+        }
     }
 
-    $imie = get_user_meta($user_id, 'srl_imie', true);
-    $nazwisko = get_user_meta($user_id, 'srl_nazwisko', true);
-    $rok_urodzenia = get_user_meta($user_id, 'srl_rok_urodzenia', true);
-    $kategoria_wagowa = get_user_meta($user_id, 'srl_kategoria_wagowa', true);
-    $sprawnosc_fizyczna = get_user_meta($user_id, 'srl_sprawnosc_fizyczna', true);
-    $telefon = get_user_meta($user_id, 'srl_telefon', true);
-    $uwagi = get_user_meta($user_id, 'srl_uwagi', true);
+    $user_data = srl_get_user_full_data($user_id);
 
     ?>
     <h2>🪪 Dane pasażera</h2>
@@ -200,54 +185,68 @@ function srl_informacje_o_mnie_tresc() {
         <div class="srl-form-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                 <label for="srl_imie">Imię <span class="required">*</span></label>
-                <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_imie" id="srl_imie" value="<?php echo esc_attr($imie); ?>" required />
+                <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_imie" id="srl_imie" value="<?php echo esc_attr($user_data['imie']); ?>" required />
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                 <label for="srl_nazwisko">Nazwisko <span class="required">*</span></label>
-                <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_nazwisko" id="srl_nazwisko" value="<?php echo esc_attr($nazwisko); ?>" required />
+                <input type="text" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_nazwisko" id="srl_nazwisko" value="<?php echo esc_attr($user_data['nazwisko']); ?>" required />
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                 <label for="srl_rok_urodzenia">Rok urodzenia <span class="required">*</span></label>
-                <input type="number" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_rok_urodzenia" id="srl_rok_urodzenia" value="<?php echo esc_attr($rok_urodzenia); ?>" min="1920" max="2020" required />
+                <input type="number" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_rok_urodzenia" id="srl_rok_urodzenia" value="<?php echo esc_attr($user_data['rok_urodzenia']); ?>" min="1920" max="2020" required />
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                 <label for="srl_telefon">Numer telefonu <span class="required">*</span></label>
-                <input type="tel" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_telefon" id="srl_telefon" value="<?php echo esc_attr($telefon); ?>" required />
+                <input type="tel" class="woocommerce-Input woocommerce-Input--text input-text" name="srl_telefon" id="srl_telefon" value="<?php echo esc_attr($user_data['telefon']); ?>" required 
+                   pattern="(\+48\s?)?[0-9\s\-\(\)]{9,}" 
+                   title="Numer telefonu musi mieć minimum 9 cyfr">
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                 <label for="srl_sprawnosc_fizyczna">Sprawność fizyczna <span class="required">*</span></label>
-                <select class="woocommerce-Input woocommerce-Input--text input-text" name="srl_sprawnosc_fizyczna" id="srl_sprawnosc_fizyczna" required>
-					<option value="">Wybierz poziom sprawności</option>
-					<option value="zdolnosc_do_marszu" <?php selected($sprawnosc_fizyczna, 'zdolnosc_do_marszu'); ?>>Zdolność do marszu</option>
-					<option value="zdolnosc_do_biegu" <?php selected($sprawnosc_fizyczna, 'zdolnosc_do_biegu'); ?>>Zdolność do biegu</option>
-					<option value="sprinter" <?php selected($sprawnosc_fizyczna, 'sprinter'); ?>>Sprinter!</option>
-                </select>
+                <?php echo srl_generate_select('srl_sprawnosc_fizyczna', array(
+                    '' => 'Wybierz poziom sprawności',
+                    'zdolnosc_do_marszu' => 'Zdolność do marszu',
+                    'zdolnosc_do_biegu' => 'Zdolność do biegu',
+                    'sprinter' => 'Sprinter!'
+                ), $user_data['sprawnosc_fizyczna'], array(
+                    'id' => 'srl_sprawnosc_fizyczna',
+                    'class' => 'woocommerce-Input woocommerce-Input--text input-text',
+                    'required' => 'required'
+                )); ?>
             </p>
 
             <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide">
                 <label for="srl_kategoria_wagowa">Kategoria wagowa <span class="required">*</span></label>
-                <select class="woocommerce-Input woocommerce-Input--text input-text" name="srl_kategoria_wagowa" id="srl_kategoria_wagowa" required>
-					<option value="">Wybierz kategorię wagową</option>
-					<option value="25-40kg" <?php selected($kategoria_wagowa, '25-40kg'); ?>>25-40kg</option>
-					<option value="41-60kg" <?php selected($kategoria_wagowa, '41-60kg'); ?>>41-60kg</option>
-					<option value="61-90kg" <?php selected($kategoria_wagowa, '61-90kg'); ?>>61-90kg</option>
-					<option value="91-120kg" <?php selected($kategoria_wagowa, '91-120kg'); ?>>91-120kg</option>
-					<option value="120kg+" <?php selected($kategoria_wagowa, '120kg+'); ?>>120kg+</option>
-                </select>
+                <?php echo srl_generate_select('srl_kategoria_wagowa', array(
+                    '' => 'Wybierz kategorię wagową',
+                    '25-40kg' => '25-40kg',
+                    '41-60kg' => '41-60kg',
+                    '61-90kg' => '61-90kg',
+                    '91-120kg' => '91-120kg',
+                    '120kg+' => '120kg+'
+                ), $user_data['kategoria_wagowa'], array(
+                    'id' => 'srl_kategoria_wagowa',
+                    'class' => 'woocommerce-Input woocommerce-Input--text input-text',
+                    'required' => 'required'
+                )); ?>
             </p>
         </div>
 
         <p class="woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide" style="grid-column: 1 / -1;">
             <label for="srl_uwagi">Dodatkowe uwagi</label>
-            <textarea class="woocommerce-Input woocommerce-Input--text input-text" name="srl_uwagi" id="srl_uwagi" rows="4" placeholder="Np. alergie, obawy, specjalne potrzeby..."><?php echo esc_textarea($uwagi); ?></textarea>
+            <textarea class="woocommerce-Input woocommerce-Input--text input-text" name="srl_uwagi" id="srl_uwagi" rows="4" placeholder="Np. alergie, obawy, specjalne potrzeby..."><?php echo esc_textarea($user_data['uwagi']); ?></textarea>
         </p>
 
         <p>
-            <button type="submit" class="woocommerce-Button button" name="srl_zapisz_info" value="Zapisz zmiany">Zapisz zmiany</button>
+            <?php echo srl_generate_button('Zapisz zmiany', 'woocommerce-Button button', array(
+                'type' => 'submit',
+                'name' => 'srl_zapisz_info',
+                'value' => 'Zapisz zmiany'
+            )); ?>
         </p>
     </form>
 

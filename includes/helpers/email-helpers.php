@@ -1,8 +1,4 @@
-<?php
-
-if (!defined('ABSPATH')) {
-    exit;
-}
+<?php if (!defined('ABSPATH')) {exit;}
 
 function srl_wyslij_email_potwierdzenia($user_id, $slot, $lot) {
     $user = get_userdata($user_id);

@@ -1,12 +1,5 @@
-<?php
+<?php if (!defined('ABSPATH')) {exit;}
 
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-/**
- * Pobiera pełne dane użytkownika wraz z metadanymi SRL
- */
 function srl_get_user_full_data($user_id) {
     $user = get_userdata($user_id);
     if (!$user) return null;
@@ -27,18 +20,12 @@ function srl_get_user_full_data($user_id) {
     );
 }
 
-/**
- * Sprawdza czy użytkownik ma uprawnienia administratora
- */
 function srl_check_admin_permissions() {
     if (!current_user_can('manage_options')) {
         wp_die('Brak uprawnień.');
     }
 }
 
-/**
- * Sprawdza czy użytkownik jest zalogowany i zwraca odpowiedź
- */
 function srl_require_login($return_data = false) {
     if (!is_user_logged_in()) {
         if ($return_data) {
@@ -50,9 +37,6 @@ function srl_require_login($return_data = false) {
     return true;
 }
 
-/**
- * Pobiera opcje produktów lotów
- */
 function srl_get_flight_options_config() {
     return array(
         'filmowanie' => 116,
@@ -61,9 +45,6 @@ function srl_get_flight_options_config() {
     );
 }
 
-/**
- * Sprawdza czy można anulować rezerwację (48h przed lotem)
- */
 function srl_can_cancel_reservation($data_lotu, $godzina_lotu) {
     if (empty($data_lotu) || empty($godzina_lotu)) {
         return false;
@@ -82,23 +63,14 @@ function srl_can_cancel_reservation($data_lotu, $godzina_lotu) {
     return $czas_do_lotu > $wymagany_czas;
 }
 
-/**
- * Konwertuje czas na minuty (alias dla istniejącej funkcji)
- */
 function srl_time_to_minutes($time) {
     return srl_zamien_na_minuty($time);
 }
 
-/**
- * Konwertuje minuty na czas (alias dla istniejącej funkcji)  
- */
 function srl_minutes_to_time($minutes) {
     return srl_minuty_na_czas($minutes);
 }
 
-/**
- * Sprawdza czy string zawiera opcje lotu
- */
 function srl_detect_flight_options($text) {
     $text_lower = strtolower($text);
     
@@ -114,24 +86,15 @@ function srl_detect_flight_options($text) {
     );
 }
 
-/**
- * Generuje datę ważności (domyślnie +1 rok)
- */
 function srl_generate_expiry_date($from_date = null, $years = 1) {
     $base_date = $from_date ? $from_date : current_time('mysql');
     return date('Y-m-d', strtotime($base_date . " +{$years} year"));
 }
 
-/**
- * Sprawdza czy data jest w przeszłości
- */
 function srl_is_date_past($date) {
     return strtotime($date) < strtotime('today');
 }
 
-/**
- * Formatuje nazwę produktu (usuwa warianty, normalizuje)
- */
 function srl_normalize_product_name($product_name) {
     $name = explode(' - ', $product_name)[0];
     

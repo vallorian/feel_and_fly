@@ -1,12 +1,5 @@
-<?php
+<?php if (!defined('ABSPATH')) {exit;}
 
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-/**
- * Generuje przyciski z jednorodnym stylem
- */
 function srl_generate_button($text, $class = 'srl-btn-primary', $attrs = array()) {
     $attributes = '';
     foreach ($attrs as $key => $value) {
@@ -15,9 +8,6 @@ function srl_generate_button($text, $class = 'srl-btn-primary', $attrs = array()
     return '<button class="srl-btn ' . $class . '"' . $attributes . '>' . $text . '</button>';
 }
 
-/**
- * Generuje badge statusu z ikoną
- */
 function srl_generate_status_badge($status, $type = 'lot') {
     $config = array(
         'lot' => array(
@@ -45,9 +35,6 @@ function srl_generate_status_badge($status, $type = 'lot') {
     );
 }
 
-/**
- * Generuje opcje lotu (filmowanie/akrobacje) jako HTML
- */
 function srl_format_flight_options_html($ma_filmowanie, $ma_akrobacje) {
     $opcje = array();
     
@@ -66,9 +53,6 @@ function srl_format_flight_options_html($ma_filmowanie, $ma_akrobacje) {
     return implode(', ', $opcje);
 }
 
-/**
- * Generuje komunikat z jednolitym stylem
- */
 function srl_generate_message($text, $type = 'info', $dismissible = false) {
     $classes = array(
         'info' => 'srl-komunikat-info',
@@ -83,9 +67,6 @@ function srl_generate_message($text, $type = 'info', $dismissible = false) {
     return '<div class="srl-komunikat ' . $class . '">' . $text . $dismiss_btn . '</div>';
 }
 
-/**
- * Generuje select z opcjami
- */
 function srl_generate_select($name, $options, $selected = '', $attrs = array()) {
     $attributes = '';
     foreach ($attrs as $key => $value) {
@@ -103,9 +84,6 @@ function srl_generate_select($name, $options, $selected = '', $attrs = array()) 
     return $html;
 }
 
-/**
- * Generuje link z klasą i atrybutami
- */
 function srl_generate_link($url, $text, $class = '', $attrs = array()) {
     $attributes = '';
     foreach ($attrs as $key => $value) {
@@ -116,9 +94,6 @@ function srl_generate_link($url, $text, $class = '', $attrs = array()) {
     return '<a href="' . esc_url($url) . '"' . $class_attr . $attributes . '>' . $text . '</a>';
 }
 
-/**
- * Formatuje dane pasażera do wyświetlenia
- */
 function srl_format_passenger_data($data, $show_age = true) {
     $output = array();
     
