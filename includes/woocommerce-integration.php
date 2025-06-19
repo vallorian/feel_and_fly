@@ -25,10 +25,6 @@ function srl_order_status_changed($order_id, $old_status, $new_status) {
     }
 }
 
-function srl_get_flight_product_ids() {
-    return array(62, 63, 65, 67, 69, 73, 74, 75, 76, 77);
-}
-
 function srl_czy_produkt_lotu($product) {
     if (!$product) return false;
 

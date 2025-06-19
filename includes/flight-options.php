@@ -1,13 +1,4 @@
 <?php
-
-function srl_get_flight_option_product_ids() {
-    return array(
-        'przedluzenie' => 115,
-        'filmowanie' => 116,
-        'akrobacje' => 117
-    );
-}
-
 function srl_analiza_opcji_produktu($nazwa_produktu) {
     return srl_detect_flight_options($nazwa_produktu);
 }

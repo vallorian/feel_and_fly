@@ -2,6 +2,7 @@
 if (!defined('ABSPATH')) {exit;}
 
 add_action('wp_ajax_srl_wykorzystaj_voucher', 'srl_ajax_wykorzystaj_voucher');
+add_action('wp_ajax_nopriv_srl_wykorzystaj_voucher', 'srl_ajax_wykorzystaj_voucher');
 add_action('wp_ajax_srl_get_partner_voucher_types', 'srl_ajax_get_partner_voucher_types');
 add_action('wp_ajax_nopriv_srl_get_partner_voucher_types', 'srl_ajax_get_partner_voucher_types');
 add_action('wp_ajax_srl_submit_partner_voucher', 'srl_ajax_submit_partner_voucher');

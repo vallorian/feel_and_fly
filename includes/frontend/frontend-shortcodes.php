@@ -158,7 +158,7 @@ function srl_generuj_js_voucherow() {
                 data: {
                     action: 'srl_wykorzystaj_voucher',
                     kod_vouchera: kod,
-                    nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+                    nonce: '<?php echo wp_create_nonce('srl_admin_nonce'); ?>'
                 },
                 success: function(response) {
                     if (response.success) {

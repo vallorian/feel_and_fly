@@ -1,75 +1,44 @@
-Proponowana struktura plików dla wtyczki System Rezerwacji Lotów:
-
 system-rezerwacji-lotow/
-├── system-rezerwacji-lotow.php (główny plik wtyczki)
-├── includes/
-│   ├── class-system-rezerwacji-lotow.php (główna klasa wtyczki)
-│   ├── admin/
-│   │   ├── class-admin.php
-│   │   ├── views/
-│   │   └── js/
-│   ├── frontend/
-│   │   ├── class-frontend.php
-│   │   ├── views/
-│   │   └── js/
-│   ├── core/
-│   │   ├── class-flight-options.php
-│   │   ├── class-cart-flight-options.php
-│   │   └── class-product-flight-options.php
-│   ├── woocommerce/
-│   │   ├── class-woocommerce-integration.php
-│   │   └── class-voucher-functions.php
-│   ├── client/
-│   │   ├── class-client-account.php
-│   │   └── class-partner-voucher.php
-│   ├── database/
-│   │   └── class-database.php
-│   └── helpers/
-│       └── class-helpers.php
+├── system-rezerwacji-lotow.php                    # Główny plik wtyczki
 ├── assets/
 │   ├── css/
-│   │   ├── admin.css
-│   │   └── frontend.css
-│   ├── js/
-│   │   ├── admin.js
-│   │   └── frontend.js
-│   └── images/
-├── languages/
-│   └── system-rezerwacji-lotow.pot
-├── templates/
-│   ├── admin/
-│   └── frontend/
-├── README.md
-└── .gitignore
+│   │   └── frontend-style.css                     # Style frontend
+│   └── js/
+│       ├── frontend-calendar.js                   # Frontend kalendarz
+│       └── flight-options-unified.js              # Opcje lotów JS
+├── includes/
+│   ├── helpers.php                                # ✅ NOWY - konsolidacja 5 plików helper
+│   ├── database-helpers.php                       # ✅ ZOPTYMALIZOWANY - uproszczone zapytania DB
+│   ├── email-functions.php                        # ✅ NOWY - uniwersalny system email
+│   ├── historia-functions.php                     # ✅ ZOPTYMALIZOWANY - uproszczona historia
+│   │
+│   ├── database/
+│   │   └── database-setup.php                     # Setup bazy danych
+│   │
+│   ├── admin/                                     
+│   │   ├── admin-menu.php                         # Panel admin - menu
+│   │   ├── admin-calendar.php                     # Panel admin - kalendarz  
+│   │   ├── admin-day.php                          # Panel admin - dzień
+│   │   ├── admin-voucher.php                      # Panel admin - voucher
+│   │   ├── admin-vouchers.php                     # Panel admin - vouchery
+│   │   └── admin-flights.php                      # Panel admin - loty
+│   │
+│   ├── ajax/
+│   │   ├── admin-ajax.php                         # AJAX admin (bez zmian na razie)
+│   │   ├── frontend-ajax.php                      # AJAX frontend (bez zmian na razie)
+│   │   ├── voucher-ajax.php                       # AJAX vouchery (bez zmian na razie)
+│   │   └── flight-options-ajax.php                # AJAX opcje lotów (bez zmian na razie)
+│   │
+│   ├── frontend/
+│   │   └── frontend-shortcodes.php                # Shortcodes frontend (bez zmian na razie)
+│   │
+│   ├── partner-voucher-functions.php              # Funkcje voucherów partnera (bez zmian na razie)
+│   ├── voucher-functions.php                      # Podstawowe funkcje voucherów (bez zmian na razie)
+│   ├── voucher-gift-functions.php                 # Funkcje voucherów upominkowych (bez zmian na razie)
+│   ├── flight-options.php                         # Opcje lotów (bez zmian na razie)
+│   ├── cart-flight-options.php                    # Opcje lotów w koszyku (bez zmian na razie)
+│   ├── product-flight-options.php                 # Opcje lotów na produktach (bez zmian na razie)
+│   ├── client-account.php                         # Konto klienta (bez zmian na razie)
+│   └── woocommerce-integration.php                # Integracja WooCommerce (bez zmian na razie)
 
-Wyjaśnienie struktury:
 
-1. includes/ - główny katalog z logiką wtyczki
-   - class-system-rezerwacji-lotow.php - główna klasa inicjalizująca wtyczkę
-   - admin/ - funkcjonalności panelu administracyjnego
-   - frontend/ - funkcjonalności frontendu
-   - core/ - główne klasy funkcjonalne
-   - woocommerce/ - integracja z WooCommerce
-   - client/ - funkcjonalności dla klientów
-   - database/ - obsługa bazy danych
-   - helpers/ - funkcje pomocnicze
-
-2. assets/ - zasoby statyczne
-   - css/ - style CSS
-   - js/ - skrypty JavaScript
-   - images/ - obrazy
-
-3. languages/ - pliki tłumaczeń
-
-4. templates/ - szablony widoków
-   - admin/ - szablony panelu administracyjnego
-   - frontend/ - szablony frontendu
-
-Zalety nowej struktury:
-- Lepsza organizacja kodu
-- Łatwiejsze zarządzanie zależnościami
-- Zgodność z standardami WordPress
-- Łatwiejsze utrzymanie i rozbudowa
-- Lepsze rozdzielenie logiki biznesowej od prezentacji
-- Łatwiejsze testowanie
-- Łatwiejsze dodawanie nowych funkcjonalności

@@ -13,17 +13,10 @@ define('SRL_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Core includes
 require_once SRL_PLUGIN_DIR . 'includes/database/database-setup.php';
-require_once SRL_PLUGIN_DIR . 'includes/database/database-queries.php';
-
-// Helper includes
-require_once SRL_PLUGIN_DIR . 'includes/helpers/ui-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/data-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/database-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/formatting-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/validation-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/email-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/historia-helpers.php';
-require_once SRL_PLUGIN_DIR . 'includes/helpers/common-validators.php';
+require_once SRL_PLUGIN_DIR . 'includes/helpers.php';
+require_once SRL_PLUGIN_DIR . 'includes/database-helpers.php';
+require_once SRL_PLUGIN_DIR . 'includes/email-functions.php';
+require_once SRL_PLUGIN_DIR . 'includes/historia-functions.php';
 
 // Admin includes
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-menu.php';
@@ -52,31 +45,22 @@ require_once SRL_PLUGIN_DIR . 'includes/ajax/frontend-ajax.php';
 require_once SRL_PLUGIN_DIR . 'includes/ajax/voucher-ajax.php';
 require_once SRL_PLUGIN_DIR . 'includes/ajax/flight-options-ajax.php';
 
-
-// Aktywacja/dezaktywacja wtyczki
 register_activation_hook(__FILE__, 'srl_aktywacja_wtyczki');
-register_deactivation_hook(__FILE__, 'srl_dezaktywacja_wtyczki');
-
-function srl_dezaktywacja_wtyczki() {
+register_deactivation_hook(__FILE__, function() {
     wp_clear_scheduled_hook('srl_sprawdz_przeterminowane_loty');
-}
+});
 
 function srl_utworz_kategorie_produktow() {
     if (!term_exists('loty-tandemowe', 'product_cat')) {
-        wp_insert_term(
-            'Loty tandemowe',
-            'product_cat',
-            array(
-                'description' => 'Produkty lotów tandemowych',
-                'slug' => 'loty-tandemowe'
-            )
-        );
+        wp_insert_term('Loty tandemowe', 'product_cat', array(
+            'description' => 'Produkty lotów tandemowych',
+            'slug' => 'loty-tandemowe'
+        ));
     }
 }
 
 function srl_utworz_strone_rezerwacji() {
     $strona_istnieje = get_page_by_path('rezerwuj-lot');
-    
     if (!$strona_istnieje) {
         $strona_id = wp_insert_post(array(
             'post_title' => 'Rezerwuj lot',
@@ -85,15 +69,11 @@ function srl_utworz_strone_rezerwacji() {
             'post_type' => 'page',
             'post_name' => 'rezerwuj-lot'
         ));
-        
         update_option('srl_strona_rezerwacji_id', $strona_id);
     }
 }
 
-
-// Enqueue flight options script globally
-add_action('wp_enqueue_scripts', 'srl_enqueue_flight_options_globally');
-function srl_enqueue_flight_options_globally() {
+add_action('wp_enqueue_scripts', function() {
     if (is_user_logged_in()) {
         wp_enqueue_script('srl-flight-options', SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js', array('jquery'), '1.0', true);
         wp_localize_script('srl-flight-options', 'srlFrontend', array(
@@ -102,4 +82,4 @@ function srl_enqueue_flight_options_globally() {
             'productIds' => srl_get_flight_option_product_ids()
         ));
     }
-}
+});
