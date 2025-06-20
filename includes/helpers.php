@@ -1,32 +1,260 @@
 <?php if (!defined('ABSPATH')) {exit;}
 
-// ==== CORE DATA FUNCTIONS ====
-function srl_get_user_full_data($user_id) {
-    $user = get_userdata($user_id);
-    if (!$user) return null;
-    
-    return array(
-        'id' => $user_id,
-        'email' => $user->user_email,
-        'display_name' => $user->display_name,
-        'first_name' => $user->first_name,
-        'last_name' => $user->last_name,
-        'imie' => get_user_meta($user_id, 'srl_imie', true),
-        'nazwisko' => get_user_meta($user_id, 'srl_nazwisko', true),
-        'rok_urodzenia' => get_user_meta($user_id, 'srl_rok_urodzenia', true),
-        'telefon' => get_user_meta($user_id, 'srl_telefon', true),
-        'kategoria_wagowa' => get_user_meta($user_id, 'srl_kategoria_wagowa', true),
-        'sprawnosc_fizyczna' => get_user_meta($user_id, 'srl_sprawnosc_fizyczna', true),
-        'uwagi' => get_user_meta($user_id, 'srl_uwagi', true)
+class SRL_Helper {
+    private static $config = array(
+        'flight_products' => array(62, 63, 65, 67, 69, 73, 74, 75, 76, 77),
+        'option_products' => array('przedluzenie' => 115, 'filmowanie' => 116, 'akrobacje' => 117),
+        'voucher_products' => array(105, 106, 107, 108)
     );
+    
+    private static $validation_rules = array(
+        'imie' => array('required' => true, 'min' => 2, 'max' => 50, 'pattern' => '/^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s\-]+$/u'),
+        'nazwisko' => array('required' => true, 'min' => 2, 'max' => 50, 'pattern' => '/^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s\-]+$/u'),
+        'telefon' => array('required' => true, 'min' => 9, 'max' => 11, 'pattern' => '/^[0-9\+\s\-\(\)]+$/'),
+        'voucher_code' => array('required' => true, 'min' => 3, 'max' => 20, 'pattern' => '/^[A-Z0-9]+$/'),
+        'sprawnosc_fizyczna' => array('required' => true, 'options' => array('zdolnosc_do_marszu', 'zdolnosc_do_biegu', 'sprinter')),
+        'kategoria_wagowa' => array('required' => true, 'options' => array('25-40kg', '41-60kg', '61-90kg', '91-120kg', '120kg+'))
+    );
+    
+    public static function get_config($key) {
+        return isset(self::$config[$key]) ? self::$config[$key] : null;
+    }
+    
+    public static function format_date($date, $format = 'd.m.Y') {
+        if (empty($date)) return '';
+        $timestamp = is_string($date) ? strtotime($date) : (is_numeric($date) ? $date : null);
+        return $timestamp ? date($format, $timestamp) : $date;
+    }
+    
+    public static function format_time($time, $format = 'H:i') {
+        if (empty($time)) return '';
+        if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $time)) return substr($time, 0, 5);
+        $timestamp = strtotime($time);
+        return $timestamp ? date($format, $timestamp) : $time;
+    }
+    
+    public static function format_polish_datetime($date, $start_time) {
+        if (empty($date) || empty($start_time)) return '';
+        $timestamp = strtotime($date);
+        if ($timestamp === false) return $date;
+
+        $day_names = array('Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota');
+        $month_names = array('stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 
+                           'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia');
+
+        return sprintf(
+            '<div class="srl-termin-data">%d %s %d, godz: %s</div><div class="srl-termin-dzien">%s</div>',
+            date('j', $timestamp), $month_names[date('n', $timestamp) - 1], date('Y', $timestamp),
+            substr($start_time, 0, 5), $day_names[date('w', $timestamp)]
+        );
+    }
+    
+    public static function format_expiry($date) {
+        if (empty($date)) return 'Brak daty ważności';
+        $timestamp = strtotime($date);
+        if ($timestamp === false) return $date;
+
+        $today = strtotime('today');
+        $diff_days = floor(($timestamp - $today) / (24 * 60 * 60));
+        $formatted = date('d.m.Y', $timestamp);
+
+        if ($diff_days < 0) return $formatted . ' (przeterminowany)';
+        if ($diff_days == 0) return $formatted . ' (wygasa dziś)';
+        if ($diff_days <= 30) return $formatted . " (zostało {$diff_days} dni)";
+        return $formatted;
+    }
+    
+    public static function validate($data, $rules = null) {
+        $rules = $rules ?: self::$validation_rules;
+        $errors = array();
+
+        foreach ($rules as $field => $rule) {
+            $value = isset($data[$field]) ? trim($data[$field]) : '';
+            
+            if ($rule['required'] && empty($value)) {
+                $errors[$field] = ucfirst($field) . ' jest wymagane.';
+                continue;
+            }
+            
+            if (!empty($value)) {
+                if (isset($rule['min']) && strlen($value) < $rule['min']) {
+                    $errors[$field] = ucfirst($field) . ' musi mieć co najmniej ' . $rule['min'] . ' znaków.';
+                }
+                if (isset($rule['max']) && strlen($value) > $rule['max']) {
+                    $errors[$field] = ucfirst($field) . ' nie może być dłuższe niż ' . $rule['max'] . ' znaków.';
+                }
+                if (isset($rule['pattern']) && !preg_match($rule['pattern'], $value)) {
+                    $errors[$field] = ucfirst($field) . ' zawiera nieprawidłowe znaki.';
+                }
+                if (isset($rule['options']) && !in_array($value, $rule['options'])) {
+                    $errors[$field] = 'Nieprawidłowa wartość dla ' . $field . '.';
+                }
+            }
+        }
+        
+        if ($field === 'telefon' && !empty($value)) {
+            $clean = preg_replace('/[^0-9]/', '', $value);
+            if (strlen($clean) < 9 || strlen($clean) > 11) {
+                $errors['telefon'] = 'Numer telefonu musi mieć 9-11 cyfr.';
+            }
+        }
+
+        return array('valid' => empty($errors), 'errors' => $errors);
+    }
+    
+    public static function validate_age($birth_year) {
+        $warnings = array();
+        if (!$birth_year) return array('valid' => true, 'age' => null, 'warnings' => array());
+        
+        $age = date('Y') - intval($birth_year);
+        if ($age <= 18) {
+            $warnings[] = array(
+                'type' => 'warning',
+                'text' => 'Osoby niepełnoletnie wymagają zgody rodzica/opiekuna.',
+                'link' => '/zgoda-na-lot-osoba-nieletnia/',
+                'link_text' => 'Pobierz zgodę tutaj'
+            );
+        }
+        
+        return array('valid' => true, 'age' => $age, 'warnings' => $warnings);
+    }
+    
+    public static function validate_weight($category) {
+        $warnings = $errors = array();
+        if (!$category) return array('valid' => true, 'warnings' => array(), 'errors' => array());
+        
+        if ($category === '91-120kg') {
+            $warnings[] = array('type' => 'warning', 'text' => 'Loty z pasażerami powyżej 90 kg mogą być krótsze, brak możliwości wykonania akrobacji.');
+        } elseif ($category === '120kg+') {
+            $errors[] = array('type' => 'error', 'text' => 'Brak możliwości wykonania lotu z pasażerem powyżej 120 kg.');
+        }
+        
+        return array('valid' => empty($errors), 'warnings' => $warnings, 'errors' => $errors);
+    }
+    
+    public static function generate_html_messages($warnings, $errors) {
+        $html = '';
+        foreach (array_merge($warnings, $errors) as $msg) {
+            $class = $msg['type'] === 'error' ? 'srl-uwaga-error' : 'srl-uwaga-warning';
+            $bg = $msg['type'] === 'error' ? '#fdeaea' : '#fff3e0';
+            $border = $msg['type'] === 'error' ? '#d63638' : '#ff9800';
+            $icon = $msg['type'] === 'error' ? '❌ Błąd:' : 'Uwaga:';
+            
+            $html .= "<div class=\"{$class}\" style=\"background:{$bg}; border:2px solid {$border}; border-radius:8px; padding:20px; margin-top:10px;\">";
+            $html .= "<strong>{$icon}</strong> {$msg['text']}";
+            if (isset($msg['link'], $msg['link_text'])) {
+                $html .= " <a href=\"{$msg['link']}\" target=\"_blank\" style=\"color:#f57c00; font-weight:bold;\">{$msg['link_text']}</a>";
+            }
+            $html .= '</div>';
+        }
+        return $html;
+    }
+    
+    public static function generate_status_badge($status, $type = 'lot') {
+        $configs = array(
+            'lot' => array(
+                'wolny' => '🟢 Dostępny do rezerwacji|status-available',
+                'zarezerwowany' => '🟡 Zarezerwowany|status-reserved',
+                'zrealizowany' => '🔵 Zrealizowany|status-completed',
+                'przedawniony' => '🔴 Przeterminowany|status-expired'
+            ),
+            'slot' => array(
+                'Wolny' => '🟢 Wolny|status-available',
+                'Prywatny' => '🟤 Prywatny|status-private',
+                'Zarezerwowany' => '🟡 Zarezerwowany|status-reserved',
+                'Zrealizowany' => '🔵 Zrealizowany|status-completed',
+                'Odwołany przez organizatora' => '🔴 Odwołany|status-cancelled'
+            )
+        );
+
+        $config = isset($configs[$type][$status]) ? $configs[$type][$status] : '⚪ ' . ucfirst($status) . '|status-unknown';
+        list($label, $class) = explode('|', $config);
+        
+        return "<span class=\"{$class}\" style=\"display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;\">{$label}</span>";
+    }
+    
+    public static function format_flight_options($has_filming, $has_acrobatics) {
+        $options = array(
+            $has_filming ? '<span style="color: #46b450; font-weight: bold;">z filmowaniem</span>' : '<span style="color: #d63638;">bez filmowania</span>',
+            $has_acrobatics ? '<span style="color: #46b450; font-weight: bold;">z akrobacjami</span>' : '<span style="color: #d63638;">bez akrobacji</span>'
+        );
+        return implode(', ', $options);
+    }
+    
+    public static function generate_ui_element($type, $content, $class = '', $attrs = array()) {
+        $attr_str = '';
+        foreach ($attrs as $key => $value) {
+            $attr_str .= " {$key}=\"" . esc_attr($value) . "\"";
+        }
+        $class_str = $class ? " class=\"" . esc_attr($class) . "\"" : '';
+        
+        switch ($type) {
+            case 'message':
+                $types = array('info' => 'srl-komunikat-info', 'success' => 'srl-komunikat-success', 
+                              'warning' => 'srl-komunikat-warning', 'error' => 'srl-komunikat-error');
+                $msg_class = isset($types[$attrs['type']]) ? $types[$attrs['type']] : $types['info'];
+                return "<div class=\"srl-komunikat {$msg_class}\">{$content}</div>";
+                
+            case 'select':
+                $html = "<select name=\"" . esc_attr($attrs['name']) . "\"{$class_str}{$attr_str}>";
+                foreach ($attrs['options'] as $value => $label) {
+                    $selected = isset($attrs['selected']) && $attrs['selected'] == $value ? ' selected' : '';
+                    $html .= "<option value=\"" . esc_attr($value) . "\"{$selected}>" . esc_html($label) . "</option>";
+                }
+                return $html . '</select>';
+                
+            case 'link':
+                return "<a href=\"" . esc_url($attrs['url']) . "\"{$class_str}{$attr_str}>{$content}</a>";
+                
+            case 'button':
+                return "<button{$class_str}{$attr_str}>{$content}</button>";
+                
+            default:
+                return $content;
+        }
+    }
+    
+    public static function detect_flight_options($text) {
+        $lower = strtolower($text);
+        return array(
+            'ma_filmowanie' => (strpos($lower, 'filmowani') !== false || strpos($lower, 'film') !== false ||
+                               strpos($lower, 'video') !== false || strpos($lower, 'kamer') !== false) ? 1 : 0,
+            'ma_akrobacje' => (strpos($lower, 'akrobacj') !== false || strpos($lower, 'trick') !== false ||
+                              strpos($lower, 'spiral') !== false || strpos($lower, 'figur') !== false) ? 1 : 0
+        );
+    }
+    
+    public static function can_cancel_reservation($flight_date, $flight_time) {
+        if (empty($flight_date) || empty($flight_time)) return false;
+        $flight_timestamp = strtotime($flight_date . ' ' . $flight_time);
+        return $flight_timestamp !== false && ($flight_timestamp - time()) > (48 * 3600);
+    }
+    
+    public static function generate_expiry_date($from_date = null, $years = 1) {
+        $base = $from_date ?: current_time('mysql');
+        return date('Y-m-d', strtotime($base . " +{$years} year"));
+    }
+    
+    public static function is_date_past($date) {
+        return strtotime($date) < strtotime('today');
+    }
+    
+    public static function time_to_minutes($time) {
+        list($h, $m) = explode(':', $time);
+        return intval($h) * 60 + intval($m);
+    }
+    
+    public static function minutes_to_time($minutes) {
+        return sprintf('%02d:%02d', floor($minutes / 60), $minutes % 60);
+    }
 }
 
 function srl_get_flight_option_product_ids() {
-    return array('przedluzenie' => 115, 'filmowanie' => 116, 'akrobacje' => 117);
+    return SRL_Helper::get_config('option_products');
 }
 
 function srl_get_flight_product_ids() {
-    return array(62, 63, 65, 67, 69, 73, 74, 75, 76, 77);
+    return SRL_Helper::get_config('flight_products');
 }
 
 function srl_check_admin_permissions() {
@@ -45,305 +273,96 @@ function srl_get_current_datetime() {
     return current_time('Y-m-d H:i:s');
 }
 
-// ==== FORMATTING FUNCTIONS ====
-function srl_formatuj_date($data, $format = 'd.m.Y') {
-    if (empty($data)) return '';
-    $timestamp = is_string($data) ? strtotime($data) : (is_numeric($data) ? $data : null);
-    return $timestamp ? date($format, $timestamp) : $data;
+function srl_formatuj_date($date, $format = 'd.m.Y') {
+    return SRL_Helper::format_date($date, $format);
 }
 
 function srl_formatuj_czas($time, $format = 'H:i') {
-    if (empty($time)) return '';
-    if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $time)) return substr($time, 0, 5);
-    $timestamp = strtotime($time);
-    return $timestamp ? date($format, $timestamp) : $time;
+    return SRL_Helper::format_time($time, $format);
 }
 
-function srl_formatuj_date_i_czas_polski($data, $godzina_start) {
-    if (empty($data) || empty($godzina_start)) return '';
-    $timestamp = strtotime($data);
-    if ($timestamp === false) return $data;
-
-    $nazwy_dni = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
-    $nazwy_miesiecy = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 
-                       'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
-
-    $dzien = date('j', $timestamp);
-    $miesiac = date('n', $timestamp) - 1;
-    $rok = date('Y', $timestamp);
-    $dzien_tygodnia = date('w', $timestamp);
-    $godzina = substr($godzina_start, 0, 5);
-
-    return sprintf(
-        '<div class="srl-termin-data">%d %s %d, godz: %s</div><div class="srl-termin-dzien">%s</div>',
-        $dzien, $nazwy_miesiecy[$miesiac], $rok, $godzina, $nazwy_dni[$dzien_tygodnia]
-    );
+function srl_formatuj_date_i_czas_polski($date, $start_time) {
+    return SRL_Helper::format_polish_datetime($date, $start_time);
 }
 
-function srl_formatuj_waznosc_lotu($data_waznosci) {
-    if (empty($data_waznosci)) return 'Brak daty ważności';
-    $timestamp = strtotime($data_waznosci);
-    if ($timestamp === false) return $data_waznosci;
-
-    $dzisiaj = strtotime('today');
-    $roznica_dni = floor(($timestamp - $dzisiaj) / (24 * 60 * 60));
-    $formatted_date = date('d.m.Y', $timestamp);
-
-    if ($roznica_dni < 0) return $formatted_date . ' (przeterminowany)';
-    if ($roznica_dni == 0) return $formatted_date . ' (wygasa dziś)';
-    if ($roznica_dni <= 30) return $formatted_date . " (zostało {$roznica_dni} dni)";
-    
-    return $formatted_date;
+function srl_formatuj_waznosc_lotu($date) {
+    return SRL_Helper::format_expiry($date);
 }
 
-// ==== VALIDATION FUNCTIONS ====
-function srl_waliduj_telefon($telefon) {
-    if (empty($telefon)) return array('valid' => false, 'message' => 'Numer telefonu jest wymagany.');
-    $telefon_clean = preg_replace('/[^0-9]/', '', $telefon);
-    if (strlen($telefon_clean) < 9) return array('valid' => false, 'message' => 'Numer telefonu musi mieć minimum 9 cyfr.');
-    if (strlen($telefon_clean) > 11) return array('valid' => false, 'message' => 'Numer telefonu jest za długi.');
-    if (strlen($telefon_clean) == 11 && substr($telefon_clean, 0, 2) !== '48') {
-        return array('valid' => false, 'message' => 'Nieprawidłowy format numeru telefonu.');
+function srl_waliduj_dane_pasazera($data) {
+    $validation = SRL_Helper::validate($data);
+    if (!isset($data['akceptacja_regulaminu']) || $data['akceptacja_regulaminu'] !== true) {
+        $validation['errors']['akceptacja_regulaminu'] = 'Musisz zaakceptować regulamin.';
+        $validation['valid'] = false;
     }
-    return array('valid' => true, 'message' => '');
+    return $validation;
 }
 
-function srl_waliduj_date($data, $format = 'Y-m-d') {
-    if (empty($data)) return array('valid' => false, 'message' => 'Data jest wymagana.');
-    $d = DateTime::createFromFormat($format, $data);
-    if (!$d || $d->format($format) !== $data) {
-        return array('valid' => false, 'message' => 'Nieprawidłowy format daty.');
+function srl_waliduj_wiek($birth_year, $format = 'html') {
+    $result = SRL_Helper::validate_age($birth_year);
+    if ($format === 'html') {
+        $result['html'] = SRL_Helper::generate_html_messages($result['warnings'], array());
     }
-    return array('valid' => true, 'message' => '');
-}
-
-function srl_waliduj_godzine($godzina) {
-    if (empty($godzina)) return array('valid' => false, 'message' => 'Godzina jest wymagana.');
-    if (!preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $godzina)) {
-        return array('valid' => false, 'message' => 'Nieprawidłowy format godziny (HH:MM).');
-    }
-    return array('valid' => true, 'message' => '');
-}
-
-function srl_waliduj_pole_tekstowe($wartosc, $nazwa_pola, $min_length = 2, $max_length = 100) {
-    if (empty($wartosc)) return array('valid' => false, 'message' => $nazwa_pola . ' jest wymagane.');
-    $wartosc = trim($wartosc);
-    if (strlen($wartosc) < $min_length) {
-        return array('valid' => false, 'message' => $nazwa_pola . ' musi mieć co najmniej ' . $min_length . ' znaki.');
-    }
-    if (strlen($wartosc) > $max_length) {
-        return array('valid' => false, 'message' => $nazwa_pola . ' nie może być dłuższe niż ' . $max_length . ' znaków.');
-    }
-    if (!preg_match('/^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s\-]+$/u', $wartosc)) {
-        return array('valid' => false, 'message' => $nazwa_pola . ' może zawierać tylko litery, spacje i myślniki.');
-    }
-    return array('valid' => true, 'message' => '');
-}
-
-function srl_waliduj_kod_vouchera($kod) {
-    if (empty($kod)) return array('valid' => false, 'message' => 'Kod vouchera jest wymagany.');
-    $kod = strtoupper(trim($kod));
-    if (strlen($kod) < 3 || strlen($kod) > 20) {
-        return array('valid' => false, 'message' => 'Kod vouchera musi mieć od 3 do 20 znaków.');
-    }
-    if (!preg_match('/^[A-Z0-9]+$/', $kod)) {
-        return array('valid' => false, 'message' => 'Kod vouchera może zawierać tylko wielkie litery i cyfry.');
-    }
-    return array('valid' => true, 'message' => '', 'kod' => $kod);
-}
-
-function srl_waliduj_dane_pasazera($dane) {
-    $errors = array();
-
-    $walidacja_imie = srl_waliduj_pole_tekstowe($dane['imie'] ?? '', 'Imię');
-    if (!$walidacja_imie['valid']) $errors['imie'] = $walidacja_imie['message'];
-
-    $walidacja_nazwisko = srl_waliduj_pole_tekstowe($dane['nazwisko'] ?? '', 'Nazwisko');
-    if (!$walidacja_nazwisko['valid']) $errors['nazwisko'] = $walidacja_nazwisko['message'];
-
-    $walidacja_telefon = srl_waliduj_telefon($dane['telefon'] ?? '');
-    if (!$walidacja_telefon['valid']) $errors['telefon'] = $walidacja_telefon['message'];
-
-    $sprawnosci = array('zdolnosc_do_marszu', 'zdolnosc_do_biegu', 'sprinter');
-    if (empty($dane['sprawnosc_fizyczna']) || !in_array($dane['sprawnosc_fizyczna'], $sprawnosci)) {
-        $errors['sprawnosc_fizyczna'] = 'Sprawność fizyczna jest wymagana.';
-    }
-    
-    if (!isset($dane['akceptacja_regulaminu']) || $dane['akceptacja_regulaminu'] !== true) {
-        $errors['akceptacja_regulaminu'] = 'Musisz zaakceptować regulamin.';
-    }
-
-    return array('valid' => empty($errors), 'errors' => $errors);
-}
-
-// ==== AGE & WEIGHT VALIDATION ====
-function srl_waliduj_wiek($rok_urodzenia, $format = 'html') {
-    $komunikaty = array();
-    if (!$rok_urodzenia) return array('valid' => true, 'wiek' => null, 'komunikaty' => array());
-    
-    $wiek = date('Y') - intval($rok_urodzenia);
-    if ($wiek <= 18) {
-        $komunikaty[] = array(
-            'typ' => 'warning',
-            'tresc' => 'Lot osoby niepełnoletniej: Osoby poniżej 18. roku życia mogą wziąć udział w locie tylko za zgodą rodzica lub opiekuna prawnego. Wymagane jest okazanie podpisanej, wydrukowanej zgody w dniu lotu, na miejscu startu.',
-            'link' => '/zgoda-na-lot-osoba-nieletnia/',
-            'link_text' => 'Pobierz zgodę tutaj'
-        );
-    }
-    
-    $result = array('valid' => true, 'wiek' => $wiek, 'komunikaty' => $komunikaty);
-    if ($format === 'html') $result['html'] = srl_generuj_html_komunikatow($komunikaty, array());
     return $result;
 }
 
-function srl_waliduj_kategorie_wagowa($kategoria_wagowa, $format = 'html') {
-    $komunikaty = $errors = array();
-    if (!$kategoria_wagowa) return array('valid' => true, 'komunikaty' => array(), 'errors' => array());
-    
-    if ($kategoria_wagowa === '91-120kg') {
-        $komunikaty[] = array(
-            'typ' => 'warning', 
-            'tresc' => 'Loty z pasażerami powyżej 90 kg mogą być krótsze, brak możliwości wykonania akrobacji. Pilot ma prawo odmówić wykonania lotu jeśli uzna, że zagraża to bezpieczeństwu.'
-        );
-    } elseif ($kategoria_wagowa === '120kg+') {
-        $errors[] = array('typ' => 'error', 'tresc' => 'Brak możliwości wykonania lotu z pasażerem powyżej 120 kg.');
+function srl_waliduj_kategorie_wagowa($category, $format = 'html') {
+    $result = SRL_Helper::validate_weight($category);
+    if ($format === 'html') {
+        $result['html'] = SRL_Helper::generate_html_messages($result['warnings'], $result['errors']);
     }
-    
-    $result = array('valid' => empty($errors), 'komunikaty' => $komunikaty, 'errors' => $errors);
-    if ($format === 'html') $result['html'] = srl_generuj_html_komunikatow($komunikaty, $errors);
     return $result;
 }
 
-function srl_generuj_html_komunikatow($komunikaty, $errors) {
-    $html = '';
-    foreach (array_merge($komunikaty, $errors) as $kom) {
-        $class = $kom['typ'] === 'error' ? 'srl-uwaga-error' : 'srl-uwaga-warning';
-        $bg_color = $kom['typ'] === 'error' ? '#fdeaea' : '#fff3e0';
-        $border_color = $kom['typ'] === 'error' ? '#d63638' : '#ff9800';
-        $text_color = $kom['typ'] === 'error' ? '#721c24' : '#000';
-        
-        $html .= '<div class="' . $class . '" style="background:' . $bg_color . '; border:2px solid ' . $border_color . '; border-radius:8px; padding:20px; margin-top:10px; color:' . $text_color . ';">';
-        $html .= $kom['typ'] === 'error' ? '<strong>❌ Błąd:</strong> ' : '<strong>Uwaga:</strong> ';
-        $html .= $kom['tresc'];
-        if (isset($kom['link']) && isset($kom['link_text'])) {
-            $html .= ' <a href="' . $kom['link'] . '" target="_blank" style="color:#f57c00; font-weight:bold;">' . $kom['link_text'] . '</a>';
-        }
-        $html .= '</div>';
-    }
-    return $html;
-}
-
-// ==== UI HELPER FUNCTIONS ====
 function srl_generate_status_badge($status, $type = 'lot') {
-    $config = array(
-        'lot' => array(
-            'wolny' => array('icon' => '🟢', 'class' => 'status-available', 'label' => 'Dostępny do rezerwacji'),
-            'zarezerwowany' => array('icon' => '🟡', 'class' => 'status-reserved', 'label' => 'Zarezerwowany'),
-            'zrealizowany' => array('icon' => '🔵', 'class' => 'status-completed', 'label' => 'Zrealizowany'),
-            'przedawniony' => array('icon' => '🔴', 'class' => 'status-expired', 'label' => 'Przeterminowany')
-        ),
-        'slot' => array(
-            'Wolny' => array('icon' => '🟢', 'class' => 'status-available', 'label' => 'Wolny'),
-            'Prywatny' => array('icon' => '🟤', 'class' => 'status-private', 'label' => 'Prywatny'),
-            'Zarezerwowany' => array('icon' => '🟡', 'class' => 'status-reserved', 'label' => 'Zarezerwowany'),
-            'Zrealizowany' => array('icon' => '🔵', 'class' => 'status-completed', 'label' => 'Zrealizowany'),
-            'Odwołany przez organizatora' => array('icon' => '🔴', 'class' => 'status-cancelled', 'label' => 'Odwołany')
-        )
-    );
-
-    $item = $config[$type][$status] ?? array('icon' => '⚪', 'class' => 'status-unknown', 'label' => ucfirst($status));
-    return sprintf(
-        '<span class="%s" style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">%s %s</span>',
-        $item['class'], $item['icon'], $item['label']
-    );
+    return SRL_Helper::generate_status_badge($status, $type);
 }
 
-function srl_format_flight_options_html($ma_filmowanie, $ma_akrobacje) {
-    $opcje = array();
-    $opcje[] = $ma_filmowanie ? '<span style="color: #46b450; font-weight: bold;">z filmowaniem</span>' : '<span style="color: #d63638;">bez filmowania</span>';
-    $opcje[] = $ma_akrobacje ? '<span style="color: #46b450; font-weight: bold;">z akrobacjami</span>' : '<span style="color: #d63638;">bez akrobacji</span>';
-    return implode(', ', $opcje);
+function srl_format_flight_options_html($has_filming, $has_acrobatics) {
+    return SRL_Helper::format_flight_options($has_filming, $has_acrobatics);
 }
 
 function srl_generate_message($text, $type = 'info', $dismissible = false) {
-    $classes = array(
-        'info' => 'srl-komunikat-info',
-        'success' => 'srl-komunikat-success', 
-        'warning' => 'srl-komunikat-warning',
-        'error' => 'srl-komunikat-error'
-    );
-    $class = $classes[$type] ?? $classes['info'];
     $dismiss_btn = $dismissible ? '<button type="button" class="srl-dismiss">×</button>' : '';
-    return '<div class="srl-komunikat ' . $class . '">' . $text . $dismiss_btn . '</div>';
+    return SRL_Helper::generate_ui_element('message', $text . $dismiss_btn, '', array('type' => $type));
 }
 
 function srl_generate_select($name, $options, $selected = '', $attrs = array()) {
-    $attributes = '';
-    foreach ($attrs as $key => $value) {
-        $attributes .= ' ' . $key . '="' . esc_attr($value) . '"';
-    }
-    
-    $html = '<select name="' . esc_attr($name) . '"' . $attributes . '>';
-    foreach ($options as $value => $label) {
-        $selected_attr = selected($selected, $value, false);
-        $html .= '<option value="' . esc_attr($value) . '"' . $selected_attr . '>' . esc_html($label) . '</option>';
-    }
-    $html .= '</select>';
-    return $html;
+    $attrs['name'] = $name;
+    $attrs['options'] = $options;
+    if ($selected !== '') $attrs['selected'] = $selected;
+    return SRL_Helper::generate_ui_element('select', '', '', $attrs);
 }
 
 function srl_generate_link($url, $text, $class = '', $attrs = array()) {
-    $attributes = '';
-    foreach ($attrs as $key => $value) {
-        $attributes .= ' ' . $key . '="' . esc_attr($value) . '"';
-    }
-    $class_attr = $class ? ' class="' . esc_attr($class) . '"' : '';
-    return '<a href="' . esc_url($url) . '"' . $class_attr . $attributes . '>' . $text . '</a>';
+    $attrs['url'] = $url;
+    return SRL_Helper::generate_ui_element('link', $text, $class, $attrs);
 }
 
 function srl_generate_button($text, $class = 'srl-btn-primary', $attrs = array()) {
-    $attributes = '';
-    foreach ($attrs as $key => $value) {
-        $attributes .= ' ' . $key . '="' . esc_attr($value) . '"';
-    }
-    return '<button class="srl-btn ' . $class . '"' . $attributes . '>' . $text . '</button>';
+    return SRL_Helper::generate_ui_element('button', $text, "srl-btn {$class}", $attrs);
 }
 
-// ==== UTILITY FUNCTIONS ====
-function srl_can_cancel_reservation($data_lotu, $godzina_lotu) {
-    if (empty($data_lotu) || empty($godzina_lotu)) return false;
-    $datetime_lotu = $data_lotu . ' ' . $godzina_lotu;
-    $timestamp_lotu = strtotime($datetime_lotu);
-    if ($timestamp_lotu === false) return false;
-    return ($timestamp_lotu - time()) > (48 * 3600);
+function srl_can_cancel_reservation($date, $time) {
+    return SRL_Helper::can_cancel_reservation($date, $time);
 }
 
 function srl_detect_flight_options($text) {
-    $text_lower = strtolower($text);
-    return array(
-        'ma_filmowanie' => (strpos($text_lower, 'filmowani') !== false || strpos($text_lower, 'film') !== false ||
-                           strpos($text_lower, 'video') !== false || strpos($text_lower, 'kamer') !== false) ? 1 : 0,
-        'ma_akrobacje' => (strpos($text_lower, 'akrobacj') !== false || strpos($text_lower, 'trick') !== false ||
-                          strpos($text_lower, 'spiral') !== false || strpos($text_lower, 'figur') !== false) ? 1 : 0
-    );
+    return SRL_Helper::detect_flight_options($text);
 }
 
 function srl_generate_expiry_date($from_date = null, $years = 1) {
-    $base_date = $from_date ? $from_date : current_time('mysql');
-    return date('Y-m-d', strtotime($base_date . " +{$years} year"));
+    return SRL_Helper::generate_expiry_date($from_date, $years);
 }
 
 function srl_is_date_past($date) {
-    return strtotime($date) < strtotime('today');
+    return SRL_Helper::is_date_past($date);
 }
 
 function srl_zamien_na_minuty($time) {
-    list($h, $m) = explode(':', $time);
-    return intval($h) * 60 + intval($m);
+    return SRL_Helper::time_to_minutes($time);
 }
 
 function srl_minuty_na_czas($minutes) {
-    $h = floor($minutes / 60);
-    $m = $minutes % 60;
-    return sprintf('%02d:%02d', $h, $m);
+    return SRL_Helper::minutes_to_time($minutes);
 }
