@@ -22,7 +22,6 @@ require_once SRL_PLUGIN_DIR . 'includes/historia-functions.php';
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-menu.php';
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-calendar.php';
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-day.php';
-require_once SRL_PLUGIN_DIR . 'includes/admin/admin-voucher.php';
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-vouchers.php';
 require_once SRL_PLUGIN_DIR . 'includes/admin/admin-flights.php';
 

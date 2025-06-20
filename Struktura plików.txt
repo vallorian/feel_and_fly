@@ -19,7 +19,6 @@ system-rezerwacji-lotow/
 │   │   ├── admin-menu.php                         # Panel admin - menu
 │   │   ├── admin-calendar.php                     # Panel admin - kalendarz  
 │   │   ├── admin-day.php                          # Panel admin - dzień
-│   │   ├── admin-voucher.php                      # Panel admin - voucher
 │   │   ├── admin-vouchers.php                     # Panel admin - vouchery
 │   │   └── admin-flights.php                      # Panel admin - loty
 │   │

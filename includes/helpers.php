@@ -143,8 +143,8 @@ function srl_waliduj_pole_tekstowe($wartosc, $nazwa_pola, $min_length = 2, $max_
 function srl_waliduj_kod_vouchera($kod) {
     if (empty($kod)) return array('valid' => false, 'message' => 'Kod vouchera jest wymagany.');
     $kod = strtoupper(trim($kod));
-    if (strlen($kod) < 3 || strlen($kod) > 12) {
-        return array('valid' => false, 'message' => 'Kod vouchera musi mieć od 3 do 12 znaków.');
+    if (strlen($kod) < 3 || strlen($kod) > 20) {
+        return array('valid' => false, 'message' => 'Kod vouchera musi mieć od 3 do 20 znaków.');
     }
     if (!preg_match('/^[A-Z0-9]+$/', $kod)) {
         return array('valid' => false, 'message' => 'Kod vouchera może zawierać tylko wielkie litery i cyfry.');

@@ -692,12 +692,24 @@ function srl_ajax_dodaj_voucher_recznie() {
     check_ajax_referer('srl_admin_nonce', 'nonce', true);
     srl_check_admin_permissions();
     
-    if (!function_exists('srl_voucher_table_exists') || !srl_voucher_table_exists()) {
-        wp_send_json_error('Tabela voucherów nie istnieje.');
+    if (!function_exists('srl_voucher_table_exists')) {
+        // Inline check since function doesn't exist
+        global $wpdb;
+        $tabela = $wpdb->prefix . 'srl_vouchery_upominkowe';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$tabela'") == $tabela;
+        if (!$table_exists) {
+            wp_send_json_error('Tabela voucherów nie istnieje.');
+            return;
+        }
     }
     
     $kod_vouchera = strtoupper(sanitize_text_field($_POST['kod_vouchera']));
     $data_waznosci = sanitize_text_field($_POST['data_waznosci']);
+    $nazwa_produktu = sanitize_text_field($_POST['nazwa_produktu']) ?: 'Voucher na lot tandemowy';
+    $buyer_imie = sanitize_text_field($_POST['buyer_imie']);
+    $buyer_nazwisko = sanitize_text_field($_POST['buyer_nazwisko']);
+    $ma_filmowanie = intval($_POST['ma_filmowanie']) ? 1 : 0;
+    $ma_akrobacje = intval($_POST['ma_akrobacje']) ? 1 : 0;
     
     $validation_kod = srl_waliduj_kod_vouchera($kod_vouchera);
     if (!$validation_kod['valid']) {
@@ -711,6 +723,10 @@ function srl_ajax_dodaj_voucher_recznie() {
     
     if (srl_is_date_past($data_waznosci)) {
         wp_send_json_error('Data ważności nie może być z przeszłości.');
+    }
+    
+    if (empty($buyer_imie) || empty($buyer_nazwisko)) {
+        wp_send_json_error('Imię i nazwisko kupującego są wymagane.');
     }
     
     global $wpdb;
@@ -730,25 +746,39 @@ function srl_ajax_dodaj_voucher_recznie() {
     $current_user = wp_get_current_user();
     $data_zakupu = current_time('mysql');
     
-    $result = $wpdb->insert(
-        $tabela,
-        array(
-            'order_item_id' => 0,
-            'order_id' => 0,
-            'buyer_user_id' => $current_user->ID,
-            'buyer_imie' => $current_user->first_name ?: 'Admin',
-            'buyer_nazwisko' => $current_user->last_name ?: 'Manual',
-            'nazwa_produktu' => 'Voucher dodany ręcznie',
-            'kod_vouchera' => $validation_kod['kod'],
-            'status' => 'do_wykorzystania',
-            'data_zakupu' => $data_zakupu,
-            'data_waznosci' => $data_waznosci
-        ),
-        array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s')
-    );
+    $nazwa_produktu = sanitize_text_field($_POST['nazwa_produktu'] ?? 'Voucher dodany ręcznie');
+	$ma_filmowanie = isset($_POST['ma_filmowanie']) ? 1 : 0;
+	$ma_akrobacje = isset($_POST['ma_akrobacje']) ? 1 : 0;
+
+	$result = $wpdb->insert(
+		$tabela,
+		array(
+			'order_item_id' => 0,
+			'order_id' => 0,
+			'buyer_user_id' => $current_user->ID,
+			'buyer_imie' => $current_user->first_name ?: 'Admin',
+			'buyer_nazwisko' => $current_user->last_name ?: 'Manual',
+			'nazwa_produktu' => $nazwa_produktu,
+			'kod_vouchera' => $validation_kod['kod'],
+			'status' => 'do_wykorzystania',
+			'data_zakupu' => $data_zakupu,
+			'data_waznosci' => $data_waznosci,
+			'ma_filmowanie' => $ma_filmowanie,
+			'ma_akrobacje' => $ma_akrobacje
+		),
+		array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s','%d','%d')
+	);
     
     if ($result !== false) {
-        wp_send_json_success('Voucher został dodany pomyślnie.');
+        $opcje_text = '';
+        if ($ma_filmowanie || $ma_akrobacje) {
+            $opcje = array();
+            if ($ma_filmowanie) $opcje[] = 'filmowanie';
+            if ($ma_akrobacje) $opcje[] = 'akrobacje';
+            $opcje_text = ' z opcjami: ' . implode(', ', $opcje);
+        }
+        
+        wp_send_json_success('Voucher został dodany pomyślnie' . $opcje_text . '.');
     } else {
         wp_send_json_error('Błąd podczas dodawania vouchera do bazy danych.');
     }

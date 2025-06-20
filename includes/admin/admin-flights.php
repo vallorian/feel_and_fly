@@ -186,7 +186,6 @@ function srl_wyswietl_wykupione_loty() {
     ?>
     <div class="wrap">
         <h1 class="wp-heading-inline">🎫 Wykupione loty tandemowe</h1>
-        <?php echo srl_generate_link(admin_url('admin.php?page=srl-sync-flights'), 'Synchronizuj loty', 'page-title-action'); ?>
         
         <!-- Statystyki -->
         <div class="srl-stats" style="display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
@@ -340,10 +339,25 @@ function srl_wyswietl_wykupione_loty() {
                                 </th>
                                 
                                 <!-- Kolumna ID lotu (zam.) -->
-                                <td>
-                                    <strong>ID lotu: #<?php echo $lot['id']; ?></strong>
-                                    <br>Nr. zam: <?php echo srl_generate_link($order_url, '#' . $lot['order_id'], '', array('target' => '_blank', 'style' => 'color: #0073aa;')); ?>
-                                </td>
+								<td>
+									<strong>ID lotu: #<?php echo $lot['id']; ?></strong><br>
+
+									<?php if ($lot['order_id'] == 0): ?>
+										<small style="color:#666;font-style:italic;">dod. ręcznie</small>
+									<?php else: ?>
+										<small>
+											Nr. zam:
+											<?php
+												echo srl_generate_link(
+													$order_url,
+													'#' . $lot['order_id'],
+													'',
+													['target' => '_blank', 'style' => 'color:#0073aa;']
+												);
+											?>
+										</small>
+									<?php endif; ?>
+								</td>
                                 
                                 <!-- Kolumna Klient -->
                                 <td>
@@ -904,57 +918,6 @@ jQuery(document).ready(function($) {
     <?php
 }
 
-// Strona synchronizacji lotów
-function srl_wyswietl_synchronizacje() {
-    srl_check_admin_permissions();
-    
-    if (isset($_POST['sync_flights'])) {
-        $result = srl_synchronizuj_loty_z_zamowieniami();
-        echo '<div class="notice notice-success"><p>' . $result . '</p></div>';
-    }
-    
-    ?>
-    <div class="wrap">
-        <h1>🔄 Synchronizacja lotów</h1>
-        
-        <div class="card" style="max-width: 800px;">
-            <h2>Synchronizuj loty z zamówieniami</h2>
-            <p>Ta funkcja przeskanuje wszystkie zamówienia i:</p>
-            <ul>
-                <li>Doda brakujące loty z zamówień ze statusem "processing" lub "completed"</li>
-                <li>Usunie loty z zamówień o innych statusach</li>
-                <li>Zaktualizuje dane klientów</li>
-                <li>Oznczy przeterminowane loty</li>
-            </ul>
-            
-            <form method="post">
-                <p>
-                    <button type="submit" name="sync_flights" class="button button-primary button-large">
-                        🔄 Uruchom synchronizację
-                    </button>
-                </p>
-            </form>
-        </div>
-        
-        <div class="card" style="max-width: 800px; margin-top: 20px;">
-            <h2>Produkty uznawane za loty</h2>
-            <?php
-            $dozwolone_id = srl_get_flight_product_ids();
-            echo '<p>Aktualne ID produktów: <strong>' . implode(', ', $dozwolone_id) . '</strong></p>';
-            
-            foreach ($dozwolone_id as $id) {
-                $product = wc_get_product($id);
-                if ($product) {
-                    echo '<p>• ID ' . $id . ': ' . esc_html($product->get_name()) . '</p>';
-                } else {
-                    echo '<p style="color: #d63638;">• ID ' . $id . ': Produkt nie istnieje!</p>';
-                }
-            }
-            ?>
-        </div>
-    </div>
-    <?php
-}
 
 // AJAX: Usuń pojedynczy lot
 add_action('wp_ajax_srl_usun_lot', 'srl_ajax_usun_lot');
@@ -975,64 +938,6 @@ function srl_ajax_usun_lot() {
         wp_send_json_success('Lot został usunięty.');
     }
 }
-
-// Funkcja główna synchronizacji
-function srl_synchronizuj_loty_z_zamowieniami() {
-    global $wpdb;
-    $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-    
-    $dodane = 0;
-    $usuniete = 0;
-    $zaktualizowane = 0;
-    
-    // 1. Usuń loty z nieważnych zamówień
-    $niewazne_statusy = ['trash', 'cancelled', 'refunded', 'failed', 'pending', 'on-hold'];
-    $placeholders = implode(',', array_fill(0, count($niewazne_statusy), '%s'));
-    
-    $do_usuniecia = $wpdb->get_results($wpdb->prepare(
-        "SELECT zl.id FROM $tabela_loty zl 
-         LEFT JOIN {$wpdb->posts} p ON zl.order_id = p.ID 
-         WHERE p.post_status IN ($placeholders) OR p.ID IS NULL",
-        ...$niewazne_statusy
-    ));
-    
-    foreach ($do_usuniecia as $lot) {
-        $wpdb->delete($tabela_loty, array('id' => $lot->id), array('%d'));
-        $usuniete++;
-    }
-    
-    // 2. Dodaj brakujące loty z ważnych zamówień
-    $wazne_statusy = ['wc-processing', 'wc-completed'];
-    $orders = get_posts(array(
-        'post_type' => 'shop_order',
-        'post_status' => $wazne_statusy,
-        'posts_per_page' => -1,
-        'fields' => 'ids'
-    ));
-    
-    foreach ($orders as $order_id) {
-        $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $tabela_loty WHERE order_id = %d",
-            $order_id
-        ));
-        
-        if ($existing == 0) {
-            srl_dodaj_loty_po_zakupie($order_id);
-            $dodane++;
-        }
-    }
-    
-    // 3. Oznacz przeterminowane loty
-    $wpdb->query(
-        "UPDATE $tabela_loty 
-         SET status = 'przedawniony' 
-         WHERE status IN ('wolny', 'zarezerwowany') 
-         AND data_waznosci < CURDATE()"
-    );
-    
-    return "Synchronizacja zakończona. Dodano: $dodane, Usunięto: $usuniete lotów.";
-}
-
 
 
 // AJAX: Zmień status lotu przez admina

@@ -257,6 +257,28 @@ function srl_aktualizuj_baze() {
         
         update_option('srl_db_version', '1.8');
     }
+	
+	if (version_compare($current_version, '1.9', '<')) {
+		$tabela_vouchery_upominkowe = $wpdb->prefix . 'srl_vouchery_upominkowe';
+		
+		// Sprawdź czy kolumny już istnieją
+		$kolumny = $wpdb->get_results("SHOW COLUMNS FROM $tabela_vouchery_upominkowe");
+		$existing_columns = array();
+		foreach ($kolumny as $kolumna) {
+			$existing_columns[] = $kolumna->Field;
+		}
+		
+		if (!in_array('ma_filmowanie', $existing_columns)) {
+			$wpdb->query("ALTER TABLE $tabela_vouchery_upominkowe ADD COLUMN ma_filmowanie TINYINT(1) DEFAULT 0 AFTER lot_id");
+		}
+		
+		if (!in_array('ma_akrobacje', $existing_columns)) {
+			$wpdb->query("ALTER TABLE $tabela_vouchery_upominkowe ADD COLUMN ma_akrobacje TINYINT(1) DEFAULT 0 AFTER ma_filmowanie");
+		}
+		
+		error_log('SRL: Dodano kolumny ma_filmowanie i ma_akrobacje do tabeli voucherów w wersji 1.9');
+		update_option('srl_db_version', '1.9');
+	}
 }
 
 function srl_cleanup_voucher_table() {
