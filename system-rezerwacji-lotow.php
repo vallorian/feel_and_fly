@@ -11,19 +11,10 @@ if (!defined('ABSPATH')) {exit;}
 define('SRL_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SRL_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// Validation system
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Config.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Validator.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Formatter.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Database_Manager.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Event_System.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_AJAX_Controllers.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Flight_Manager.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Schedule_Manager.php';
-require_once SRL_PLUGIN_DIR . 'includes/validation/SRL_Voucher_Manager.php';
-
 // Core includes
 require_once SRL_PLUGIN_DIR . 'includes/database/database-setup.php';
+require_once SRL_PLUGIN_DIR . 'includes/helpers.php';
+require_once SRL_PLUGIN_DIR . 'includes/database-helpers.php';
 require_once SRL_PLUGIN_DIR . 'includes/email-functions.php';
 require_once SRL_PLUGIN_DIR . 'includes/historia-functions.php';
 
@@ -38,6 +29,10 @@ require_once SRL_PLUGIN_DIR . 'includes/admin/admin-flights.php';
 require_once SRL_PLUGIN_DIR . 'includes/frontend/frontend-shortcodes.php';
 
 // Feature includes
+require_once SRL_PLUGIN_DIR . 'includes/partner-voucher-functions.php';
+require_once SRL_PLUGIN_DIR . 'includes/voucher-functions.php';
+require_once SRL_PLUGIN_DIR . 'includes/voucher-gift-functions.php';
+require_once SRL_PLUGIN_DIR . 'includes/flight-options.php';
 require_once SRL_PLUGIN_DIR . 'includes/cart-flight-options.php';
 require_once SRL_PLUGIN_DIR . 'includes/product-flight-options.php';
 require_once SRL_PLUGIN_DIR . 'includes/client-account.php';
