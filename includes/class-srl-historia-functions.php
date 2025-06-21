@@ -251,4 +251,8 @@ class SRL_Historia_Functions {
 
         return $przetworzone;
     }
+	
+	public function ajaxPobierzHistorieLotu($lot_id) {
+		return $this->pobierzHistorieLotu($lot_id);
+	}
 }

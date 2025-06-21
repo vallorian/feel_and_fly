@@ -28,130 +28,171 @@ class SRL_Voucher_Ajax {
         add_action('wp_ajax_srl_get_partner_voucher_stats', array($this, 'ajaxGetPartnerVoucherStats'));
     }
 
-    public function ajaxWykorzystajVoucher() {
-        check_ajax_referer('srl_admin_nonce', 'nonce', true);
-        SRL_Helpers::getInstance()->requireLogin();
-        
-        $kod_vouchera = strtoupper(sanitize_text_field($_POST['kod_vouchera']));
-        $user_id = get_current_user_id();
-        
-        $validation = SRL_Helpers::getInstance()->walidujKodVouchera($kod_vouchera);
-        if (!$validation['valid']) {
-            wp_send_json_error($validation['message']);
-        }
-        
-        if (!function_exists('srl_wykorzystaj_voucher')) {
-            wp_send_json_error('Funkcja voucherów nie jest dostępna.');
-        }
-        
-        $result = SRL_Voucher_Gift_Functions::getInstance()->wykorzystajVoucher($validation['kod'], $user_id);
-        
-        if ($result['success']) {
-            wp_send_json_success($result);
-        } else {
-            wp_send_json_error($result['message']);
-        }
-    }
+	public function ajaxWykorzystajVoucher() {
+		// Używaj frontend nonce zamiast admin nonce dla użytkowników
+		if (!check_ajax_referer('srl_frontend_nonce', 'nonce', false)) {
+			// Fallback dla admin nonce w przypadku panelu administracyjnego
+			check_ajax_referer('srl_admin_nonce', 'nonce', true);
+		}
+		
+		if (!is_user_logged_in()) {
+			wp_send_json_error('Musisz być zalogowany aby wykorzystać voucher.');
+		}
+		
+		$kod_vouchera = strtoupper(sanitize_text_field($_POST['kod_vouchera']));
+		$user_id = get_current_user_id();
+		
+		if (empty($kod_vouchera)) {
+			wp_send_json_error('Kod vouchera jest wymagany.');
+		}
+		
+		$validation = SRL_Helpers::getInstance()->walidujKodVouchera($kod_vouchera);
+		if (!$validation['valid']) {
+			wp_send_json_error($validation['message']);
+		}
+		
+		// Sprawdź czy klasa SRL_Voucher_Gift_Functions istnieje i ma metodę wykorzystajVoucher
+		if (!class_exists('SRL_Voucher_Gift_Functions')) {
+			wp_send_json_error('Funkcja voucherów nie jest dostępna - brak klasy SRL_Voucher_Gift_Functions.');
+		}
+		
+		$voucher_functions = SRL_Voucher_Gift_Functions::getInstance();
+		if (!method_exists($voucher_functions, 'wykorzystajVoucher')) {
+			wp_send_json_error('Funkcja wykorzystania voucherów nie jest dostępna.');
+		}
+		
+		$result = $voucher_functions->wykorzystajVoucher($validation['kod'], $user_id);
+		
+		if ($result['success']) {
+			wp_send_json_success($result['message']);
+		} else {
+			wp_send_json_error($result['message']);
+		}
+	}
 
-    public function ajaxGetPartnerVoucherTypes() {
-        check_ajax_referer('srl_admin_nonce', 'nonce', true);
-        
-        $partner = sanitize_text_field($_POST['partner']);
-        
-        if (empty($partner)) {
-            wp_send_json_error('Nie wybrano partnera.');
-        }
-        
-        $types = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVoucherTypes($partner);
-        
-        if (empty($types)) {
-            wp_send_json_error('Brak dostępnych typów voucherów dla tego partnera.');
-        }
-        
-        wp_send_json_success($types);
-    }
+	// Dodaj też metodę dla poprawnego nonce w partner voucherach:
+	public function ajaxGetPartnerVoucherTypes() {
+		// Używaj frontend nonce dla frontendowych żądań
+		if (!check_ajax_referer('srl_frontend_nonce', 'nonce', false)) {
+			// Fallback dla admin nonce
+			check_ajax_referer('srl_admin_nonce', 'nonce', true);
+		}
+		
+		$partner = sanitize_text_field($_POST['partner']);
+		
+		if (empty($partner)) {
+			wp_send_json_error('Nie wybrano partnera.');
+		}
+		
+		$types = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVoucherTypes($partner);
+		
+		if (empty($types)) {
+			wp_send_json_error('Brak dostępnych typów voucherów dla tego partnera.');
+		}
+		
+		wp_send_json_success($types);
+	}
 
-    public function ajaxSubmitPartnerVoucher() {
-        check_ajax_referer('srl_admin_nonce', 'nonce', true);
-        SRL_Helpers::getInstance()->requireLogin();
-        
-        $user_id = get_current_user_id();
-        $partner = sanitize_text_field($_POST['partner']);
-        $typ_vouchera = sanitize_text_field($_POST['typ_vouchera']);
-        $kod_vouchera = sanitize_text_field($_POST['kod_vouchera']);
-        $kod_zabezpieczajacy = sanitize_text_field($_POST['kod_zabezpieczajacy']);
-        $data_waznosci = sanitize_text_field($_POST['data_waznosci']);
-        $dane_pasazerow = $_POST['dane_pasazerow'];
-        
-        $date_validation = SRL_Helpers::getInstance()->walidujDate($data_waznosci);
-        if (!$date_validation['valid']) {
-            wp_send_json_error('Błąd w dacie ważności: ' . $date_validation['message']);
-        }
-        
-        if (SRL_Helpers::getInstance()->isDatePast($data_waznosci)) {
-            wp_send_json_error('Data ważności nie może być z przeszłości.');
-        }
-        
-        if (!is_array($dane_pasazerow) || empty($dane_pasazerow)) {
-            wp_send_json_error('Brak danych pasażerów.');
-        }
-        
-        $liczba_osob = SRL_Partner_Voucher_Functions::getInstance()->getVoucherPassengerCount($partner, $typ_vouchera);
-        
-        if (count($dane_pasazerow) !== $liczba_osob) {
-            wp_send_json_error('Nieprawidłowa liczba pasażerów dla wybranego typu vouchera.');
-        }
-        
-        $sanitized_passengers = array();
-        foreach ($dane_pasazerow as $index => $pasazer) {
-            $sanitized_passenger = array(
-                'imie' => sanitize_text_field($pasazer['imie']),
-                'nazwisko' => sanitize_text_field($pasazer['nazwisko']),
-                'rok_urodzenia' => intval($pasazer['rok_urodzenia']),
-                'telefon' => sanitize_text_field($pasazer['telefon']),
-                'kategoria_wagowa' => sanitize_text_field($pasazer['kategoria_wagowa']),
-                'sprawnosc_fizyczna' => sanitize_text_field($pasazer['sprawnosc_fizyczna']),
-                'akceptacja_regulaminu' => (bool)$pasazer['akceptacja_regulaminu']
-            );
-            
-            $walidacja_pasazera = SRL_Helpers::getInstance()->walidujDanePasazera($sanitized_passenger);
-            if (!$walidacja_pasazera['valid']) {
-                $numer_pasazera = $index + 1;
-                foreach ($walidacja_pasazera['errors'] as $field => $error) {
-                    wp_send_json_error("Pasażer {$numer_pasazera} ({$sanitized_passenger['imie']} {$sanitized_passenger['nazwisko']}) - {$error}");
-                }
-            }
-            
-            $walidacja_waga = SRL_Helpers::getInstance()->walidujKategorieWagowa($sanitized_passenger['kategoria_wagowa']);
-            if (!$walidacja_waga['valid']) {
-                $numer_pasazera = $index + 1;
-                foreach ($walidacja_waga['errors'] as $error) {
-                    wp_send_json_error("Pasażer {$numer_pasazera} ({$sanitized_passenger['imie']} {$sanitized_passenger['nazwisko']}) - " . $error['tresc']);
-                }
-            }
-            
-            $sanitized_passengers[] = $sanitized_passenger;
-        }
-        
-        $voucher_data = array(
-            'partner' => $partner,
-            'typ_vouchera' => $typ_vouchera,
-            'kod_vouchera' => $kod_vouchera,
-            'kod_zabezpieczajacy' => $kod_zabezpieczajacy,
-            'data_waznosci' => $data_waznosci,
-            'liczba_osob' => $liczba_osob,
-            'dane_pasazerow' => $sanitized_passengers,
-            'klient_id' => $user_id
-        );
-        
-        $result = SRL_Partner_Voucher_Functions::getInstance()->savePartnerVoucher($voucher_data);
-        
-        if ($result['success']) {
-            wp_send_json_success('Voucher został wysłany do weryfikacji. Otrzymasz email z informacją o statusie.');
-        } else {
-            wp_send_json_error($result['message']);
-        }
-    }
+	public function ajaxSubmitPartnerVoucher() {
+		// Używaj frontend nonce dla frontendowych żądań
+		if (!check_ajax_referer('srl_frontend_nonce', 'nonce', false)) {
+			// Fallback dla admin nonce
+			check_ajax_referer('srl_admin_nonce', 'nonce', true);
+		}
+		
+		if (!is_user_logged_in()) {
+			wp_send_json_error('Musisz być zalogowany.');
+		}
+		
+		$user_id = get_current_user_id();
+		$partner = sanitize_text_field($_POST['partner']);
+		$typ_vouchera = sanitize_text_field($_POST['typ_vouchera']);
+		$kod_vouchera = sanitize_text_field($_POST['kod_vouchera']);
+		$kod_zabezpieczajacy = sanitize_text_field($_POST['kod_zabezpieczajacy']);
+		$data_waznosci = sanitize_text_field($_POST['data_waznosci']);
+		$dane_pasazerow = $_POST['dane_pasazerow'];
+		
+		// Walidacja danych
+		$required_fields = ['partner', 'typ_vouchera', 'kod_vouchera', 'kod_zabezpieczajacy', 'data_waznosci'];
+		foreach ($required_fields as $field) {
+			if (empty($_POST[$field])) {
+				wp_send_json_error("Pole {$field} jest wymagane.");
+			}
+		}
+		
+		$date_validation = SRL_Helpers::getInstance()->walidujDate($data_waznosci);
+		if (!$date_validation['valid']) {
+			wp_send_json_error('Błąd w dacie ważności: ' . $date_validation['message']);
+		}
+		
+		if (SRL_Helpers::getInstance()->isDatePast($data_waznosci)) {
+			wp_send_json_error('Data ważności nie może być z przeszłości.');
+		}
+		
+		if (!is_array($dane_pasazerow) || empty($dane_pasazerow)) {
+			wp_send_json_error('Brak danych pasażerów.');
+		}
+		
+		// Sprawdź liczbę osób dla wybranego typu vouchera
+		$liczba_osob = SRL_Partner_Voucher_Functions::getInstance()->getVoucherPassengerCount($partner, $typ_vouchera);
+		
+		if (count($dane_pasazerow) !== $liczba_osob) {
+			wp_send_json_error("Nieprawidłowa liczba pasażerów. Oczekiwano: {$liczba_osob}");
+		}
+		
+		// Walidacja i czyszczenie danych pasażerów
+		$sanitized_passengers = array();
+		foreach ($dane_pasazerow as $index => $pasazer) {
+			$sanitized_passenger = array(
+				'imie' => sanitize_text_field($pasazer['imie']),
+				'nazwisko' => sanitize_text_field($pasazer['nazwisko']),
+				'rok_urodzenia' => intval($pasazer['rok_urodzenia']),
+				'telefon' => sanitize_text_field($pasazer['telefon']),
+				'kategoria_wagowa' => sanitize_text_field($pasazer['kategoria_wagowa']),
+				'sprawnosc_fizyczna' => sanitize_text_field($pasazer['sprawnosc_fizyczna']),
+				'uwagi' => sanitize_textarea_field($pasazer['uwagi'] ?? ''),
+				'akceptacja_regulaminu' => true
+			);
+			
+			// Walidacja każdego pasażera
+			$walidacja_pasazera = SRL_Helpers::getInstance()->walidujDanePasazera($sanitized_passenger);
+			if (!$walidacja_pasazera['valid']) {
+				$numer_pasazera = $index + 1;
+				$errors = implode(', ', $walidacja_pasazera['errors']);
+				wp_send_json_error("Błędy w danych pasażera {$numer_pasazera}: {$errors}");
+			}
+			
+			// Sprawdź kategorię wagową
+			$walidacja_waga = SRL_Helpers::getInstance()->walidujKategorieWagowa($sanitized_passenger['kategoria_wagowa']);
+			if (!$walidacja_waga['valid']) {
+				$numer_pasazera = $index + 1;
+				foreach ($walidacja_waga['errors'] as $error) {
+					wp_send_json_error("Pasażer {$numer_pasazera} - " . $error['tresc']);
+				}
+			}
+			
+			$sanitized_passengers[] = $sanitized_passenger;
+		}
+		
+		$voucher_data = array(
+			'partner' => $partner,
+			'typ_vouchera' => $typ_vouchera,
+			'kod_vouchera' => $kod_vouchera,
+			'kod_zabezpieczajacy' => $kod_zabezpieczajacy,
+			'data_waznosci' => $data_waznosci,
+			'liczba_osob' => $liczba_osob,
+			'dane_pasazerow' => $sanitized_passengers,
+			'klient_id' => $user_id
+		);
+		
+		$result = SRL_Partner_Voucher_Functions::getInstance()->savePartnerVoucher($voucher_data);
+		
+		if ($result['success']) {
+			wp_send_json_success('Voucher został wysłany do weryfikacji. Otrzymasz email z informacją o statusie.');
+		} else {
+			wp_send_json_error($result['message']);
+		}
+	}
 
     public function ajaxGetPartnerVoucherDetails() {
         check_ajax_referer('srl_admin_nonce', 'nonce', true);

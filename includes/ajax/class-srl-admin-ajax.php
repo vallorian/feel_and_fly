@@ -35,7 +35,150 @@ class SRL_Admin_Ajax {
         add_action('wp_ajax_srl_zrealizuj_lot_prywatny', array($this, 'ajaxajaxZrealizujLotPrywatny'));
         add_action('wp_ajax_srl_pobierz_dostepne_terminy_do_zmiany', array($this, 'ajaxPobierzDostepneTerminyDoZmiany'));
         add_action('wp_ajax_srl_zmien_termin_lotu', array($this, 'ajaxZmienTerminLotu'));
+		add_action('wp_ajax_srl_admin_zmien_status_lotu', array($this, 'ajaxAdminZmienStatusLotu'));
+		add_action('wp_ajax_srl_pobierz_szczegoly_lotu', array($this, 'ajaxPobierzSzczegolyLotu'));
     }
+	
+	public function ajaxAdminZmienStatusLotu() {
+		check_ajax_referer('srl_admin_nonce', 'nonce', true);
+		SRL_Helpers::getInstance()->checkAdminPermissions();
+
+		$lot_id = intval($_POST['lot_id']);
+		$nowy_status = sanitize_text_field($_POST['nowy_status']);
+
+		if (!$lot_id || !$nowy_status) {
+			wp_send_json_error('Nieprawidłowe parametry.');
+		}
+
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		$tabela_terminy = $wpdb->prefix . 'srl_terminy';
+
+		$lot = $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $tabela_loty WHERE id = %d",
+			$lot_id
+		), ARRAY_A);
+
+		if (!$lot) {
+			wp_send_json_error('Lot nie istnieje.');
+		}
+
+		$stary_status = $lot['status'];
+
+		$wpdb->query('START TRANSACTION');
+
+		try {
+			// Jeśli lot był zarezerwowany i zmieniamy na wolny, zwolnij termin
+			if ($stary_status === 'zarezerwowany' && $nowy_status === 'wolny' && $lot['termin_id']) {
+				$wpdb->update(
+					$tabela_terminy,
+					array('status' => 'Wolny', 'klient_id' => null),
+					array('id' => $lot['termin_id']),
+					array('%s', '%d'),
+					array('%d')
+				);
+
+				$update_data = array(
+					'status' => $nowy_status,
+					'termin_id' => null,
+					'data_rezerwacji' => null
+				);
+			} else {
+				$update_data = array('status' => $nowy_status);
+			}
+
+			$result = $wpdb->update(
+				$tabela_loty,
+				$update_data,
+				array('id' => $lot_id),
+				array_fill(0, count($update_data), '%s'),
+				array('%d')
+			);
+
+			if ($result === false) {
+				throw new Exception('Błąd aktualizacji statusu lotu.');
+			}
+
+			// Dodaj wpis do historii
+			$wpis_historii = array(
+				'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+				'typ' => 'zmiana_statusu_admin',
+				'executor' => 'Admin',
+				'szczegoly' => array(
+					'stary_status' => $stary_status,
+					'nowy_status' => $nowy_status,
+					'zmiana_przez_admin' => true,
+					'lot_id' => $lot_id
+				)
+			);
+
+			SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, $wpis_historii);
+
+			$wpdb->query('COMMIT');
+			wp_send_json_success('Status lotu został zmieniony z "' . $stary_status . '" na "' . $nowy_status . '".');
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error($e->getMessage());
+		}
+	}
+
+	public function ajaxPobierzSzczegolyLotu() {
+		check_ajax_referer('srl_admin_nonce', 'nonce', true);
+		SRL_Helpers::getInstance()->checkAdminPermissions();
+
+		$lot_id = intval($_POST['lot_id']);
+		$user_id = intval($_POST['user_id']);
+
+		if (!$lot_id || !$user_id) {
+			wp_send_json_error('Nieprawidłowe parametry.');
+		}
+
+		// Pobierz dane użytkownika
+		$user_data = SRL_Helpers::getInstance()->getUserFullData($user_id);
+
+		if (!$user_data) {
+			wp_send_json_error('Nie znaleziono danych użytkownika.');
+		}
+
+		// Pobierz dane lotu
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		
+		$lot = $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $tabela_loty WHERE id = %d",
+			$lot_id
+		), ARRAY_A);
+
+		if (!$lot) {
+			wp_send_json_error('Nie znaleziono danych lotu.');
+		}
+
+		// Przygotuj dane do wysłania
+		$dane = array(
+			'lot_id' => $lot_id,
+			'imie' => $user_data['imie'],
+			'nazwisko' => $user_data['nazwisko'],
+			'email' => $user_data['email'],
+			'telefon' => $user_data['telefon'],
+			'rok_urodzenia' => $user_data['rok_urodzenia'],
+			'kategoria_wagowa' => $user_data['kategoria_wagowa'],
+			'sprawnosc_fizyczna' => $user_data['sprawnosc_fizyczna'],
+			'uwagi' => $user_data['uwagi'],
+			'nazwa_produktu' => $lot['nazwa_produktu'],
+			'status' => $lot['status'],
+			'data_zakupu' => $lot['data_zakupu'],
+			'data_waznosci' => $lot['data_waznosci']
+		);
+
+		// Oblicz wiek jeśli jest rok urodzenia
+		if ($user_data['rok_urodzenia']) {
+			$dane['wiek'] = date('Y') - intval($user_data['rok_urodzenia']);
+		}
+
+		wp_send_json_success($dane);
+	}
+
 
     public function ajaxDodajGodzine() {
         check_ajax_referer('srl_admin_nonce', 'nonce', true);

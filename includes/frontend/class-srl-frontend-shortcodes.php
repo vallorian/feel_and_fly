@@ -387,12 +387,12 @@ class SRL_Frontend_Shortcodes {
                 button.prop('disabled', true).text('Sprawdzanie...');
                 
                 $.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    url: srlFrontend.ajaxurl,
                     method: 'POST',
                     data: {
                         action: 'srl_wykorzystaj_voucher',
                         kod_vouchera: kod,
-                        nonce: '<?php echo wp_create_nonce('srl_admin_nonce'); ?>'
+                        nonce: srlFrontend.nonce 
                     },
                     success: function(response) {
                         if (response.success) {
@@ -449,12 +449,12 @@ class SRL_Frontend_Shortcodes {
                 }
                 
                 $.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    url: srlFrontend.ajaxurl,
                     method: 'POST',
                     data: {
                         action: 'srl_get_partner_voucher_types',
                         partner: partner,
-                        nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+                        nonce: srlFrontend.nonce
                     },
                     success: function(response) {
                         if (response.success) {
@@ -506,7 +506,7 @@ class SRL_Frontend_Shortcodes {
                     kod_zabezpieczajacy: $('#srl-security-code').val(),
                     data_waznosci: $('#srl-voucher-validity-date').val(),
                     dane_pasazerow: [],
-                    nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+                    nonce: srlFrontend.nonce
                 };
                 
                 if (!$('#srl-all-passengers-regulamin').is(':checked')) {
@@ -537,7 +537,7 @@ class SRL_Frontend_Shortcodes {
                 submitBtn.prop('disabled', true).text('Wysyłanie...');
                 
                 $.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    url: srlFrontend.ajaxurl,
                     method: 'POST',
                     data: formData,
                     success: function(response) {
