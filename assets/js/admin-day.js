@@ -226,7 +226,7 @@ jQuery(document).ready(function($) {
 
         tr.append(`<td class="srl-czas-col">${czasTxt} 
             <button class="button button-small srl-edytuj-button" style="margin-left:10px; font-size:11px;">Edytuj godziny</button>
-            <button class="button button-secondary button-small srl-usun-button" style="margin-left:5px; font-size:11px;">Usuń</button>
+            ${slot.status === 'Wolny' ? '<button class="button button-secondary button-small srl-usun-button" style="margin-left:5px; font-size:11px;">Usuń</button>' : ''}
         </td>`);
 
         var statusConfig = {
@@ -1117,7 +1117,7 @@ jQuery(document).ready(function($) {
         });
     }
 
-    function przypisWykupionyLot(terminId, lotId, klientNazwa, modal) {
+	function przypisWykupionyLot(terminId, lotId, klientNazwa, modal) {
         if (!confirm(`Czy na pewno przypisać lot #${lotId} (${klientNazwa}) do tego slotu?`)) return;
 
         var button = modal.find(`.srl-lot-result[data-lot-id="${lotId}"]`);
@@ -1134,7 +1134,12 @@ jQuery(document).ready(function($) {
         }, function(response) {
             if (response.success) {
                 modal.remove();
-                generujTabelePilotow();
+                if (response.data && response.data.godziny_wg_pilota) {
+                    srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+                    generujTabelePilotow();
+                } else {
+                    generujTabelePilotow();
+                }
                 pokazKomunikatSukcesu('Wykupiony lot został przypisany do slotu!');
             } else {
                 if (button.length) {
@@ -1166,7 +1171,12 @@ jQuery(document).ready(function($) {
         }, function(response) {
             if (response.success) {
                 modal.remove();
-                generujTabelePilotow();
+                if (response.data && response.data.godziny_wg_pilota) {
+                    srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+                    generujTabelePilotow();
+                } else {
+                    generujTabelePilotow();
+                }
                 pokazKomunikatSukcesu('Lot prywatny został zapisany!');
             } else {
                 submitBtn.prop('disabled', false).text('Zapisz lot prywatny');
@@ -1313,7 +1323,12 @@ jQuery(document).ready(function($) {
         }, function(response) {
             if (response.success) {
                 modal.remove();
-                generujTabelePilotow();
+                if (response.data && response.data.godziny_wg_pilota) {
+                    srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+                    generujTabelePilotow();
+                } else {
+                    generujTabelePilotow();
+                }
                 pokazKomunikatSukcesu('Dane zostały zaktualizowane!');
             } else {
                 alert('Błąd: ' + response.data);

@@ -276,9 +276,4 @@ class SRL_Database_Helpers {
         }
         return 'nieznany termin';
     }
-
-    public function zwrocGodzinyWgPilota($data) {
-        $godziny_wg_pilota = $this->getDayScheduleOptimized(sanitize_text_field($data));
-        wp_send_json_success(array('godziny_wg_pilota' => $godziny_wg_pilota));
-    }
 }
