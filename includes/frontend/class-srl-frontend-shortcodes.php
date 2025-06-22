@@ -29,6 +29,7 @@ class SRL_Frontend_Shortcodes {
         }
         
         wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), '1.0', true);
+		wp_enqueue_script('srl-flight-options', SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js', array('jquery'), '1.0', true);
         wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), '1.0');
         
         wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
