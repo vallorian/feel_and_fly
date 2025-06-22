@@ -60,8 +60,9 @@ jQuery(document).ready(function($) {
         }
     });
 
-    $('#srl-generuj-sloty').on('click', function(e) {
+    $('#srl-generuj-sloty').off('click').on('click', function(e) {
         e.preventDefault();
+		e.stopPropagation();
         if (generowanieWToku) return;
 
         var pilotId = parseInt($('#srl-generuj-pilot').val());
@@ -160,7 +161,6 @@ jQuery(document).ready(function($) {
                     <select class="srl-grupowa-zmiana-statusu" data-pilot="${pid}">
                         <option value="">-- Zmień status --</option>
                         <option value="Wolny">Wolny</option>
-                        <option value="Prywatny">Prywatny</option>
                         <option value="Zrealizowany">Zrealizowany</option>
                         <option value="Odwołany przez organizatora">Odwołany przez organizatora</option>
                     </select>
@@ -436,7 +436,8 @@ jQuery(document).ready(function($) {
                 godzina_start: newStart,
                 godzina_koniec: newStop,
                 status: 'Wolny',
-                klient_id: 0
+                klient_id: 0,
+				nonce: srlAdmin.nonce
             }, function(response) {
                 if (response.success) {
                     srlIstniejaceGodziny = response.data.godziny_wg_pilota;

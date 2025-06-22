@@ -230,56 +230,60 @@ class SRL_Admin_Ajax {
         SRL_Database_Helpers::getInstance()->zwrocGodzinyWgPilota($data);
     }
 
-    public function ajaxZmienSlot() {
-        check_ajax_referer('srl_admin_nonce', 'nonce', true);
-        SRL_Helpers::getInstance()->checkAdminPermissions();
+	public function ajaxZmienSlot() {
+		check_ajax_referer('srl_admin_nonce', 'nonce', true);
+		SRL_Helpers::getInstance()->checkAdminPermissions();
 
-        if (!isset($_POST['termin_id'])) {
-            wp_send_json_error('Nieprawidłowe dane.');
-            return;
-        }
+		if (!isset($_POST['termin_id'])) {
+			wp_send_json_error('Nieprawidłowe dane.');
+			return;
+		}
 
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_terminy';
-        $termin_id = intval($_POST['termin_id']);
-        $data = sanitize_text_field($_POST['data']);
-        $godzStart = sanitize_text_field($_POST['godzina_start']) . ':00';
-        $godzKoniec = sanitize_text_field($_POST['godzina_koniec']) . ':00';
-        $status = sanitize_text_field($_POST['status']);
-        $klient_id = isset($_POST['klient_id']) ? intval($_POST['klient_id']) : 0;
+		global $wpdb;
+		$tabela = $wpdb->prefix . 'srl_terminy';
+		$termin_id = intval($_POST['termin_id']);
+		$data = sanitize_text_field($_POST['data']);
+		$godzStart = sanitize_text_field($_POST['godzina_start']) . ':00';
+		$godzKoniec = sanitize_text_field($_POST['godzina_koniec']) . ':00';
 
-        $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $tabela WHERE id = %d",
-            $termin_id
-        ));
+		// POBIERZ AKTUALNE DANE SLOTU
+		$aktualny_slot = $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $tabela WHERE id = %d",
+			$termin_id
+		), ARRAY_A);
 
-        if (!$existing) {
-            wp_send_json_error('Slot nie istnieje.');
-            return;
-        }
+		if (!$aktualny_slot) {
+			wp_send_json_error('Slot nie istnieje.');
+			return;
+		}
 
-        $dane = array(
-            'godzina_start' => $godzStart,
-            'godzina_koniec' => $godzKoniec,
-            'status' => $status,
-            'klient_id' => $klient_id ? $klient_id : null
-        );
+		// ZACHOWAJ ISTNIEJĄCY STATUS I KLIENTA
+		$dane = array(
+			'godzina_start' => $godzStart,
+			'godzina_koniec' => $godzKoniec
+			// NIE ZMIENIAJ status ani klient_id
+		);
 
-        $wynik = $wpdb->update(
-            $tabela,
-            $dane,
-            array('id' => $termin_id),
-            array('%s','%s','%s','%d'),
-            array('%d')
-        );
+		$wynik = $wpdb->update(
+			$tabela,
+			$dane,
+			array('id' => $termin_id),
+			array('%s','%s'),
+			array('%d')
+		);
 
-        if ($wynik === false) {
-            wp_send_json_error('Błąd aktualizacji w bazie: ' . $wpdb->last_error);
-            return;
-        }
+		if ($wynik === false) {
+			wp_send_json_error('Błąd aktualizacji w bazie: ' . $wpdb->last_error);
+			return;
+		}
 
-        SRL_Database_Helpers::getInstance()->zwrocGodzinyWgPilota($data);
-    }
+		$godziny_wg_pilota = SRL_Database_Helpers::getInstance()->getDayScheduleOptimized($data);
+		wp_send_json_success(array(
+			'message' => 'Godziny zostały zaktualizowane.',
+			'godziny_wg_pilota' => $godziny_wg_pilota
+		));
+	}
+	
 
     public function ajaxUsunGodzine() {
         check_ajax_referer('srl_admin_nonce', 'nonce', true);
