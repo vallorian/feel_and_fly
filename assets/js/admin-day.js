@@ -23,6 +23,23 @@ function srlFormatujWiek(rokUrodzenia) {
 }
 
 jQuery(document).ready(function($) {
+	
+	function dodajObslugeEscModal(modal, namespace, onClose) {
+		var eventName = 'keydown.srl-' + namespace;
+		$(document).on(eventName, function(e) {
+			if (e.keyCode === 27) { // ESC
+				if (typeof onClose === 'function') {
+					onClose();
+				}
+				modal.remove();
+				$(document).off(eventName);
+			}
+		});
+		modal.on('remove', function() { $(document).off(eventName); });
+		return function() { $(document).off(eventName); };
+	}
+	
+	
     var generowanieWToku = false;
     
     if ($('#srl-planowane-godziny').is(':checked') && Object.keys(srlIstniejaceGodziny).length > 0) {
@@ -1022,7 +1039,7 @@ jQuery(document).ready(function($) {
         </div>`);
 
         $('body').append(modal);
-
+		dodajObslugeEscModal(modal, 'przypisanie-slotu');
         modal.find('.srl-modal-anuluj').on('click', function(e) {
             e.preventDefault();
             modal.remove();
@@ -1252,7 +1269,7 @@ jQuery(document).ready(function($) {
         </div>`);
 
         $('body').append(modal);
-
+		dodajObslugeEscModal(modal, 'dane-pasazera');
         if (moznaEdytowac) {
             modal.find('#srl-btn-edytuj').on('click', function() {
                 modal.find('#srl-dane-wyswietl').hide();
@@ -1421,13 +1438,14 @@ jQuery(document).ready(function($) {
         </div>`);
 
         $('body').append(modal);
+		dodajObslugeEscModal(modal, 'zmiana-terminu');
 
-        modal.find('.srl-modal-anuluj-zmiane').on('click', function() {
-            modal.remove();
-        });
+		modal.find('.srl-modal-anuluj-zmiane').on('click', function() {
+			modal.remove();
+		});
 
-        zaladujDostepneTerminy(terminId, modal);
-    }
+		zaladujDostepneTerminy(terminId, modal);
+	}
 
     function zaladujDostepneTerminy(terminId, modal) {
         $.post(ajaxurl, {

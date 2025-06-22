@@ -165,22 +165,19 @@ class SRL_Admin_Calendar {
                         echo '<strong>Wolne:</strong> ' . $dane_dnia['wolne'] . '<br>';
                     }
 
-                    if ($dane_dnia['zarezerwowane_razem'] > 0) {
-                        echo '<strong>Zarezerwowane:</strong> ' . $dane_dnia['zarezerwowane_razem'] . '<br>';
-
-                        if ($dane_dnia['zarezerwowane'] > 0 || $dane_dnia['prywatne'] > 0) {
-                            echo '<span style="font-size: 9px; color: #666;">';
-                            $szczegoly = array();
-                            if ($dane_dnia['zarezerwowane'] > 0) {
-                                $szczegoly[] = 'zwykłe: ' . $dane_dnia['zarezerwowane'];
-                            }
-                            if ($dane_dnia['prywatne'] > 0) {
-                                $szczegoly[] = 'prywatne: ' . $dane_dnia['prywatne'];
-                            }
-                            echo '(' . implode(', ', $szczegoly) . ')';
-                            echo '</span><br>';
-                        }
-                    }
+					if ($dane_dnia['zarezerwowane_razem'] > 0) {
+						echo '<strong>Zarezerwowane:</strong> ' . $dane_dnia['zarezerwowane_razem'] . '<br>';
+						if ($dane_dnia['zarezerwowane'] > 0 && $dane_dnia['prywatne'] > 0) {
+							echo '<span style="font-size: 9px; color: #666;">';
+							echo '(zwykłe: ' . $dane_dnia['zarezerwowane'] . ', prywatne: ' . $dane_dnia['prywatne'] . ')';
+							echo '</span><br>';
+						}
+						elseif ($dane_dnia['prywatne'] > 0 && $dane_dnia['zarezerwowane'] == 0) {
+							echo '<span style="font-size: 9px; color: #666;">';
+							echo '(prywatne: ' . $dane_dnia['prywatne'] . ')';
+							echo '</span><br>';
+						}
+					}
 
                     if ($dane_dnia['zrealizowane'] > 0) {
 						echo '<strong>Zrealizowane:</strong> ' . $dane_dnia['zrealizowane'] . '<br>';
