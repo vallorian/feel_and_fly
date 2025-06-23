@@ -1,3 +1,6 @@
+// PLIK: assets/js/flight-options-unified.js
+// ZASTĄP całą zawartość pliku na:
+
 jQuery(document).ready(function($) {
     const SRLOpcje = {
         config: {
@@ -6,16 +9,54 @@ jQuery(document).ready(function($) {
             productIds: typeof srlFrontend !== 'undefined' ? srlFrontend.productIds : {}
         },
 
+        cache: new Map(),
+        pendingRequests: new Map(),
+        debounceTimers: new Map(),
+
         ajax: function(action, data = {}, options = {}) {
             const defaults = {
                 method: 'POST',
                 pokazKomunikat: true,
+                useCache: true,
+                debounceKey: null,
+                debounceDelay: 300,
                 onSuccess: null,
                 onError: null
             };
             const opts = {...defaults, ...options};
 
-            return $.ajax({
+            const cacheKey = opts.useCache ? `${action}_${JSON.stringify(data)}` : null;
+            
+            if (cacheKey && this.cache.has(cacheKey)) {
+                const cached = this.cache.get(cacheKey);
+                if (Date.now() - cached.timestamp < 300000) {
+                    if (opts.onSuccess) opts.onSuccess(cached.data);
+                    return Promise.resolve(cached.data);
+                } else {
+                    this.cache.delete(cacheKey);
+                }
+            }
+
+            if (opts.debounceKey) {
+                clearTimeout(this.debounceTimers.get(opts.debounceKey));
+                return new Promise((resolve, reject) => {
+                    this.debounceTimers.set(opts.debounceKey, setTimeout(() => {
+                        this.executeAjax(action, data, opts, cacheKey).then(resolve).catch(reject);
+                    }, opts.debounceDelay));
+                });
+            }
+
+            return this.executeAjax(action, data, opts, cacheKey);
+        },
+
+        executeAjax: function(action, data, opts, cacheKey) {
+            const requestKey = `${action}_${JSON.stringify(data)}`;
+            
+            if (this.pendingRequests.has(requestKey)) {
+                return this.pendingRequests.get(requestKey);
+            }
+
+            const request = $.ajax({
                 url: this.config.ajaxUrl,
                 method: opts.method,
                 data: {
@@ -25,6 +66,12 @@ jQuery(document).ready(function($) {
                 }
             }).done(response => {
                 if (response && !response.error) {
+                    if (cacheKey && opts.useCache) {
+                        this.cache.set(cacheKey, {
+                            data: response,
+                            timestamp: Date.now()
+                        });
+                    }
                     if (opts.onSuccess) opts.onSuccess(response);
                 } else {
                     const message = response?.data || 'Błąd dodawania do koszyka';
@@ -35,7 +82,12 @@ jQuery(document).ready(function($) {
                 const message = 'Błąd połączenia z serwerem';
                 if (opts.pokazKomunikat) this.pokazKomunikatOpcji('❌ ' + message, 'error');
                 if (opts.onError) opts.onError(message);
+            }).always(() => {
+                this.pendingRequests.delete(requestKey);
             });
+
+            this.pendingRequests.set(requestKey, request);
+            return request;
         },
 
         pokazKomunikatOpcji: function(tekst, typ = 'success') {
@@ -77,13 +129,11 @@ jQuery(document).ready(function($) {
             let button;
             
             if (czyKrok2) {
-                // W kroku 2 szukaj tylko w sekcji flightInfo
                 button = $(`#srl-wybrany-lot-szczegoly #srl-opcja-${lotId}-${productId}`);
                 if (!button.length) {
                     button = $(`#srl-wybrany-lot-szczegoly .srl-add-option[data-lot-id="${lotId}"][data-product-id="${productId}"]`);
                 }
             } else {
-                // W innych krokach szukaj normalnie
                 button = $(`#srl-opcja-${lotId}-${productId}`);
                 if (!button.length) {
                     button = $(`.srl-add-option[data-lot-id="${lotId}"][data-product-id="${productId}"]`);
@@ -150,6 +200,8 @@ jQuery(document).ready(function($) {
 
             this.ajax('srl_sprawdz_opcje_w_koszyku', {}, {
                 pokazKomunikat: false,
+                useCache: true,
+                debounceKey: 'check_cart_options',
                 onSuccess: (response) => {
                     if (response.success && response.data) {
                         $.each(response.data, (lotId, opcje) => {
@@ -201,12 +253,13 @@ jQuery(document).ready(function($) {
                     product_id: productId
                 }, {
                     pokazKomunikat: false,
+                    useCache: false,
                     onSuccess: (response) => {
                         if (response.success) {
                             this.przywrocPrzyciskDoOryginalnegoStanu(button, lotId, productId);
                             this.pokazKomunikatOpcji('✅ Opcja usunięta z koszyka', 'success');
                             
-                            // Odśwież flightInfo po usunięciu opcji
+                            this.cache.clear();
                             $(document).trigger('srl_opcje_zmienione');
                             
                             if (typeof wc_add_to_cart_params !== 'undefined') {
@@ -222,6 +275,10 @@ jQuery(document).ready(function($) {
                     }
                 });
             });
+        },
+
+        clearCache: function() {
+            this.cache.clear();
         }
     };
 
@@ -241,10 +298,12 @@ jQuery(document).ready(function($) {
             srl_lot_id: lotId
         }, {
             pokazKomunikat: false,
+            useCache: false,
             onSuccess: (response) => {
                 if (response && !response.error) {
                     SRLOpcje.pokazKomunikatOpcji(`✅ Dodano "${optionName}" do koszyka!`, 'success');
                     SRLOpcje.przemieniPrzyciskNaWKoszyku(button, lotId, productId, optionName);
+                    SRLOpcje.clearCache();
                     $(document).trigger('srl_opcje_zmienione');
                     if (typeof wc_add_to_cart_params !== 'undefined') {
                         $(document.body).trigger('wc_fragment_refresh');

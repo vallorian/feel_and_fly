@@ -174,7 +174,7 @@ class SRL_Client_Account {
                         update_user_meta($user_id, 'srl_' . $key, $value);
                     }
                 }
-                
+                SRL_Helpers::getInstance()->invalidateUserCache($user_id);
                 $sukces_msg = 'Dane zostały zapisane pomyślnie!';
                 if (!empty($komunikaty_dodatkowe)) {
                     $sukces_msg .= '<br><strong>Uwagi:</strong><br>' . implode('<br>', $komunikaty_dodatkowe);

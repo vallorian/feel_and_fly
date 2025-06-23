@@ -28,15 +28,16 @@ class SRL_Frontend_Shortcodes {
             return $this->komunikatBrakLotow();
         }
         
-        wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), '1.0', true);
-		wp_enqueue_script('srl-flight-options', SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js', array('jquery'), '1.0', true);
-        wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), '1.0');
-        
-        wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('srl_frontend_nonce'),
-            'user_id' => $user_id
-        ));
+		wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), filemtime(SRL_PLUGIN_DIR . 'assets/css/frontend-style.css'));
+
+		wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), filemtime(SRL_PLUGIN_DIR . 'assets/js/frontend-calendar.js'), true);
+
+		wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
+			'ajaxurl' => admin_url('admin-ajax.php'),
+			'nonce' => wp_create_nonce('srl_frontend_nonce'),
+			'user_id' => $user_id,
+			'productIds' => SRL_Helpers::getInstance()->getFlightOptionProductIds()
+		));
         
         ob_start();
         ?>

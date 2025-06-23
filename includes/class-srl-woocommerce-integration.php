@@ -162,9 +162,10 @@ class SRL_WooCommerce_Integration {
         }
 
         if ($dodane_loty > 0) {
-            error_log("SRL: Dodano $dodane_loty lotów dla zamówienia #$order_id z nowym systemem historii");
-        }
-
+			SRL_Cache_Manager::getInstance()->invalidateUserCache($user_id);
+			error_log("SRL: Dodano $dodane_loty lotów dla zamówienia #$order_id z nowym systemem historii");
+		}
+		
         return $dodane_loty;
     }
 
@@ -197,9 +198,10 @@ class SRL_WooCommerce_Integration {
             array('%d')
         );
 
-        if ($usuniete > 0) {
-            error_log("SRL: Usunięto $usuniete lotów dla zamówienia #$order_id");
-        }
+		if ($usuniete > 0) {
+			SRL_Cache_Manager::getInstance()->invalidateUserCache($user_id);
+			error_log("SRL: Usunięto $usuniete lotów dla zamówienia #$order_id");
+		}
 
         return $usuniete;
     }
@@ -343,6 +345,7 @@ class SRL_WooCommerce_Integration {
 
                 SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, $wpis_historii);
             }
+			SRL_Cache_Manager::getInstance()->invalidateUserCache($lot['user_id']);
         }
 
         return $result !== false;
@@ -392,6 +395,7 @@ class SRL_WooCommerce_Integration {
 
                 SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, $wpis_historii);
             }
+			SRL_Cache_Manager::getInstance()->invalidateUserCache($lot['user_id']);
         }
 
         return $result !== false;
@@ -449,6 +453,7 @@ class SRL_WooCommerce_Integration {
                     usleep(100000);
                 }
             }
+			SRL_Cache_Manager::getInstance()->invalidateUserCache($lot['user_id']);
         }
 
         return $result !== false;

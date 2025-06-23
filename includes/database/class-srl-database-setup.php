@@ -275,6 +275,12 @@ class SRL_Database_Setup {
             error_log('SRL: Dodano kolumny ma_filmowanie i ma_akrobacje do tabeli voucherów w wersji 1.9');
             update_option('srl_db_version', '1.9');
         }
+		
+		if (version_compare($current_version, '2.0', '<')) {
+			$this->addDatabaseIndexes();
+			update_option('srl_db_version', '2.0');
+		}
+		
     }
 
     public function cleanupVoucherTable() {
@@ -297,4 +303,43 @@ class SRL_Database_Setup {
 
     private function addEndpoints() {
     }
+	
+	private function addDatabaseIndexes() {
+		global $wpdb;
+		
+		$indexes = array(
+			$wpdb->prefix . 'srl_zakupione_loty' => array(
+				'idx_user_status_validity' => 'user_id, status, data_waznosci',
+				'idx_status_validity' => 'status, data_waznosci',
+				'idx_order_item' => 'order_item_id'
+			),
+			$wpdb->prefix . 'srl_terminy' => array(
+				'idx_data_status' => 'data, status',
+				'idx_klient_status' => 'klient_id, status'
+			),
+			$wpdb->prefix . 'srl_vouchery_upominkowe' => array(
+				'idx_status_validity' => 'status, data_waznosci',
+				'idx_buyer_status' => 'buyer_user_id, status'
+			),
+			$wpdb->prefix . 'srl_vouchery_partnerzy' => array(
+				'idx_status_data' => 'status, data_zgloszenia',
+				'idx_klient_status' => 'klient_id, status'
+			)
+		);
+		
+		foreach ($indexes as $table => $table_indexes) {
+			if ($wpdb->get_var("SHOW TABLES LIKE '$table'") == $table) {
+				foreach ($table_indexes as $index_name => $columns) {
+					$existing_index = $wpdb->get_results($wpdb->prepare(
+						"SHOW INDEX FROM $table WHERE Key_name = %s", 
+						$index_name
+					));
+					
+					if (empty($existing_index)) {
+						$wpdb->query("ALTER TABLE $table ADD INDEX $index_name ($columns)");
+					}
+				}
+			}
+		}
+	}
 }

@@ -16,25 +16,9 @@ class SRL_Helpers {
         // Brak hooków WordPress w tym pliku - tylko funkcje pomocnicze
     }
 
-    public function getUserFullData($user_id) {
-        $user = get_userdata($user_id);
-        if (!$user) return null;
-        
-        return array(
-            'id' => $user_id,
-            'email' => $user->user_email,
-            'display_name' => $user->display_name,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'imie' => get_user_meta($user_id, 'srl_imie', true),
-            'nazwisko' => get_user_meta($user_id, 'srl_nazwisko', true),
-            'rok_urodzenia' => get_user_meta($user_id, 'srl_rok_urodzenia', true),
-            'telefon' => get_user_meta($user_id, 'srl_telefon', true),
-            'kategoria_wagowa' => get_user_meta($user_id, 'srl_kategoria_wagowa', true),
-            'sprawnosc_fizyczna' => get_user_meta($user_id, 'srl_sprawnosc_fizyczna', true),
-            'uwagi' => get_user_meta($user_id, 'srl_uwagi', true)
-        );
-    }
+	public function getUserFullData($user_id) {
+		return SRL_Cache_Manager::getInstance()->getUserData($user_id);
+	}
 
     public function getFlightOptionProductIds() {
         return array('przedluzenie' => 115, 'filmowanie' => 116, 'akrobacje' => 117);
@@ -357,4 +341,8 @@ class SRL_Helpers {
         $m = $minutes % 60;
         return sprintf('%02d:%02d', $h, $m);
     }
+	
+	public function invalidateUserCache($user_id) {
+		SRL_Cache_Manager::getInstance()->invalidateUserCache($user_id);
+	}
 }

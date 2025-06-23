@@ -39,27 +39,37 @@ class SRL_Database_Helpers {
         );
     }
 
-    public function getUserFlights($user_id, $status = null, $include_expired = false) {
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-        
-        $where_conditions = array("user_id = %d");
-        $params = array($user_id);
-        
-        if (!$include_expired) {
-            $where_conditions[] = "data_waznosci >= CURDATE()";
-        }
-        if ($status) {
-            $where_conditions[] = "status = %s";
-            $params[] = $status;
-        }
-        
-        $where_clause = "WHERE " . implode(' AND ', $where_conditions);
-        return $this->executeQuery(
-            "SELECT * FROM $tabela $where_clause ORDER BY data_zakupu DESC",
-            $params
-        );
-    }
+	public function getUserFlights($user_id, $status = null, $include_expired = false) {
+		$cache_key = "user_flights_{$user_id}_{$status}_" . ($include_expired ? '1' : '0');
+		$cached = wp_cache_get($cache_key, 'srl_cache');
+		
+		if ($cached !== false) {
+			return $cached;
+		}
+		
+		global $wpdb;
+		$tabela = $wpdb->prefix . 'srl_zakupione_loty';
+		
+		$where_conditions = array("user_id = %d");
+		$params = array($user_id);
+		
+		if (!$include_expired) {
+			$where_conditions[] = "data_waznosci >= CURDATE()";
+		}
+		if ($status) {
+			$where_conditions[] = "status = %s";
+			$params[] = $status;
+		}
+		
+		$where_clause = "WHERE " . implode(' AND ', $where_conditions);
+		$result = $this->executeQuery(
+			"SELECT * FROM $tabela $where_clause ORDER BY data_zakupu DESC",
+			$params
+		);
+		
+		wp_cache_set($cache_key, $result, 'srl_cache', 1800);
+		return $result;
+	}	
 
     public function getAvailableSlots($date) {
         global $wpdb;
@@ -182,88 +192,86 @@ class SRL_Database_Helpers {
         return $result !== false;
     }
 
-    public function getDayScheduleOptimized($date) {
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_terminy';
-        
-        $slots = $this->executeQuery(
-            "SELECT t.id, t.pilot_id, t.godzina_start, t.godzina_koniec, t.status, t.klient_id, t.notatka,
-                    zl.id as lot_id, zl.user_id as lot_user_id, zl.status as lot_status, zl.dane_pasazera
-             FROM $tabela t
-             LEFT JOIN {$wpdb->prefix}srl_zakupione_loty zl ON t.id = zl.termin_id
-             WHERE t.data = %s
-             ORDER BY t.pilot_id ASC, t.godzina_start ASC",
-            array($date)
-        );
-        
-        $grouped_by_pilot = array();
-        $user_cache = array();
-        
-        foreach ($slots as $slot) {
-            $pilot_id = intval($slot['pilot_id']);
-            if (!isset($grouped_by_pilot[$pilot_id])) {
-                $grouped_by_pilot[$pilot_id] = array();
-            }
-            
-            $client_name = '';
-            $order_link = '';
-            $passenger_data_cache = null;
-            
-            if (($slot['status'] === 'Zarezerwowany' || $slot['status'] === 'Zrealizowany') && intval($slot['klient_id']) > 0) {
-                $user_id = intval($slot['klient_id']);
-                
-                if (!isset($user_cache[$user_id])) {
-                    $user_cache[$user_id] = SRL_Helpers::getInstance()->getUserFullData($user_id);
-                }
-                
-                $user_data = $user_cache[$user_id];
-                if ($user_data) {
-                    $client_name = ($user_data['imie'] && $user_data['nazwisko']) 
-                        ? $user_data['imie'] . ' ' . $user_data['nazwisko']
-                        : $user_data['display_name'];
-                    
-                    $order_link = admin_url('edit.php?post_type=shop_order&customer=' . $user_id);
-                    
-                    if (!empty($slot['dane_pasazera'])) {
-                        $passenger_data_cache = json_decode($slot['dane_pasazera'], true);
-                    }
-                    
-                    if (empty($passenger_data_cache['imie'])) {
-                        $passenger_data_cache = array(
-                            'imie' => $user_data['imie'],
-                            'nazwisko' => $user_data['nazwisko'],
-                            'rok_urodzenia' => $user_data['rok_urodzenia'],
-                            'telefon' => $user_data['telefon'],
-                            'kategoria_wagowa' => $user_data['kategoria_wagowa'],
-                            'sprawnosc_fizyczna' => $user_data['sprawnosc_fizyczna'],
-                            'uwagi' => $user_data['uwagi']
-                        );
-                    }
-                }
-            } elseif ($slot['status'] === 'Prywatny' && !empty($slot['notatka'])) {
-                $private_data = json_decode($slot['notatka'], true);
-                if ($private_data && isset($private_data['imie']) && isset($private_data['nazwisko'])) {
-                    $client_name = $private_data['imie'] . ' ' . $private_data['nazwisko'];
-                    $passenger_data_cache = $private_data;
-                }
-            }
-            
-            $grouped_by_pilot[$pilot_id][] = array(
-                'id' => intval($slot['id']),
-                'start' => substr($slot['godzina_start'], 0, 5),
-                'koniec' => substr($slot['godzina_koniec'], 0, 5),
-                'status' => $slot['status'],
-                'klient_id' => intval($slot['klient_id']),
-                'klient_nazwa' => $client_name,
-                'link_zamowienia' => $order_link,
-                'lot_id' => $slot['lot_id'] ? intval($slot['lot_id']) : null,
-                'notatka' => $slot['notatka'],
-                'dane_pasazera_cache' => $passenger_data_cache
-            );
-        }
-        
-        return $grouped_by_pilot;
-    }
+	public function getDayScheduleOptimized($date) {
+		global $wpdb;
+		$tabela = $wpdb->prefix . 'srl_terminy';
+		
+		$slots = $this->executeQuery(
+			"SELECT t.id, t.pilot_id, t.godzina_start, t.godzina_koniec, t.status, t.klient_id, t.notatka,
+					zl.id as lot_id, zl.user_id as lot_user_id, zl.status as lot_status, zl.dane_pasazera
+			 FROM $tabela t
+			 LEFT JOIN {$wpdb->prefix}srl_zakupione_loty zl ON t.id = zl.termin_id
+			 WHERE t.data = %s
+			 ORDER BY t.pilot_id ASC, t.godzina_start ASC",
+			array($date)
+		);
+		
+		$user_ids = array_filter(array_unique(array_column($slots, 'klient_id')));
+		$users_data = !empty($user_ids) ? SRL_Cache_Manager::getInstance()->getUsersDataBatch($user_ids) : [];
+		
+		$grouped_by_pilot = array();
+		
+		foreach ($slots as $slot) {
+			$pilot_id = intval($slot['pilot_id']);
+			if (!isset($grouped_by_pilot[$pilot_id])) {
+				$grouped_by_pilot[$pilot_id] = array();
+			}
+			
+			$client_name = '';
+			$order_link = '';
+			$passenger_data_cache = null;
+			
+			if (($slot['status'] === 'Zarezerwowany' || $slot['status'] === 'Zrealizowany') && intval($slot['klient_id']) > 0) {
+				$user_id = intval($slot['klient_id']);
+				
+				if (isset($users_data[$user_id])) {
+					$user_data = $users_data[$user_id];
+					$client_name = ($user_data['imie'] && $user_data['nazwisko']) 
+						? $user_data['imie'] . ' ' . $user_data['nazwisko']
+						: $user_data['display_name'];
+					
+					$order_link = admin_url('edit.php?post_type=shop_order&customer=' . $user_id);
+					
+					if (!empty($slot['dane_pasazera'])) {
+						$passenger_data_cache = json_decode($slot['dane_pasazera'], true);
+					}
+					
+					if (empty($passenger_data_cache['imie'])) {
+						$passenger_data_cache = array(
+							'imie' => $user_data['imie'],
+							'nazwisko' => $user_data['nazwisko'],
+							'rok_urodzenia' => $user_data['rok_urodzenia'],
+							'telefon' => $user_data['telefon'],
+							'kategoria_wagowa' => $user_data['kategoria_wagowa'],
+							'sprawnosc_fizyczna' => $user_data['sprawnosc_fizyczna'],
+							'uwagi' => $user_data['uwagi']
+						);
+					}
+				}
+			} elseif ($slot['status'] === 'Prywatny' && !empty($slot['notatka'])) {
+				$private_data = json_decode($slot['notatka'], true);
+				if ($private_data && isset($private_data['imie']) && isset($private_data['nazwisko'])) {
+					$client_name = $private_data['imie'] . ' ' . $private_data['nazwisko'];
+					$passenger_data_cache = $private_data;
+				}
+			}
+			
+			$grouped_by_pilot[$pilot_id][] = array(
+				'id' => intval($slot['id']),
+				'start' => substr($slot['godzina_start'], 0, 5),
+				'koniec' => substr($slot['godzina_koniec'], 0, 5),
+				'status' => $slot['status'],
+				'klient_id' => intval($slot['klient_id']),
+				'klient_nazwa' => $client_name,
+				'link_zamowienia' => $order_link,
+				'lot_id' => $slot['lot_id'] ? intval($slot['lot_id']) : null,
+				'notatka' => $slot['notatka'],
+				'dane_pasazera_cache' => $passenger_data_cache
+			);
+		}
+		
+		return $grouped_by_pilot;
+	}
 
     public function formatSlotDetails($slot_id) {
         $slot = $this->getSlotDetails($slot_id);
@@ -276,4 +284,144 @@ class SRL_Database_Helpers {
         }
         return 'nieznany termin';
     }
+	public function getMultipleFlightsByIds($flight_ids) {
+		if (empty($flight_ids)) return array();
+		
+		$cache_key = "flights_batch_" . md5(implode(',', $flight_ids));
+		$cached = wp_cache_get($cache_key, 'srl_cache');
+		
+		if ($cached !== false) {
+			return $cached;
+		}
+		
+		global $wpdb;
+		$placeholders = implode(',', array_fill(0, count($flight_ids), '%d'));
+		
+		$result = $this->executeQuery(
+			"SELECT * FROM {$wpdb->prefix}srl_zakupione_loty WHERE id IN ($placeholders)",
+			$flight_ids
+		);
+		
+		$indexed_result = array();
+		foreach ($result as $flight) {
+			$indexed_result[$flight['id']] = $flight;
+		}
+		
+		wp_cache_set($cache_key, $indexed_result, 'srl_cache', 1800);
+		return $indexed_result;
+	}
+
+	public function ajaxPobierzDaneKlienta() {
+		check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+		SRL_Helpers::getInstance()->requireLogin();
+
+		$user_id = get_current_user_id();
+		
+		$cache_key = "client_data_full_{$user_id}";
+		$cached = wp_cache_get($cache_key, 'srl_cache');
+		
+		if ($cached !== false) {
+			wp_send_json_success($cached);
+			return;
+		}
+		
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		$tabela_terminy = $wpdb->prefix . 'srl_terminy';
+
+		$rezerwacje = $wpdb->get_results($wpdb->prepare(
+			"SELECT zl.id, zl.nazwa_produktu, zl.status, zl.data_waznosci, zl.ma_filmowanie, zl.ma_akrobacje,
+					t.data, t.godzina_start, t.godzina_koniec,
+					v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
+			 FROM $tabela_loty zl 
+			 LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
+			 LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
+			 WHERE zl.user_id = %d 
+			 AND zl.status = 'zarezerwowany'
+			 AND zl.data_waznosci >= CURDATE()
+			 ORDER BY t.data ASC, t.godzina_start ASC
+			 LIMIT 10",
+			$user_id
+		), ARRAY_A);
+
+		$dostepne_loty = $wpdb->get_results($wpdb->prepare(
+			"SELECT zl.id, zl.nazwa_produktu, zl.status, zl.data_waznosci, zl.ma_filmowanie, zl.ma_akrobacje,
+					v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
+			 FROM $tabela_loty zl
+			 LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
+			 WHERE zl.user_id = %d 
+			 AND zl.status = 'wolny'
+			 AND zl.data_waznosci >= CURDATE()
+			 ORDER BY zl.data_zakupu DESC
+			 LIMIT 20",
+			$user_id
+		), ARRAY_A);
+
+		$dane_osobowe = SRL_Cache_Manager::getInstance()->getUserData($user_id);
+		
+		$dane_kompletne = !empty($dane_osobowe['imie']) && !empty($dane_osobowe['nazwisko']) 
+						 && !empty($dane_osobowe['rok_urodzenia']) && !empty($dane_osobowe['kategoria_wagowa']) 
+						 && !empty($dane_osobowe['sprawnosc_fizyczna']);
+
+		$result = array(
+			'rezerwacje' => $rezerwacje,
+			'dostepne_loty' => $dostepne_loty,
+			'dane_osobowe' => $dane_osobowe,
+			'dane_kompletne' => $dane_kompletne,
+			'cached_at' => time()
+		);
+		
+		wp_cache_set($cache_key, $result, 'srl_cache', 1800);
+		wp_send_json_success($result);
+	}
+
+	public function invalidateFlightCache($user_id, $flight_id = null) {
+		$patterns = array(
+			"user_flights_{$user_id}_*",
+			"flights_batch_*"
+		);
+		
+		if ($flight_id) {
+			$patterns[] = "flight_{$flight_id}";
+		}
+		
+		foreach ($patterns as $pattern) {
+			wp_cache_flush_group('srl_cache');
+		}
+	}
+	
+	public function ajaxPobierzDodatkoweLoty() {
+		check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+		SRL_Helpers::getInstance()->requireLogin();
+
+		$user_id = get_current_user_id();
+		$offset = intval($_POST['offset'] ?? 0);
+		$limit = intval($_POST['limit'] ?? 20);
+		
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		
+		$wszystkie_loty = $wpdb->get_results($wpdb->prepare(
+			"SELECT zl.*, t.data, t.godzina_start, t.godzina_koniec, t.pilot_id,
+					v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
+			 FROM $tabela_loty zl 
+			 LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
+			 LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
+			 WHERE zl.user_id = %d 
+			 ORDER BY 
+				CASE 
+					WHEN zl.status = 'zarezerwowany' THEN 1
+					WHEN zl.status = 'wolny' THEN 2
+					WHEN zl.status = 'zrealizowany' THEN 3
+					WHEN zl.status = 'przedawniony' THEN 4
+				END,
+				t.data ASC, zl.data_zakupu DESC
+			 LIMIT %d OFFSET %d",
+			$user_id, $limit, $offset
+		), ARRAY_A);
+		
+		wp_send_json_success($wszystkie_loty);
+	}
+	
+	
 }

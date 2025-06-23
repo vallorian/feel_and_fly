@@ -1,3 +1,6 @@
+// PLIK: assets/js/frontend-calendar.js
+// ZASTĄP całą zawartość pliku na:
+
 window.SRLOpcje = window.SRLOpcje || {};
 
 jQuery(document).ready(function($) {
@@ -11,19 +14,41 @@ jQuery(document).ready(function($) {
             wybranySlot: null,
             wybranyLot: null,
             daneKlienta: null,
-            tymczasowaBlokada: null
+            tymczasowaBlokada: null,
+            requestCache: new Map(),
+            debounceTimers: new Map()
         },
 
         config: {
             ajaxUrl: srlFrontend.ajaxurl,
             nonce: srlFrontend.nonce,
             productIds: srlFrontend.productIds,
-            selectors: {
-                container: '#srl-rezerwacja-container',
-                progressBar: '.srl-progress-bar',
-                step: '.srl-step',
-                krok: '.srl-krok',
-                komunikaty: '#srl-komunikaty'
+            cacheTimeout: 300000,
+            debounceDelay: 300
+        },
+
+        cache: {
+            set: function(key, data) {
+                SRL.state.requestCache.set(key, {
+                    data: data,
+                    timestamp: Date.now()
+                });
+            },
+            
+            get: function(key) {
+                const cached = SRL.state.requestCache.get(key);
+                if (!cached) return null;
+                
+                if (Date.now() - cached.timestamp > SRL.config.cacheTimeout) {
+                    SRL.state.requestCache.delete(key);
+                    return null;
+                }
+                
+                return cached.data;
+            },
+            
+            clear: function() {
+                SRL.state.requestCache.clear();
             }
         },
 
@@ -31,14 +56,25 @@ jQuery(document).ready(function($) {
             const defaults = {
                 method: 'POST',
                 showLoader: true,
+                useCache: true,
                 successCallback: null,
                 errorCallback: null
             };
             const opts = {...defaults, ...options};
             
+            const cacheKey = opts.useCache ? `${action}_${JSON.stringify(data)}` : null;
+            
+            if (cacheKey && opts.useCache) {
+                const cached = SRL.cache.get(cacheKey);
+                if (cached) {
+                    if (opts.successCallback) opts.successCallback(cached);
+                    return Promise.resolve(cached);
+                }
+            }
+            
             const ajaxData = {
                 action: action,
-                nonce: this.config.nonce,
+                nonce: SRL.config.nonce,
                 ...data
             };
 
@@ -47,24 +83,32 @@ jQuery(document).ready(function($) {
             }
 
             return $.ajax({
-                url: this.config.ajaxUrl,
+                url: SRL.config.ajaxUrl,
                 method: opts.method,
                 data: ajaxData
             }).done(response => {
                 if (response.success) {
+                    if (cacheKey && opts.useCache) {
+                        SRL.cache.set(cacheKey, response.data);
+                    }
                     if (opts.successCallback) opts.successCallback(response.data);
                 } else {
-                    this.showMessage(response.data || 'Wystąpił błąd', 'error');
+                    SRL.showMessage(response.data || 'Wystąpił błąd', 'error');
                     if (opts.errorCallback) opts.errorCallback(response.data);
                 }
             }).fail(() => {
-                this.showMessage('Błąd połączenia z serwerem', 'error');
+                SRL.showMessage('Błąd połączenia z serwerem', 'error');
                 if (opts.errorCallback) opts.errorCallback('Błąd połączenia');
             }).always(() => {
                 if (opts.showLoader && opts.loadingElement) {
                     $(opts.loadingElement).prop('disabled', false).text(opts.originalText);
                 }
             });
+        },
+
+        debounce: function(func, key, delay = SRL.config.debounceDelay) {
+            clearTimeout(SRL.state.debounceTimers.get(key));
+            SRL.state.debounceTimers.set(key, setTimeout(func, delay));
         },
 
         showMessage: function(text, type = 'info') {
@@ -76,43 +120,50 @@ jQuery(document).ready(function($) {
             };
             
             const html = `<div class="srl-komunikat ${classes[type]}">${text}</div>`;
-            const $komunikaty = $(this.config.selectors.komunikaty);
+            let $komunikaty = $('#srl-komunikaty');
             
             if ($komunikaty.length === 0) {
                 $('#srl-formularz-pasazera').prepend('<div id="srl-komunikaty"></div>');
+                $komunikaty = $('#srl-komunikaty');
             }
             
-            $('#srl-komunikaty').append(html).show();
-            setTimeout(() => $('#srl-komunikaty').fadeOut(() => $('#srl-komunikaty').empty()), 15000);
+            $komunikaty.append(html).show();
+            setTimeout(() => $komunikaty.fadeOut(() => $komunikaty.empty()), 15000);
         },
 
         hideMessages: function() {
-            $(this.config.selectors.komunikaty).empty().hide();
+            $('#srl-komunikaty').empty().hide();
         },
 
         validation: {
             validateAge: function(rok) {
                 if (!rok) return SRL.hideValidationMessage('#srl-wiek-ostrzezenie');
                 
-                SRL.ajax('srl_waliduj_wiek', { rok_urodzenia: rok }, {
-                    showLoader: false,
-                    successCallback: data => {
-                        if (data.html) SRL.showValidationMessage('#srl-wiek-ostrzezenie', data.html);
-                        else SRL.hideValidationMessage('#srl-wiek-ostrzezenie');
-                    }
-                });
+                SRL.debounce(() => {
+                    SRL.ajax('srl_waliduj_wiek', { rok_urodzenia: rok }, {
+                        showLoader: false,
+                        useCache: true,
+                        successCallback: data => {
+                            if (data.html) SRL.showValidationMessage('#srl-wiek-ostrzezenie', data.html);
+                            else SRL.hideValidationMessage('#srl-wiek-ostrzezenie');
+                        }
+                    });
+                }, 'validate_age');
             },
 
             validateWeight: function(kategoria) {
                 if (!kategoria) return SRL.hideValidationMessage('#srl-waga-ostrzezenie');
                 
-                SRL.ajax('srl_waliduj_kategorie_wagowa', { kategoria_wagowa: kategoria }, {
-                    showLoader: false,
-                    successCallback: data => {
-                        if (data.html) SRL.showValidationMessage('#srl-waga-ostrzezenie', data.html);
-                        else SRL.hideValidationMessage('#srl-waga-ostrzezenie');
-                    }
-                });
+                SRL.debounce(() => {
+                    SRL.ajax('srl_waliduj_kategorie_wagowa', { kategoria_wagowa: kategoria }, {
+                        showLoader: false,
+                        useCache: true,
+                        successCallback: data => {
+                            if (data.html) SRL.showValidationMessage('#srl-waga-ostrzezenie', data.html);
+                            else SRL.hideValidationMessage('#srl-waga-ostrzezenie');
+                        }
+                    });
+                }, 'validate_weight');
             },
 
             checkCompatibility: function() {
@@ -143,8 +194,8 @@ jQuery(document).ready(function($) {
             show: function(nrKroku) {
                 if (nrKroku < 1 || nrKroku > 5) return;
 
-                $(SRL.config.selectors.step).removeClass('srl-step-active srl-step-completed');
-                $(SRL.config.selectors.progressBar).removeClass('srl-progress-1 srl-progress-2 srl-progress-3 srl-progress-4 srl-progress-5').addClass(`srl-progress-${nrKroku}`);
+                $('.srl-step').removeClass('srl-step-active srl-step-completed');
+                $('.srl-progress-bar').removeClass('srl-progress-1 srl-progress-2 srl-progress-3 srl-progress-4 srl-progress-5').addClass(`srl-progress-${nrKroku}`);
 
                 for (let i = 1; i <= 5; i++) {
                     const $step = $(`.srl-step[data-step="${i}"]`);
@@ -152,13 +203,13 @@ jQuery(document).ready(function($) {
                     else if (i === nrKroku) $step.addClass('srl-step-active');
                 }
 
-                $(SRL.config.selectors.krok).removeClass('srl-krok-active');
+                $('.srl-krok').removeClass('srl-krok-active');
                 $(`#srl-krok-${nrKroku}`).addClass('srl-krok-active');
                 
                 SRL.state.aktualnyKrok = nrKroku;
                 SRL.state.maksymalnyKrok = Math.max(SRL.state.maksymalnyKrok, nrKroku);
                 
-                $('html, body').animate({scrollTop: $(SRL.config.selectors.container).offset().top - 50}, 300);
+                $('html, body').animate({scrollTop: $('#srl-rezerwacja-container').offset().top - 50}, 300);
                 
                 if (nrKroku === 5) SRL.steps.setupStep5();
             },
@@ -219,6 +270,7 @@ jQuery(document).ready(function($) {
 
                 SRL.ajax('srl_pobierz_dane_klienta', {}, {
                     showLoader: false,
+                    useCache: true,
                     successCallback: data => {
                         SRL.hideMessages();
                         SRL.state.daneKlienta = data;
@@ -293,8 +345,10 @@ jQuery(document).ready(function($) {
                     loadingElement: $submitBtn,
                     originalText: 'Zapisz i przejdź dalej →',
                     loadingText: 'Zapisywanie...',
+                    useCache: false,
                     successCallback: () => {
                         Object.assign(SRL.state.daneKlienta.dane_osobowe, formData);
+                        SRL.cache.clear();
                         SRL.steps.show(3);
                         SRL.calendar.load();
                     }
@@ -335,6 +389,7 @@ jQuery(document).ready(function($) {
                 }, {
                     method: 'GET',
                     showLoader: false,
+                    useCache: true,
                     successCallback: data => SRL.calendar.generate(data),
                     errorCallback: error => $('#srl-kalendarz-tabela').html(`<p class="srl-komunikat srl-komunikat-error">Błąd: ${error}</p>`)
                 });
@@ -394,6 +449,7 @@ jQuery(document).ready(function($) {
                 SRL.ajax('srl_pobierz_dostepne_godziny', { data: SRL.state.wybranaDana }, {
                     method: 'GET',
                     showLoader: false,
+                    useCache: true,
                     successCallback: data => SRL.schedule.generate(data),
                     errorCallback: error => $('#srl-harmonogram-frontend').html(`<p class="srl-komunikat srl-komunikat-error">Błąd: ${error}</p>`)
                 });
@@ -432,6 +488,7 @@ jQuery(document).ready(function($) {
             blockTemporarily: function(slotId) {
                 SRL.ajax('srl_zablokuj_slot_tymczasowo', { termin_id: slotId }, {
                     showLoader: false,
+                    useCache: false,
                     successCallback: data => {
                         SRL.state.tymczasowaBlokada = data;
                         SRL.showMessage('Termin został zarezerwowany na 15 minut.', 'info');
@@ -468,7 +525,11 @@ jQuery(document).ready(function($) {
                     loadingElement: $btn,
                     originalText: '🎯 Potwierdź rezerwację',
                     loadingText: 'Finalizowanie rezerwacji...',
-                    successCallback: () => SRL.booking.showSuccess(),
+                    useCache: false,
+                    successCallback: () => {
+                        SRL.cache.clear();
+                        SRL.booking.showSuccess();
+                    },
                     errorCallback: () => {
                         $btn.prop('disabled', false).text('🎯 Potwierdź rezerwację');
                     }
@@ -484,7 +545,7 @@ jQuery(document).ready(function($) {
                         <div style="margin-top:30px;"><a href="${window.location.href}" class="srl-btn srl-btn-primary">Zarezerwuj kolejny lot</a></div>
                     </div>
                 `;
-                $(SRL.config.selectors.container).html(html);
+                $('#srl-rezerwacja-container').html(html);
             },
 
             cancel: function(lotId) {
@@ -492,8 +553,10 @@ jQuery(document).ready(function($) {
 
                 SRL.ajax('srl_anuluj_rezerwacje_klient', { lot_id: lotId }, {
                     showLoader: false,
+                    useCache: false,
                     successCallback: () => {
                         SRL.showMessage('Rezerwacja została anulowana.', 'success');
+                        SRL.cache.clear();
                         SRL.data.loadClientData();
                     }
                 });
@@ -650,111 +713,111 @@ jQuery(document).ready(function($) {
             }
         },
 
-		flightInfo: {
-			update: function() {
-				const aktualnyLot = SRL.state.wybranyLot || window.wybranyLot;
-				const aktualneDane = SRL.state.daneKlienta || window.daneKlienta;
-				if (!aktualnyLot || !aktualneDane?.dostepne_loty) return;
+        flightInfo: {
+            update: function() {
+                const aktualnyLot = SRL.state.wybranyLot || window.wybranyLot;
+                const aktualneDane = SRL.state.daneKlienta || window.daneKlienta;
+                if (!aktualnyLot || !aktualneDane?.dostepne_loty) return;
 
-				const lot = aktualneDane.dostepne_loty.find(l => l.id == aktualnyLot);
-				if (!lot) return;
+                const lot = aktualneDane.dostepne_loty.find(l => l.id == aktualnyLot);
+                if (!lot) return;
 
-				const nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
-				const finalName = ['voucher', 'lot', 'tandem'].some(word => nazwaBezWariantu.toLowerCase().includes(word)) ? 'Lot w tandemie' : nazwaBezWariantu;
+                const nazwaBezWariantu = lot.nazwa_produktu.split(' - ')[0];
+                const finalName = ['voucher', 'lot', 'tandem'].some(word => nazwaBezWariantu.toLowerCase().includes(word)) ? 'Lot w tandemie' : nazwaBezWariantu;
 
-				const maFilmowanie = lot.ma_filmowanie && lot.ma_filmowanie != '0';
-				const maAkrobacje = lot.ma_akrobacje && lot.ma_akrobacje != '0';
-				const opcje = [
-					maFilmowanie ? '<span style="color: #46b450;">z filmowaniem</span>' : '<span style="color: #d63638;">brak filmowania</span>',
-					maAkrobacje ? '<span style="color: #46b450;">z akrobacjami</span>' : '<span style="color: #d63638;">brak akrobacji</span>'
-				];
+                const maFilmowanie = lot.ma_filmowanie && lot.ma_filmowanie != '0';
+                const maAkrobacje = lot.ma_akrobacje && lot.ma_akrobacje != '0';
+                const opcje = [
+                    maFilmowanie ? '<span style="color: #46b450;">z filmowaniem</span>' : '<span style="color: #d63638;">brak filmowania</span>',
+                    maAkrobacje ? '<span style="color: #46b450;">z akrobacjami</span>' : '<span style="color: #d63638;">brak akrobacji</span>'
+                ];
 
-				let html = `<strong>Lot #${lot.id} – ${SRL.utils.escapeHtml(finalName)} <span style="font-weight: bold;">${opcje.join(', ')}</span></strong>`;
+                let html = `<strong>Lot #${lot.id} – ${SRL.utils.escapeHtml(finalName)} <span style="font-weight: bold;">${opcje.join(', ')}</span></strong>`;
 
-				if (!maFilmowanie || !maAkrobacje) {
-					SRL.flightInfo.sprawdzOpcjeWKoszyku(lot, (opcjeWKoszyku) => {
-						html += SRL.flightInfo.generateOptionsBox(lot, maFilmowanie, maAkrobacje, opcjeWKoszyku);
-						$('#srl-wybrany-lot-szczegoly').html(html);
-					});
-				} else {
-					$('#srl-wybrany-lot-szczegoly').html(html);
-				}
-			},
+                if (!maFilmowanie || !maAkrobacje) {
+                    SRL.flightInfo.sprawdzOpcjeWKoszyku(lot, (opcjeWKoszyku) => {
+                        html += SRL.flightInfo.generateOptionsBox(lot, maFilmowanie, maAkrobacje, opcjeWKoszyku);
+                        $('#srl-wybrany-lot-szczegoly').html(html);
+                    });
+                } else {
+                    $('#srl-wybrany-lot-szczegoly').html(html);
+                }
+            },
 
-			sprawdzOpcjeWKoszyku: function(lot, callback) {
-				if (typeof window.SRLOpcje !== 'undefined') {
-					window.SRLOpcje.ajax('srl_sprawdz_opcje_w_koszyku', {}, {
-						pokazKomunikat: false,
-						onSuccess: (response) => {
-							const opcjeWKoszyku = response.success && response.data ? response.data[lot.id] || {} : {};
-							callback(opcjeWKoszyku);
-						},
-						onError: () => {
-							callback({});
-						}
-					});
-				} else {
-					callback({});
-				}
-			},
+            sprawdzOpcjeWKoszyku: function(lot, callback) {
+                if (typeof window.SRLOpcje !== 'undefined') {
+                    window.SRLOpcje.ajax('srl_sprawdz_opcje_w_koszyku', {}, {
+                        pokazKomunikat: false,
+                        onSuccess: (response) => {
+                            const opcjeWKoszyku = response.success && response.data ? response.data[lot.id] || {} : {};
+                            callback(opcjeWKoszyku);
+                        },
+                        onError: () => {
+                            callback({});
+                        }
+                    });
+                } else {
+                    callback({});
+                }
+            },
 
-			generateOptionsBox: function(lot, maFilmowanie, maAkrobacje, opcjeWKoszyku = {}) {
-				let html = '<div style="background: #f0f8ff; border: 2px solid #46b450; border-radius: 8px; padding: 20px; margin-top: 15px;">';
-				
-				const maOpcjeWKoszyku = opcjeWKoszyku.filmowanie || opcjeWKoszyku.akrobacje;
-				
-				if (!maFilmowanie && !maAkrobacje) {
-					html += '<h4 style="margin-top: 0; color: #46b450;">🌟 Czy wiesz, że Twój lot może być jeszcze ciekawszy?</h4>';
-					html += '<p>Nie masz dodanego <strong>filmowania</strong> ani <strong>akrobacji</strong> – to dwie opcje, które często wybierają nasi pasażerowie.</p>';
-					html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br><strong>Akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
-					html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
-					html += '<div style="text-align: left; margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">';
-					html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.filmowanie, 'Filmowanie', 'Filmowanie lotu', opcjeWKoszyku.filmowanie);
-					html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.akrobacje, 'Akrobacje', 'Akrobacje podczas lotu', opcjeWKoszyku.akrobacje);
-					
-					if (maOpcjeWKoszyku) {
-						html += '<a href="/zamowienie/" class="srl-btn srl-btn-primary button-small" style="margin: 0; padding: 8px 16px; text-decoration: none; margin-left: auto;">Finalizuj zamówienie</a>';
-					}
-					html += '</div>';
-				} else if (!maFilmowanie) {
-					html += '<h4 style="margin-top: 0; color: #46b450;">Nie masz dodanego filmowania do swojego lotu?</h4>';
-					html += '<p>To nic, ale warto wiedzieć, że to bardzo lubiana opcja wśród pasażerów.</p>';
-					html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę.</p>';
-					html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
-					html += '<div style="text-align: left; margin-top: 15px; display: flex; gap: 10px; align-items: center;">';
-					html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.filmowanie, 'Filmowanie', 'Filmowanie lotu', opcjeWKoszyku.filmowanie);
-					
-					if (maOpcjeWKoszyku) {
-						html += '<a href="/zamowienie/" class="srl-btn srl-btn-primary button-small" style="margin: 0; padding: 8px 16px; text-decoration: none; margin-left: auto;">Finalizuj zamówienie</a>';
-					}
-					html += '</div>';
-				} else if (!maAkrobacje) {
-					html += '<h4 style="margin-top: 0; color: #46b450;">Nie wybrałeś akrobacji?</h4>';
-					html += '<p>To oczywiście nie jest obowiązkowe – ale jeśli lubisz odrobinę adrenaliny, to może być coś dla Ciebie!</p>';
-					html += '<p><strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo.</p>';
-					html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
-					html += '<div style="text-align: left; margin-top: 15px; display: flex; gap: 10px; align-items: center;">';
-					html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.akrobacje, 'Akrobacje', 'Akrobacje podczas lotu', opcjeWKoszyku.akrobacje);
-					
-					if (maOpcjeWKoszyku) {
-						html += '<a href="/zamowienie/" class="srl-btn srl-btn-primary button-small" style="margin: 0; padding: 8px 16px; text-decoration: none; margin-left: auto;">Finalizuj zamówienie</a>';
-					}
-					html += '</div>';
-				}
-				html += '</div>';
-				return html;
-			},
+            generateOptionsBox: function(lot, maFilmowanie, maAkrobacje, opcjeWKoszyku = {}) {
+                let html = '<div style="background: #f0f8ff; border: 2px solid #46b450; border-radius: 8px; padding: 20px; margin-top: 15px;">';
+                
+                const maOpcjeWKoszyku = opcjeWKoszyku.filmowanie || opcjeWKoszyku.akrobacje;
+                
+                if (!maFilmowanie && !maAkrobacje) {
+                    html += '<h4 style="margin-top: 0; color: #46b450;">🌟 Czy wiesz, że Twój lot może być jeszcze ciekawszy?</h4>';
+                    html += '<p>Nie masz dodanego <strong>filmowania</strong> ani <strong>akrobacji</strong> – to dwie opcje, które często wybierają nasi pasażerowie.</p>';
+                    html += '<p><strong>Film z lotu</strong> to świetna pamiątka, którą możesz pokazać znajomym.</br><strong>Akrobacje</strong>? Idealne, jeśli masz ochotę na więcej adrenaliny!</p>';
+                    html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
+                    html += '<div style="text-align: left; margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">';
+                    html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.filmowanie, 'Filmowanie', 'Filmowanie lotu', opcjeWKoszyku.filmowanie);
+                    html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.akrobacje, 'Akrobacje', 'Akrobacje podczas lotu', opcjeWKoszyku.akrobacje);
+                    
+                    if (maOpcjeWKoszyku) {
+                        html += '<a href="/zamowienie/" class="srl-btn srl-btn-primary button-small" style="margin: 0; padding: 8px 16px; text-decoration: none; margin-left: auto;">Finalizuj zamówienie</a>';
+                    }
+                    html += '</div>';
+                } else if (!maFilmowanie) {
+                    html += '<h4 style="margin-top: 0; color: #46b450;">Nie masz dodanego filmowania do swojego lotu?</h4>';
+                    html += '<p>To nic, ale warto wiedzieć, że to bardzo lubiana opcja wśród pasażerów.</p>';
+                    html += '<p>🎥 <strong>Film z lotu</strong> pozwala wracać do tych emocji, dzielić się nimi z bliskimi i zachować wyjątkową pamiątkę.</p>';
+                    html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
+                    html += '<div style="text-align: left; margin-top: 15px; display: flex; gap: 10px; align-items: center;">';
+                    html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.filmowanie, 'Filmowanie', 'Filmowanie lotu', opcjeWKoszyku.filmowanie);
+                    
+                    if (maOpcjeWKoszyku) {
+                        html += '<a href="/zamowienie/" class="srl-btn srl-btn-primary button-small" style="margin: 0; padding: 8px 16px; text-decoration: none; margin-left: auto;">Finalizuj zamówienie</a>';
+                    }
+                    html += '</div>';
+                } else if (!maAkrobacje) {
+                    html += '<h4 style="margin-top: 0; color: #46b450;">Nie wybrałeś akrobacji?</h4>';
+                    html += '<p>To oczywiście nie jest obowiązkowe – ale jeśli lubisz odrobinę adrenaliny, to może być coś dla Ciebie!</p>';
+                    html += '<p><strong>Akrobacje w locie</strong> to kilka dynamicznych manewrów, które robią wrażenie i zostają w pamięci na długo.</p>';
+                    html += '<p>Możesz wykupić je teraz online lub na lotnisku – bezpośrednio na lotnisku, za gotówkę.</p>';
+                    html += '<div style="text-align: left; margin-top: 15px; display: flex; gap: 10px; align-items: center;">';
+                    html += SRL.flightInfo.generateButton(lot.id, SRL.config.productIds.akrobacje, 'Akrobacje', 'Akrobacje podczas lotu', opcjeWKoszyku.akrobacje);
+                    
+                    if (maOpcjeWKoszyku) {
+                        html += '<a href="/zamowienie/" class="srl-btn srl-btn-primary button-small" style="margin: 0; padding: 8px 16px; text-decoration: none; margin-left: auto;">Finalizuj zamówienie</a>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+                return html;
+            },
 
-			generateButton: function(lotId, productId, nazwa, pelnanazwa, czyWKoszyku) {
-				const timestamp = Date.now();
-				
-				if (czyWKoszyku) {
-					return `<button id="srl-opcja-${lotId}-${productId}" class="srl-add-option srl-btn srl-btn-warning button-small" style="margin: 0; padding: 8px 16px; background: #ff9800; border-color: #ff9800; color: white;" data-lot-id="${lotId}" data-product-id="${productId}" data-timestamp="${timestamp}">+ ${nazwa} (w koszyku) <span class="srl-remove-from-cart" data-lot-id="${lotId}" data-product-id="${productId}" style="margin-left: 10px; cursor: pointer; font-weight: bold; font-size: 14px; padding: 2px 6px; border-radius: 50%; transition: all 0.2s ease;" onmouseenter="this.style.backgroundColor='#dc3545'; this.style.color='white';" onmouseleave="this.style.backgroundColor=''; this.style.color='white';">✕</span></button>`;
-				} else {
-					return `<button id="srl-opcja-${lotId}-${productId}" class="srl-add-option srl-btn srl-btn-success button-small" style="margin: 0; padding: 8px 16px;" data-lot-id="${lotId}" data-product-id="${productId}" data-timestamp="${timestamp}" onclick="srlDodajOpcjeLotu(${lotId}, ${productId}, '${pelnanazwa}')">+ ${nazwa}</button>`;
-				}
-			}
-		},
+            generateButton: function(lotId, productId, nazwa, pelnanazwa, czyWKoszyku) {
+                const timestamp = Date.now();
+                
+                if (czyWKoszyku) {
+                    return `<button id="srl-opcja-${lotId}-${productId}" class="srl-add-option srl-btn srl-btn-warning button-small" style="margin: 0; padding: 8px 16px; background: #ff9800; border-color: #ff9800; color: white;" data-lot-id="${lotId}" data-product-id="${productId}" data-timestamp="${timestamp}">+ ${nazwa} (w koszyku) <span class="srl-remove-from-cart" data-lot-id="${lotId}" data-product-id="${productId}" style="margin-left: 10px; cursor: pointer; font-weight: bold; font-size: 14px; padding: 2px 6px; border-radius: 50%; transition: all 0.2s ease;" onmouseenter="this.style.backgroundColor='#dc3545'; this.style.color='white';" onmouseleave="this.style.backgroundColor=''; this.style.color='white';">✕</span></button>`;
+                } else {
+                    return `<button id="srl-opcja-${lotId}-${productId}" class="srl-add-option srl-btn srl-btn-success button-small" style="margin: 0; padding: 8px 16px;" data-lot-id="${lotId}" data-product-id="${productId}" data-timestamp="${timestamp}" onclick="srlDodajOpcjeLotu(${lotId}, ${productId}, '${pelnanazwa}')">+ ${nazwa}</button>`;
+                }
+            }
+        },
 
         utils: {
             formatDate: function(dataStr) {
@@ -795,83 +858,89 @@ jQuery(document).ready(function($) {
             SRL.data.loadClientData();
             SRL.bindEvents();
         },
-		
+        
         bindEvents: function() {
-			$(SRL.config.selectors.step).on('click', function() {
-				const krok = parseInt($(this).data('step'));
-				if (krok <= SRL.state.maksymalnyKrok) SRL.steps.show(krok);
-			});
+            $('.srl-step').on('click', function() {
+                const krok = parseInt($(this).data('step'));
+                if (krok <= SRL.state.maksymalnyKrok) SRL.steps.show(krok);
+            });
 
-			$('#srl-formularz-pasazera').on('submit', function(e) {
-				e.preventDefault();
-				SRL.data.savePassengerData();
-			});
+            $('#srl-formularz-pasazera').on('submit', function(e) {
+                e.preventDefault();
+                SRL.data.savePassengerData();
+            });
 
-			$('#srl-poprzedni-miesiac').on('click', () => SRL.calendar.changeMonth(-1));
-			$('#srl-nastepny-miesiac').on('click', () => SRL.calendar.changeMonth(1));
-			$('#srl-powrot-krok-1').on('click', () => SRL.steps.show(1));
-			$('#srl-powrot-krok-2').on('click', () => SRL.steps.show(2));
-			$('#srl-powrot-krok-3').on('click', () => SRL.steps.show(3));
-			$('#srl-powrot-krok-4').on('click', () => SRL.steps.show(4));
-			$('#srl-dalej-krok-5').on('click', () => SRL.steps.show(5));
+            $('#srl-poprzedni-miesiac').on('click', () => SRL.calendar.changeMonth(-1));
+            $('#srl-nastepny-miesiac').on('click', () => SRL.calendar.changeMonth(1));
+            $('#srl-powrot-krok-1').on('click', () => SRL.steps.show(1));
+            $('#srl-powrot-krok-2').on('click', () => SRL.steps.show(2));
+            $('#srl-powrot-krok-3').on('click', () => SRL.steps.show(3));
+            $('#srl-powrot-krok-4').on('click', () => SRL.steps.show(4));
+            $('#srl-dalej-krok-5').on('click', () => SRL.steps.show(5));
 
-			$(document).on('click', '.srl-wybierz-lot', function() {
-				const lotId = $(this).data('lot-id');
-				SRL.state.wybranyLot = lotId;
-				window.wybranyLot = lotId;
-				SRL.steps.show(2);
-				SRL.flightInfo.update();
-			});
+            $(document).on('click', '.srl-wybierz-lot', function() {
+                const lotId = $(this).data('lot-id');
+                SRL.state.wybranyLot = lotId;
+                window.wybranyLot = lotId;
+                SRL.steps.show(2);
+                SRL.flightInfo.update();
+            });
 
-			$('#srl-potwierdz-rezerwacje').on('click', () => SRL.booking.confirm());
+            $('#srl-potwierdz-rezerwacje').on('click', () => SRL.booking.confirm());
 
-			$('.srl-step[data-step="2"]').on('click', function(e) {
-				if (!SRL.state.wybranyLot && !window.wybranyLot) {
-					e.preventDefault();
-					e.stopPropagation();
-					SRL.showMessage('Musisz najpierw wybrać lot do zarezerwowania.', 'error');
-					return false;
-				}
-			});
+            $('.srl-step[data-step="2"]').on('click', function(e) {
+                if (!SRL.state.wybranyLot && !window.wybranyLot) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    SRL.showMessage('Musisz najpierw wybrać lot do zarezerwowania.', 'error');
+                    return false;
+                }
+            });
 
-			$(document).on('change', '#srl-rok-urodzenia', () => SRL.validation.validateAge($('#srl-rok-urodzenia').val()));
-			$(document).on('change', '#srl-kategoria-wagowa', function() {
-				SRL.validation.validateWeight($(this).val());
-				SRL.validation.checkCompatibility();
-			});
+            $(document).on('change', '#srl-rok-urodzenia', () => SRL.validation.validateAge($('#srl-rok-urodzenia').val()));
+            $(document).on('change', '#srl-kategoria-wagowa', function() {
+                SRL.validation.validateWeight($(this).val());
+                SRL.validation.checkCompatibility();
+            });
 
-			// Nasłuchuj na zmiany opcji i odśwież widok
-			$(document).on('srl_opcje_zmienione', function() {
-				setTimeout(() => {
-					SRL.flightInfo.sprawdzIUstawPrzyciski();
-				}, 200);
-			});
+            $(document).on('srl_opcje_zmienione', function() {
+                setTimeout(() => {
+                    SRL.flightInfo.sprawdzIUstawPrzyciski();
+                }, 200);
+            });
 
-			// Upewnij się, że po załadowaniu danych klienta sprawdzamy opcje
-			$(document).on('srl_dane_klienta_zaladowane', function() {
-				setTimeout(() => {
-					if (SRL.state.wybranyLot || window.wybranyLot) {
-						SRL.flightInfo.update();
-					}
-				}, 500);
-			});
-			
-			$(document).on('srl_opcje_zmienione', function() {
-				const aktualnyLot = SRL.state.wybranyLot || window.wybranyLot;
-				
-				setTimeout(() => {
-					if (aktualnyLot) {
-						SRL.state.wybranyLot = aktualnyLot;
-						window.wybranyLot = aktualnyLot;
-						SRL.flightInfo.update();
-					}
-				}, 500);
-			});
-		}
+            $(document).on('srl_dane_klienta_zaladowane', function() {
+                setTimeout(() => {
+                    if (SRL.state.wybranyLot || window.wybranyLot) {
+                        SRL.flightInfo.update();
+                    }
+                }, 500);
+            });
+            
+            $(document).on('srl_opcje_zmienione', function() {
+                const aktualnyLot = SRL.state.wybranyLot || window.wybranyLot;
+                
+                setTimeout(() => {
+                    if (aktualnyLot) {
+                        SRL.state.wybranyLot = aktualnyLot;
+                        window.wybranyLot = aktualnyLot;
+                        SRL.flightInfo.update();
+                    }
+                }, 500);
+            });
+        }
     };
 
     window.wybranyLot = null;
     window.daneKlienta = null;
+
+    if (typeof window.SRLOpcje !== 'undefined') {
+        Object.assign(window.SRLOpcje, {
+            ajax: SRL.ajax,
+            cache: SRL.cache,
+            debounce: SRL.debounce
+        });
+    }
 
     SRL.init();
 });

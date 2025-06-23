@@ -152,48 +152,26 @@ class SRL_Frontend_Ajax {
                 }
             }
         }
-
+		SRL_Helpers::getInstance()->invalidateUserCache($user_id);
         wp_send_json_success(array('message' => 'Dane zostały zapisane.'));
     }
 
-    public function ajaxPobierzDostepneDni() {
-        check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-        SRL_Helpers::getInstance()->requireLogin();
+	public function ajaxPobierzDostepneDni() {
+		check_ajax_referer('srl_frontend_nonce', 'nonce', true);
+		SRL_Helpers::getInstance()->requireLogin();
 
-        $rok = intval($_GET['rok']);
-        $miesiac = intval($_GET['miesiac']);
+		$rok = intval($_GET['rok']);
+		$miesiac = intval($_GET['miesiac']);
 
-        if ($rok < 2020 || $rok > 2030 || $miesiac < 1 || $miesiac > 12) {
-            wp_send_json_error('Nieprawidłowa data.');
-            return;
-        }
+		if ($rok < 2020 || $rok > 2030 || $miesiac < 1 || $miesiac > 12) {
+			wp_send_json_error('Nieprawidłowa data.');
+			return;
+		}
 
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_terminy';
-
-        $poczatek_miesiaca = sprintf('%04d-%02d-01', $rok, $miesiac);
-        $koniec_miesiaca = date('Y-m-t', strtotime($poczatek_miesiaca));
-
-        $wynik = $wpdb->get_results($wpdb->prepare(
-            "SELECT data, COUNT(*) as wolne_sloty
-             FROM $tabela 
-             WHERE data BETWEEN %s AND %s 
-             AND status = 'Wolny'
-             AND data >= CURDATE()
-             GROUP BY data
-             HAVING wolne_sloty > 0
-             ORDER BY data ASC",
-            $poczatek_miesiaca, $koniec_miesiaca
-        ), ARRAY_A);
-
-        $dostepne_dni = array();
-        foreach ($wynik as $wiersz) {
-            $dostepne_dni[$wiersz['data']] = intval($wiersz['wolne_sloty']);
-        }
-
-        wp_send_json_success($dostepne_dni);
-    }
-
+		$dostepne_dni = SRL_Cache_Manager::getInstance()->getAvailableDays($rok, $miesiac);
+		wp_send_json_success($dostepne_dni);
+	}
+	
     public function ajaxPobierzDostepneGodziny() {
         check_ajax_referer('srl_frontend_nonce', 'nonce', true);
         SRL_Helpers::getInstance()->requireLogin();
