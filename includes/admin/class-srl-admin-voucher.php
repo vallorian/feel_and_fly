@@ -20,6 +20,8 @@ class SRL_Admin_Voucher {
     }
 
     public static function wyswietlVouchery() {
+        global $wpdb;
+        
         echo '<div class="wrap">';
         echo '<h1>Vouchery partnerów</h1>';
         
@@ -29,32 +31,12 @@ class SRL_Admin_Voucher {
     }
 
     private static function wyswietlVoucheryPartnera() {
-        $cache_key = 'partner_vouchers_filtered_' . ($_GET['status_filter'] ?? '');
-        $cached_data = wp_cache_get($cache_key, 'srl_admin_cache');
+        global $wpdb;
         
-        if ($cached_data === false) {
-            $vouchery_partnera = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVouchers();
-            $config = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVoucherConfig();
-            
-            $cached_data = [
-                'vouchery' => $vouchery_partnera,
-                'config' => $config
-            ];
-            
-            wp_cache_set($cache_key, $cached_data, 'srl_admin_cache', 600);
-        }
+        $vouchery_partnera = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVouchers();
+        $config = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVoucherConfig();
         
-        $vouchery_partnera = $cached_data['vouchery'];
-        $config = $cached_data['config'];
-        $current_status = $_GET['status_filter'] ?? '';
-        
-        self::renderFilterControls($current_status);
-        self::renderVouchersTable($vouchery_partnera, $config, $current_status);
-        self::renderPartnerVoucherModals();
-        self::renderPartnerVoucherJs();
-    }
-
-    private static function renderFilterControls($current_status) {
+        $current_status = isset($_GET['status_filter']) ? $_GET['status_filter'] : '';
         echo '<div class="tablenav top">';
         echo '<div class="alignleft actions">';
         echo '<select name="status_filter" id="status-filter">';
@@ -66,9 +48,7 @@ class SRL_Admin_Voucher {
         echo '<button type="button" class="button" onclick="filterVouchers()">Filtruj</button>';
         echo '</div>';
         echo '</div>';
-    }
-
-    private static function renderVouchersTable($vouchery_partnera, $config, $current_status) {
+        
         echo '<table class="widefat striped">';
         echo '<thead>';
         echo '<tr>';
@@ -88,81 +68,73 @@ class SRL_Admin_Voucher {
         echo '<tbody>';
         
         if (empty($vouchery_partnera)) {
-            echo '<tr><td colspan="11" style="text-align: center; padding: 20px; color: #666;">Brak voucherów partnera.</td></tr>';
+            echo '<tr><td colspan="10" style="text-align: center; padding: 20px; color: #666;">Brak voucherów partnera.</td></tr>';
         } else {
             foreach ($vouchery_partnera as $voucher) {
                 if (!empty($current_status) && $voucher['status'] !== $current_status) {
                     continue;
                 }
-                self::renderVoucherRow($voucher, $config);
+                
+                $user = get_userdata($voucher['klient_id']);
+                $partner_name = isset($config[$voucher['partner']]) ? $config[$voucher['partner']]['nazwa'] : $voucher['partner'];
+                $voucher_type_name = isset($config[$voucher['partner']]['typy'][$voucher['typ_vouchera']]) 
+                    ? $config[$voucher['partner']]['typy'][$voucher['typ_vouchera']]['nazwa'] 
+                    : $voucher['typ_vouchera'];
+                
+                echo '<tr>';
+                echo '<td><strong>#' . $voucher['id'] . '</strong></td>';
+                echo '<td>' . esc_html($partner_name) . '</td>';
+                echo '<td>' . esc_html($voucher_type_name) . '</td>';
+                echo '<td><code>' . esc_html($voucher['kod_vouchera']) . '</code></td>';
+                echo '<td><code>' . esc_html($voucher['kod_zabezpieczajacy']) . '</code></td>';
+                echo '<td>';
+                if ($voucher['status'] === 'oczekuje') {
+                    echo '<input type="date" id="validity-date-' . $voucher['id'] . '" value="' . esc_attr($voucher['data_waznosci_vouchera']) . '" style="width: 140px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">';
+                } else {
+                    echo esc_html($voucher['data_waznosci_vouchera'] ? date('d.m.Y', strtotime($voucher['data_waznosci_vouchera'])) : 'Brak');
+                }
+                echo '</td>';
+                echo '<td>' . $voucher['liczba_osob'] . ' ' . ($voucher['liczba_osob'] == 1 ? 'osoba' : 'osoby') . '</td>';
+                echo '<td>' . ($user ? esc_html($user->display_name . ' (' . $user->user_email . ')') : 'Nieznany użytkownik') . '</td>';
+                echo '<td>' . esc_html(date('d.m.Y H:i', strtotime($voucher['data_zgloszenia']))) . '</td>';
+                echo '<td>';
+                
+                switch ($voucher['status']) {
+                    case 'oczekuje':
+                        echo '<span class="srl-status-badge" style="background: #f39c12; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">OCZEKUJE</span>';
+                        break;
+                    case 'zatwierdzony':
+                        echo '<span class="srl-status-badge" style="background: #27ae60; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">ZATWIERDZONY</span>';
+                        break;
+                    case 'odrzucony':
+                        echo '<span class="srl-status-badge" style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">ODRZUCONY</span>';
+                        break;
+                }
+                
+                echo '</td>';
+                echo '<td>';
+                
+                if ($voucher['status'] === 'oczekuje') {
+                    echo '<button class="button button-small" onclick="showPassengerDetails(' . $voucher['id'] . ')">👥 Dane pasażerów</button> ';
+                    echo '<button class="button button-primary button-small" onclick="approvePartnerVoucher(' . $voucher['id'] . ')">✅ Zatwierdź</button> ';
+                    echo '<button class="button button-secondary button-small" onclick="showRejectModal(' . $voucher['id'] . ')">❌ Odrzuć</button>';
+                } elseif ($voucher['status'] === 'odrzucony') {
+                    echo '<button class="button button-small" onclick="showPassengerDetails(' . $voucher['id'] . ')">👥 Dane pasażerów</button> ';
+                    echo '<button class="button button-small" onclick="showRejectReason(' . $voucher['id'] . ')">📝 Powód odrzucenia</button>';
+                } else {
+                    echo '<button class="button button-small" onclick="showPassengerDetails(' . $voucher['id'] . ')">👥 Dane pasażerów</button>';
+                }
+                
+                echo '</td>';
+                echo '</tr>';
             }
         }
         
         echo '</tbody>';
         echo '</table>';
-    }
-
-    private static function renderVoucherRow($voucher, $config) {
-        $user = get_userdata($voucher['klient_id']);
-        $partner_name = $config[$voucher['partner']]['nazwa'] ?? $voucher['partner'];
-        $voucher_type_name = $config[$voucher['partner']]['typy'][$voucher['typ_vouchera']]['nazwa'] ?? $voucher['typ_vouchera'];
         
-        echo '<tr>';
-        echo '<td><strong>#' . $voucher['id'] . '</strong></td>';
-        echo '<td>' . esc_html($partner_name) . '</td>';
-        echo '<td>' . esc_html($voucher_type_name) . '</td>';
-        echo '<td><code>' . esc_html($voucher['kod_vouchera']) . '</code></td>';
-        echo '<td><code>' . esc_html($voucher['kod_zabezpieczajacy']) . '</code></td>';
-        echo '<td>';
-        
-        if ($voucher['status'] === 'oczekuje') {
-            echo '<input type="date" id="validity-date-' . $voucher['id'] . '" value="' . esc_attr($voucher['data_waznosci_vouchera']) . '" style="width: 140px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">';
-        } else {
-            echo esc_html($voucher['data_waznosci_vouchera'] ? date('d.m.Y', strtotime($voucher['data_waznosci_vouchera'])) : 'Brak');
-        }
-        echo '</td>';
-        
-        echo '<td>' . $voucher['liczba_osob'] . ' ' . ($voucher['liczba_osob'] == 1 ? 'osoba' : 'osoby') . '</td>';
-        echo '<td>' . ($user ? esc_html($user->display_name . ' (' . $user->user_email . ')') : 'Nieznany użytkownik') . '</td>';
-        echo '<td>' . esc_html(date('d.m.Y H:i', strtotime($voucher['data_zgloszenia']))) . '</td>';
-        echo '<td>';
-        
-        echo self::renderStatusBadge($voucher['status']);
-        
-        echo '</td>';
-        echo '<td>';
-        
-        echo self::renderActionButtons($voucher);
-        
-        echo '</td>';
-        echo '</tr>';
-    }
-
-    private static function renderStatusBadge($status) {
-        $badges = [
-            'oczekuje' => ['color' => '#f39c12', 'label' => 'OCZEKUJE'],
-            'zatwierdzony' => ['color' => '#27ae60', 'label' => 'ZATWIERDZONY'],
-            'odrzucony' => ['color' => '#e74c3c', 'label' => 'ODRZUCONY']
-        ];
-        
-        $badge = $badges[$status] ?? ['color' => '#6c757d', 'label' => strtoupper($status)];
-        
-        return '<span class="srl-status-badge" style="background: ' . $badge['color'] . '; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">' . $badge['label'] . '</span>';
-    }
-
-    private static function renderActionButtons($voucher) {
-        $buttons = [];
-        
-        $buttons[] = '<button class="button button-small" onclick="showPassengerDetails(' . $voucher['id'] . ')">👥 Dane pasażerów</button> ';
-        
-        if ($voucher['status'] === 'oczekuje') {
-            $buttons[] = '<button class="button button-primary button-small" onclick="approvePartnerVoucher(' . $voucher['id'] . ')">✅ Zatwierdź</button> ';
-            $buttons[] = '<button class="button button-secondary button-small" onclick="showRejectModal(' . $voucher['id'] . ')">❌ Odrzuć</button>';
-        } elseif ($voucher['status'] === 'odrzucony') {
-            $buttons[] = '<button class="button button-small" onclick="showRejectReason(' . $voucher['id'] . ')">📝 Powód odrzucenia</button>';
-        }
-        
-        return implode('', $buttons);
+        self::renderPartnerVoucherModals();
+        self::renderPartnerVoucherJs();
     }
 
     private static function renderPartnerVoucherModals() {
@@ -377,8 +349,5 @@ class SRL_Admin_Voucher {
         if (isset($_POST['srl_odrzuc_voucher'])) {
             $wpdb->update($tabela, array('status' => 'Odrzucony'), array('id' => $id));
         }
-        
-        wp_cache_delete('partner_vouchers_filtered_', 'srl_admin_cache');
-        wp_cache_delete('partner_vouchers_', 'srl_admin_cache');
     }
 }

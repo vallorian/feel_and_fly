@@ -54,18 +54,7 @@ class SRL_Admin_Vouchers {
     }
 
     private static function wyswietlVoucheryPartnera() {
-        $cache_key = 'partner_vouchers_' . ($_GET['status_filter'] ?? '');
-        $cached_data = wp_cache_get($cache_key, 'srl_admin_cache');
-        
-        if ($cached_data === false) {
-            $vouchery_partnera = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVouchers();
-            $config = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVoucherConfig();
-            $cached_data = ['vouchery' => $vouchery_partnera, 'config' => $config];
-            wp_cache_set($cache_key, $cached_data, 'srl_admin_cache', 600);
-        }
-        
-        $vouchery_partnera = $cached_data['vouchery'];
-        $config = $cached_data['config'];
+        $vouchery_partnera = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVouchers();
         $current_status = $_GET['status_filter'] ?? '';
         
         echo '<div class="tablenav top">';
@@ -87,43 +76,41 @@ class SRL_Admin_Vouchers {
         if (empty($vouchery_partnera)) {
             echo '<tr><td colspan="11" style="text-align: center; padding: 20px; color: #666;">Brak voucherów partnera.</td></tr>';
         } else {
+            $config = SRL_Partner_Voucher_Functions::getInstance()->getPartnerVoucherConfig();
             foreach ($vouchery_partnera as $voucher) {
                 if (!empty($current_status) && $voucher['status'] !== $current_status) continue;
-                self::renderPartnerVoucherRow($voucher, $config);
+                
+                $user = get_userdata($voucher['klient_id']);
+                $partner_name = $config[$voucher['partner']]['nazwa'] ?? $voucher['partner'];
+                $voucher_type_name = $config[$voucher['partner']]['typy'][$voucher['typ_vouchera']]['nazwa'] ?? $voucher['typ_vouchera'];
+                
+                echo '<tr>';
+                echo '<td><strong>#' . $voucher['id'] . '</strong></td>';
+                echo '<td>' . esc_html($partner_name) . '</td>';
+                echo '<td>' . esc_html($voucher_type_name) . '</td>';
+                echo '<td><code>' . esc_html($voucher['kod_vouchera']) . '</code></td>';
+                echo '<td><code>' . esc_html($voucher['kod_zabezpieczajacy']) . '</code></td>';
+                echo '<td>';
+                
+                if ($voucher['status'] === 'oczekuje') {
+                    echo '<input type="date" id="validity-date-' . $voucher['id'] . '" value="' . esc_attr($voucher['data_waznosci_vouchera']) . '" style="width: 140px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">';
+                } else {
+                    echo esc_html($voucher['data_waznosci_vouchera'] ? SRL_Helpers::getInstance()->formatujDate($voucher['data_waznosci_vouchera']) : 'Brak');
+                }
+                
+                echo '</td>';
+                echo '<td>' . $voucher['liczba_osob'] . ' ' . ($voucher['liczba_osob'] == 1 ? 'osoba' : 'osoby') . '</td>';
+                echo '<td>' . ($user ? esc_html($user->display_name . ' (' . $user->user_email . ')') : 'Nieznany użytkownik') . '</td>';
+                echo '<td>' . esc_html(SRL_Helpers::getInstance()->formatujDate($voucher['data_zgloszenia'], 'd.m.Y H:i')) . '</td>';
+                echo '<td>' . self::renderVoucherStatusBadge($voucher['status'], 'partner') . '</td>';
+                echo '<td>' . self::generatePartnerVoucherActions($voucher) . '</td>';
+                echo '</tr>';
             }
         }
         
         echo '</tbody></table>';
         self::renderPartnerVoucherModals();
         self::renderPartnerVoucherJs();
-    }
-
-    private static function renderPartnerVoucherRow($voucher, $config) {
-        $user = get_userdata($voucher['klient_id']);
-        $partner_name = $config[$voucher['partner']]['nazwa'] ?? $voucher['partner'];
-        $voucher_type_name = $config[$voucher['partner']]['typy'][$voucher['typ_vouchera']]['nazwa'] ?? $voucher['typ_vouchera'];
-        
-        echo '<tr>';
-        echo '<td><strong>#' . $voucher['id'] . '</strong></td>';
-        echo '<td>' . esc_html($partner_name) . '</td>';
-        echo '<td>' . esc_html($voucher_type_name) . '</td>';
-        echo '<td><code>' . esc_html($voucher['kod_vouchera']) . '</code></td>';
-        echo '<td><code>' . esc_html($voucher['kod_zabezpieczajacy']) . '</code></td>';
-        echo '<td>';
-        
-        if ($voucher['status'] === 'oczekuje') {
-            echo '<input type="date" id="validity-date-' . $voucher['id'] . '" value="' . esc_attr($voucher['data_waznosci_vouchera']) . '" style="width: 140px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">';
-        } else {
-            echo esc_html($voucher['data_waznosci_vouchera'] ? SRL_Helpers::getInstance()->formatujDate($voucher['data_waznosci_vouchera']) : 'Brak');
-        }
-        
-        echo '</td>';
-        echo '<td>' . $voucher['liczba_osob'] . ' ' . ($voucher['liczba_osob'] == 1 ? 'osoba' : 'osoby') . '</td>';
-        echo '<td>' . ($user ? esc_html($user->display_name . ' (' . $user->user_email . ')') : 'Nieznany użytkownik') . '</td>';
-        echo '<td>' . esc_html(SRL_Helpers::getInstance()->formatujDate($voucher['data_zgloszenia'], 'd.m.Y H:i')) . '</td>';
-        echo '<td>' . self::renderVoucherStatusBadge($voucher['status'], 'partner') . '</td>';
-        echo '<td>' . self::generatePartnerVoucherActions($voucher) . '</td>';
-        echo '</tr>';
     }
 
     private static function wyswietlZakupioneVouchery() {
@@ -151,92 +138,6 @@ class SRL_Admin_Vouchers {
         self::renderVoucherTable($vouchery, $pagination_data);
         self::renderVoucherModals();
         self::renderPartnerVoucherJs();
-    }
-
-    private static function getVoucherPaginationData() {
-        return [
-            'per_page' => 50,
-            'current_page' => max(1, intval($_GET['paged'] ?? 1)),
-            'status_filter' => sanitize_text_field($_GET['status_filter'] ?? ''),
-            'search' => sanitize_text_field($_GET['s'] ?? '')
-        ];
-    }
-
-    private static function getVouchersWithFilters($pagination) {
-        $cache_key = 'vouchers_filtered_' . md5(serialize($pagination));
-        $cached = wp_cache_get($cache_key, 'srl_admin_cache');
-        
-        if ($cached !== false) {
-            return $cached;
-        }
-        
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_vouchery_upominkowe';
-        
-        $where_conditions = [];
-        $where_params = [];
-        
-        if ($pagination['status_filter']) {
-            $where_conditions[] = "v.status = %s";
-            $where_params[] = $pagination['status_filter'];
-        }
-        
-        if ($pagination['search']) {
-            $where_conditions[] = "(v.buyer_imie LIKE %s OR v.buyer_nazwisko LIKE %s OR v.kod_vouchera LIKE %s OR v.nazwa_produktu LIKE %s OR o.ID LIKE %s)";
-            $search_param = '%' . $pagination['search'] . '%';
-            $where_params = array_merge($where_params, array_fill(0, 5, $search_param));
-        }
-        
-        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-        $offset = ($pagination['current_page'] - 1) * $pagination['per_page'];
-        
-        $result = SRL_Database_Helpers::getInstance()->executeQuery(
-            "SELECT v.*, buyer.user_email as buyer_email, user.user_email as user_email, 
-                    user.display_name as user_display_name, o.post_status as order_status
-             FROM $tabela v
-             LEFT JOIN {$wpdb->users} buyer ON v.buyer_user_id = buyer.ID
-             LEFT JOIN {$wpdb->users} user ON v.wykorzystany_przez_user_id = user.ID
-             LEFT JOIN {$wpdb->posts} o ON v.order_id = o.ID
-             $where_clause
-             ORDER BY v.data_zakupu DESC
-             LIMIT %d OFFSET %d",
-            array_merge($where_params, [$pagination['per_page'], $offset])
-        );
-        
-        wp_cache_set($cache_key, $result, 'srl_admin_cache', 300);
-        return $result;
-    }
-
-    private static function getVoucherStats() {
-        $cache_key = 'voucher_stats';
-        $stats = wp_cache_get($cache_key, 'srl_admin_cache');
-        
-        if ($stats === false) {
-            global $wpdb;
-            $stats = SRL_Database_Helpers::getInstance()->executeQuery(
-                "SELECT status, COUNT(*) as count FROM {$wpdb->prefix}srl_vouchery_upominkowe GROUP BY status"
-            );
-            wp_cache_set($cache_key, $stats, 'srl_admin_cache', 600);
-        }
-        
-        return $stats;
-    }
-
-    private static function handleVoucherBulkActions() {
-        if (!isset($_POST['action']) || !isset($_POST['voucher_ids'])) return;
-        
-        $ids = array_map('intval', $_POST['voucher_ids']);
-        $action = $_POST['action'];
-        
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_vouchery_upominkowe';
-        
-        if ($action === 'bulk_delete') {
-            $placeholders = implode(',', array_fill(0, count($ids), '%d'));
-            $wpdb->query($wpdb->prepare("DELETE FROM $tabela WHERE id IN ($placeholders)", ...$ids));
-            echo SRL_Helpers::getInstance()->generateMessage('Usunięto ' . count($ids) . ' voucherów.', 'success');
-            wp_cache_flush_group('srl_admin_cache');
-        }
     }
 
     private static function renderVoucherStatusBadge($status, $type) {
@@ -273,6 +174,73 @@ class SRL_Admin_Vouchers {
         }
         
         return implode(' ', $actions);
+    }
+
+    private static function handleVoucherBulkActions() {
+        if (!isset($_POST['action']) || !isset($_POST['voucher_ids'])) return;
+        
+        $ids = array_map('intval', $_POST['voucher_ids']);
+        $action = $_POST['action'];
+        
+        global $wpdb;
+        $tabela = $wpdb->prefix . 'srl_vouchery_upominkowe';
+        
+        if ($action === 'bulk_delete') {
+            $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+            $wpdb->query($wpdb->prepare("DELETE FROM $tabela WHERE id IN ($placeholders)", ...$ids));
+            echo SRL_Helpers::getInstance()->generateMessage('Usunięto ' . count($ids) . ' voucherów.', 'success');
+        }
+    }
+
+    private static function getVoucherPaginationData() {
+        return [
+            'per_page' => 20,
+            'current_page' => max(1, intval($_GET['paged'] ?? 1)),
+            'status_filter' => sanitize_text_field($_GET['status_filter'] ?? ''),
+            'search' => sanitize_text_field($_GET['s'] ?? '')
+        ];
+    }
+
+    private static function getVouchersWithFilters($pagination) {
+        global $wpdb;
+        $tabela = $wpdb->prefix . 'srl_vouchery_upominkowe';
+        
+        $where_conditions = [];
+        $where_params = [];
+        
+        if ($pagination['status_filter']) {
+            $where_conditions[] = "v.status = %s";
+            $where_params[] = $pagination['status_filter'];
+        }
+        
+        if ($pagination['search']) {
+            $where_conditions[] = "(v.buyer_imie LIKE %s OR v.buyer_nazwisko LIKE %s OR v.kod_vouchera LIKE %s OR v.nazwa_produktu LIKE %s OR o.ID LIKE %s)";
+            $search_param = '%' . $pagination['search'] . '%';
+            $where_params = array_merge($where_params, array_fill(0, 5, $search_param));
+        }
+        
+        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+        $offset = ($pagination['current_page'] - 1) * $pagination['per_page'];
+        
+        return SRL_Database_Helpers::getInstance()->executeQuery(
+            "SELECT v.*, buyer.user_email as buyer_email, user.user_email as user_email, 
+                    user.display_name as user_display_name, o.post_status as order_status
+             FROM $tabela v
+             LEFT JOIN {$wpdb->users} buyer ON v.buyer_user_id = buyer.ID
+             LEFT JOIN {$wpdb->users} user ON v.wykorzystany_przez_user_id = user.ID
+             LEFT JOIN {$wpdb->posts} o ON v.order_id = o.ID
+             $where_clause
+             ORDER BY v.data_zakupu DESC
+             LIMIT %d OFFSET %d",
+            array_merge($where_params, [$pagination['per_page'], $offset])
+        );
+    }
+
+    private static function getVoucherStats() {
+        global $wpdb;
+        return SRL_Database_Helpers::getInstance()->executeQuery(
+            "SELECT status, COUNT(*) as count FROM {$wpdb->prefix}srl_vouchery_upominkowe GROUP BY status"
+        );
     }
 
     private static function renderVoucherStats($stats) {
@@ -331,7 +299,7 @@ class SRL_Admin_Vouchers {
         echo '</tr></thead><tbody>';
         
         if (empty($vouchery)) {
-            echo '<tr><td colspan="10" style="text-align: center; padding: 40px; color: #666;">';
+            echo '<tr><td colspan="11" style="text-align: center; padding: 40px; color: #666;">';
             echo '<p style="font-size: 16px;">Brak voucherów do wyświetlenia</p>';
             if ($pagination['search'] || $pagination['status_filter']) {
                 echo '<p>' . SRL_Helpers::getInstance()->generateLink(admin_url('admin.php?page=srl-voucher&tab=upominkowe'), 'Wyczyść filtry') . '</p>';
@@ -715,7 +683,5 @@ class SRL_Admin_Vouchers {
         if (isset($_POST['srl_odrzuc_voucher'])) {
             $wpdb->update($tabela, ['status' => 'Odrzucony'], ['id' => $id]);
         }
-        
-        wp_cache_flush_group('srl_admin_cache');
     }
 }
