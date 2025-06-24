@@ -41,43 +41,46 @@ class SRL_Flight_Options_Ajax {
         SRL_Helpers::getInstance()->requireLogin();
     }
 
-    private function getCartOptions() {
-        if (!WC()->cart) return [];
-        
-        $cache_key = 'cart_options_' . get_current_user_id();
-        $cached = wp_cache_get($cache_key, 'srl_cache');
-        
-        if ($cached !== false) {
-            return $cached;
-        }
+	private function getCartOptions() {
+		if (!WC() || !WC()->cart) {
+			wp_send_json_success([]);
+			return [];
+		}
+		
+		$cache_key = 'cart_options_' . get_current_user_id();
+		$cached = wp_cache_get($cache_key, 'srl_cache');
+		
+		if ($cached !== false) {
+			return $cached;
+		}
 
-        $opcje_w_koszyku = [];
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            if (!isset($cart_item['srl_lot_id'])) continue;
-            
-            $lot_id = $cart_item['srl_lot_id'];
-            $product_id = $cart_item['product_id'];
+		$opcje_w_koszyku = [];
+		foreach (WC()->cart->get_cart() as $cart_item) {
+			if (!isset($cart_item['srl_lot_id'])) continue;
+			
+			$lot_id = $cart_item['srl_lot_id'];
+			$product_id = $cart_item['product_id'];
 
-            if (!isset($opcje_w_koszyku[$lot_id])) {
-                $opcje_w_koszyku[$lot_id] = [
-                    'filmowanie' => false, 
-                    'akrobacje' => false, 
-                    'przedluzenie' => false
-                ];
-            }
+			if (!isset($opcje_w_koszyku[$lot_id])) {
+				$opcje_w_koszyku[$lot_id] = [
+					'filmowanie' => false, 
+					'akrobacje' => false, 
+					'przedluzenie' => false
+				];
+			}
 
-            if ($product_id == $this->product_ids['filmowanie']) {
-                $opcje_w_koszyku[$lot_id]['filmowanie'] = true;
-            } elseif ($product_id == $this->product_ids['akrobacje']) {
-                $opcje_w_koszyku[$lot_id]['akrobacje'] = true;
-            } elseif ($product_id == $this->product_ids['przedluzenie']) {
-                $opcje_w_koszyku[$lot_id]['przedluzenie'] = true;
-            }
-        }
+			if ($product_id == $this->product_ids['filmowanie']) {
+				$opcje_w_koszyku[$lot_id]['filmowanie'] = true;
+			} elseif ($product_id == $this->product_ids['akrobacje']) {
+				$opcje_w_koszyku[$lot_id]['akrobacje'] = true;
+			} elseif ($product_id == $this->product_ids['przedluzenie']) {
+				$opcje_w_koszyku[$lot_id]['przedluzenie'] = true;
+			}
+		}
 
-        wp_cache_set($cache_key, $opcje_w_koszyku, 'srl_cache', 300);
-        return $opcje_w_koszyku;
-    }
+		wp_cache_set($cache_key, $opcje_w_koszyku, 'srl_cache', 300);
+		return $opcje_w_koszyku;
+	}
 
     private function invalidateCartCache() {
         if (is_user_logged_in()) {
@@ -137,12 +140,15 @@ class SRL_Flight_Options_Ajax {
         return $cart_data;
     }
 
-    public function ajaxSprawdzOpcjeWKoszyku() {
-        $this->validateAccess();
-        
-        $opcje_w_koszyku = $this->getCartOptions();
-        wp_send_json_success($opcje_w_koszyku);
-    }
+	public function ajaxSprawdzOpcjeWKoszyku() {
+		try {
+			$this->validateAccess();
+			$opcje_w_koszyku = $this->getCartOptions();
+			wp_send_json_success($opcje_w_koszyku);
+		} catch (Exception $e) {
+			wp_send_json_error($e->getMessage());
+		}
+	}
 
     public function ajaxUsunOpcjeZKoszyka() {
         $this->validateAccess();

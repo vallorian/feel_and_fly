@@ -32,6 +32,58 @@ class SRL_Database_Helpers {
         }
     }
 
+	private function getUserFlightsOptimized($user_id) {
+		$cache_key = "client_data_full_{$user_id}";
+		$cached = wp_cache_get($cache_key, 'srl_cache');
+		
+		if ($cached !== false) {
+			return $cached;
+		}
+		
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		$tabela_terminy = $wpdb->prefix . 'srl_terminy';
+
+		if ($wpdb->get_var("SHOW TABLES LIKE '$tabela_loty'") != $tabela_loty ||
+			$wpdb->get_var("SHOW TABLES LIKE '$tabela_terminy'") != $tabela_terminy) {
+			$result = ['rezerwacje' => [], 'dostepne_loty' => []];
+			wp_cache_set($cache_key, $result, 'srl_cache', 1800);
+			return $result;
+		}
+
+		$rezerwacje = $wpdb->get_results($wpdb->prepare(
+			"SELECT zl.id, zl.nazwa_produktu, zl.status, zl.data_waznosci, zl.ma_filmowanie, zl.ma_akrobacje,
+					t.data, t.godzina_start, t.godzina_koniec,
+					v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
+			 FROM $tabela_loty zl 
+			 LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
+			 LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
+			 WHERE zl.user_id = %d 
+			 AND zl.status = 'zarezerwowany'
+			 AND zl.data_waznosci >= CURDATE()
+			 ORDER BY t.data ASC, t.godzina_start ASC
+			 LIMIT 10",
+			$user_id
+		), ARRAY_A) ?: [];
+
+		$dostepne_loty = $wpdb->get_results($wpdb->prepare(
+			"SELECT zl.id, zl.nazwa_produktu, zl.status, zl.data_waznosci, zl.ma_filmowanie, zl.ma_akrobacje,
+					v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
+			 FROM $tabela_loty zl
+			 LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
+			 WHERE zl.user_id = %d 
+			 AND zl.status = 'wolny'
+			 AND zl.data_waznosci >= CURDATE()
+			 ORDER BY zl.data_zakupu DESC
+			 LIMIT 20",
+			$user_id
+		), ARRAY_A) ?: [];
+
+		$result = ['rezerwacje' => $rezerwacje, 'dostepne_loty' => $dostepne_loty];
+		wp_cache_set($cache_key, $result, 'srl_cache', 1800);
+		
+		return $result;
+	}
     public function getFlightById($flight_id) {
         global $wpdb;
         $table = $wpdb->prefix . 'srl_zakupione_loty';
@@ -46,43 +98,49 @@ class SRL_Database_Helpers {
         );
     }
 
-    public function getUserFlights($user_id, $status = null, $include_expired = false) {
-        $cache_key = "user_flights_{$user_id}_{$status}_" . ($include_expired ? '1' : '0');
-        $cached = wp_cache_get($cache_key, 'srl_cache');
-        
-        if ($cached !== false) {
-            return $cached;
-        }
-        
-        global $wpdb;
-        $tabela = $wpdb->prefix . 'srl_zakupione_loty';
-        
-        if ($wpdb->get_var("SHOW TABLES LIKE '$tabela'") != $tabela) {
-            wp_cache_set($cache_key, [], 'srl_cache', 1800);
-            return [];
-        }
-        
-        $where_conditions = array("user_id = %d");
-        $params = array($user_id);
-        
-        if (!$include_expired) {
-            $where_conditions[] = "data_waznosci >= CURDATE()";
-        }
-        if ($status) {
-            $where_conditions[] = "status = %s";
-            $params[] = $status;
-        }
-        
-        $where_clause = "WHERE " . implode(' AND ', $where_conditions);
-        $result = $this->executeQuery(
-            "SELECT * FROM $tabela $where_clause ORDER BY data_zakupu DESC",
-            $params
-        );
-        
-        wp_cache_set($cache_key, $result, 'srl_cache', 1800);
-        return $result;
-    }
-
+	public function getUserFlights($user_id, $status = null, $include_expired = false) {
+		if (!$user_id) return [];
+		
+		$cache_key = "user_flights_{$user_id}_{$status}_" . ($include_expired ? '1' : '0');
+		$cached = wp_cache_get($cache_key, 'srl_cache');
+		
+		if ($cached !== false) {
+			return $cached;
+		}
+		
+		global $wpdb;
+		$tabela = $wpdb->prefix . 'srl_zakupione_loty';
+		
+		if ($wpdb->get_var("SHOW TABLES LIKE '$tabela'") != $tabela) {
+			wp_cache_set($cache_key, [], 'srl_cache', 1800);
+			return [];
+		}
+		
+		$where_conditions = ["user_id = %d"];
+		$params = [$user_id];
+		
+		if (!$include_expired) {
+			$where_conditions[] = "data_waznosci >= CURDATE()";
+		}
+		if ($status) {
+			$where_conditions[] = "status = %s";
+			$params[] = $status;
+		}
+		
+		$where_clause = "WHERE " . implode(' AND ', $where_conditions);
+		$result = $this->executeQuery(
+			"SELECT * FROM $tabela $where_clause ORDER BY data_zakupu DESC",
+			$params
+		);
+		
+		// Upewnij się że result jest tablicą
+		if (!is_array($result)) {
+			$result = [];
+		}
+		
+		wp_cache_set($cache_key, $result, 'srl_cache', 1800);
+		return $result;
+	}
     public function getAvailableSlots($date) {
         global $wpdb;
         $table = $wpdb->prefix . 'srl_terminy';
@@ -345,82 +403,6 @@ class SRL_Database_Helpers {
         
         wp_cache_set($cache_key, $indexed_result, 'srl_cache', 1800);
         return $indexed_result;
-    }
-
-    public function ajaxPobierzDaneKlienta() {
-        check_ajax_referer('srl_frontend_nonce', 'nonce', true);
-        SRL_Helpers::getInstance()->requireLogin();
-
-        $user_id = get_current_user_id();
-        
-        $cache_key = "client_data_full_{$user_id}";
-        $cached = wp_cache_get($cache_key, 'srl_cache');
-        
-        if ($cached !== false) {
-            wp_send_json_success($cached);
-            return;
-        }
-        
-        global $wpdb;
-        $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
-        $tabela_terminy = $wpdb->prefix . 'srl_terminy';
-
-        if ($wpdb->get_var("SHOW TABLES LIKE '$tabela_loty'") != $tabela_loty ||
-            $wpdb->get_var("SHOW TABLES LIKE '$tabela_terminy'") != $tabela_terminy) {
-            wp_send_json_success([
-                'rezerwacje' => [],
-                'dostepne_loty' => [],
-                'dane_osobowe' => SRL_Cache_Manager::getInstance()->getUserData($user_id),
-                'dane_kompletne' => false,
-                'cached_at' => time()
-            ]);
-            return;
-        }
-
-        $rezerwacje = $wpdb->get_results($wpdb->prepare(
-            "SELECT zl.id, zl.nazwa_produktu, zl.status, zl.data_waznosci, zl.ma_filmowanie, zl.ma_akrobacje,
-                    t.data, t.godzina_start, t.godzina_koniec,
-                    v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
-             FROM $tabela_loty zl 
-             LEFT JOIN $tabela_terminy t ON zl.termin_id = t.id
-             LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
-             WHERE zl.user_id = %d 
-             AND zl.status = 'zarezerwowany'
-             AND zl.data_waznosci >= CURDATE()
-             ORDER BY t.data ASC, t.godzina_start ASC
-             LIMIT 10",
-            $user_id
-        ), ARRAY_A);
-
-        $dostepne_loty = $wpdb->get_results($wpdb->prepare(
-            "SELECT zl.id, zl.nazwa_produktu, zl.status, zl.data_waznosci, zl.ma_filmowanie, zl.ma_akrobacje,
-                    v.kod_vouchera, v.buyer_imie as voucher_buyer_imie, v.buyer_nazwisko as voucher_buyer_nazwisko
-             FROM $tabela_loty zl
-             LEFT JOIN {$wpdb->prefix}srl_vouchery_upominkowe v ON zl.id = v.lot_id
-             WHERE zl.user_id = %d 
-             AND zl.status = 'wolny'
-             AND zl.data_waznosci >= CURDATE()
-             ORDER BY zl.data_zakupu DESC
-             LIMIT 20",
-            $user_id
-        ), ARRAY_A);
-
-        $dane_osobowe = SRL_Cache_Manager::getInstance()->getUserData($user_id);
-        
-        $dane_kompletne = !empty($dane_osobowe['imie']) && !empty($dane_osobowe['nazwisko']) 
-                         && !empty($dane_osobowe['rok_urodzenia']) && !empty($dane_osobowe['kategoria_wagowa']) 
-                         && !empty($dane_osobowe['sprawnosc_fizyczna']);
-
-        $result = array(
-            'rezerwacje' => $rezerwacje,
-            'dostepne_loty' => $dostepne_loty,
-            'dane_osobowe' => $dane_osobowe,
-            'dane_kompletne' => $dane_kompletne,
-            'cached_at' => time()
-        );
-        
-        wp_cache_set($cache_key, $result, 'srl_cache', 1800);
-        wp_send_json_success($result);
     }
 
     public function invalidateFlightCache($user_id, $flight_id = null) {

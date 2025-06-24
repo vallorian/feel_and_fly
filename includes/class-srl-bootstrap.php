@@ -109,7 +109,7 @@ class SRL_Bootstrap {
     }
 
 	public function enqueueScripts() {
-		if (wp_doing_ajax() || is_admin() || !is_user_logged_in()) {
+		if (wp_doing_ajax() || is_admin()) {
 			return;
 		}
 		
@@ -141,51 +141,37 @@ class SRL_Bootstrap {
 		$optimizer = SRL_Asset_Optimizer::getInstance();
 		$use_minified = !defined('SCRIPT_DEBUG') || !SCRIPT_DEBUG;
 		
-		if ($use_minified) {
-			$css_url = $optimizer->getMinifiedAsset('assets/css/frontend-style.css', 'css');
-		} else {
-			$css_url = SRL_PLUGIN_URL . 'assets/css/frontend-style.css';
-		}
+		$css_url = $use_minified ? $optimizer->getMinifiedAsset('assets/css/frontend-style.css', 'css') : SRL_PLUGIN_URL . 'assets/css/frontend-style.css';
+		wp_enqueue_style('srl-frontend-style', $css_url, [], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/css/frontend-style.css'));
 		
-		wp_enqueue_style('srl-frontend-style', $css_url, array(), 
-			$use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/css/frontend-style.css'));
-		
+		$script_handle = null;
 		if ($load_calendar && $load_flight_options && $use_minified) {
-			$combined_js = $optimizer->getCombinedJS(array(
-				'assets/js/frontend-calendar.js',
-				'assets/js/flight-options-unified.js'
-			));
-			
-			wp_enqueue_script('srl-combined', $combined_js, array('jquery'), '1.0', true);
+			$combined_js = $optimizer->getCombinedJS(['assets/js/frontend-calendar.js', 'assets/js/flight-options-unified.js']);
+			wp_enqueue_script('srl-combined', $combined_js, ['jquery'], '1.0', true);
+			$script_handle = 'srl-combined';
 		} else {
 			if ($load_flight_options) {
-				$js_url = $use_minified ? 
-					$optimizer->getMinifiedAsset('assets/js/flight-options-unified.js', 'js') :
-					SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js';
-					
-				wp_enqueue_script('srl-flight-options', $js_url, array('jquery'), 
-					$use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/js/flight-options-unified.js'), true);
+				$js_url = $use_minified ? $optimizer->getMinifiedAsset('assets/js/flight-options-unified.js', 'js') : SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js';
+				wp_enqueue_script('srl-flight-options', $js_url, ['jquery'], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/js/flight-options-unified.js'), true);
+				$script_handle = 'srl-flight-options';
 			}
 			
 			if ($load_calendar) {
-				$cal_js_url = $use_minified ? 
-					$optimizer->getMinifiedAsset('assets/js/frontend-calendar.js', 'js') :
-					SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js';
-					
-				wp_enqueue_script('srl-frontend-calendar', $cal_js_url, array('jquery'), 
-					$use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/js/frontend-calendar.js'), true);
+				$cal_js_url = $use_minified ? $optimizer->getMinifiedAsset('assets/js/frontend-calendar.js', 'js') : SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js';
+				wp_enqueue_script('srl-frontend-calendar', $cal_js_url, ['jquery'], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/js/frontend-calendar.js'), true);
+				if (!$script_handle) $script_handle = 'srl-frontend-calendar';
 			}
 		}
 		
-		$script_handle = $load_calendar && $load_flight_options && $use_minified ? 'srl-combined' : 
-						($load_calendar ? 'srl-frontend-calendar' : 'srl-flight-options');
-		
-		wp_localize_script($script_handle, 'srlFrontend', array(
-			'ajaxurl' => admin_url('admin-ajax.php'),
-			'nonce' => wp_create_nonce('srl_frontend_nonce'),
-			'productIds' => SRL_Helpers::getInstance()->getFlightOptionProductIds(),
-			'debug' => defined('WP_DEBUG') && WP_DEBUG
-		));
+		// KRYTYCZNA POPRAWKA - zawsze lokalizuj jeśli ładujesz jakikolwiek skrypt
+		if ($script_handle) {
+			wp_localize_script($script_handle, 'srlFrontend', [
+				'ajaxurl' => admin_url('admin-ajax.php'),
+				'nonce' => wp_create_nonce('srl_frontend_nonce'),
+				'productIds' => SRL_Helpers::getInstance()->getFlightOptionProductIds(),
+				'debug' => defined('WP_DEBUG') && WP_DEBUG
+			]);
+		}
 	}
 	
 	private function isFlightOptionProduct() {

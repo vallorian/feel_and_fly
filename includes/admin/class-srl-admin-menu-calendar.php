@@ -37,44 +37,48 @@ class SRL_Admin_Menu_Calendar {
         }
     }
 
-    public function enqueueAssets($hook) {
-        $admin_pages = [
-            'srl-kalendarz' => ['admin-calendar.js', 'admin-calendar'],
-            'srl-dzien' => ['admin-day.js', 'admin-day'],
-            'srl-wykupione-loty' => [null, 'admin-style'],
-            'srl-voucher' => [null, 'admin-style']
-        ];
+	public function enqueueAssets($hook) {
+		$admin_pages = [
+			'srl-kalendarz' => ['admin-calendar.js', 'admin-calendar'],
+			'srl-dzien' => ['admin-day.js', 'admin-day'],
+			'srl-wykupione-loty' => [null, 'admin-style'],
+			'srl-voucher' => [null, 'admin-style']
+		];
 
-        $current_page = $_GET['page'] ?? '';
-        if (!isset($admin_pages[$current_page])) return;
+		$current_page = $_GET['page'] ?? '';
+		if (!isset($admin_pages[$current_page])) return;
 
-        [$js_file, $handle] = $admin_pages[$current_page];
-        
-        $use_minified = !defined('SCRIPT_DEBUG') || !SCRIPT_DEBUG;
-        $css_url = $use_minified ? $this->asset_optimizer->getMinifiedAsset('assets/css/style.css', 'css') : SRL_PLUGIN_URL . 'assets/css/style.css';
-        
-        wp_enqueue_style('srl-admin-style', $css_url, [], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/css/style.css'));
-        
-        if ($js_file) {
-            $js_url = $use_minified ? $this->asset_optimizer->getMinifiedAsset("assets/js/{$js_file}", 'js') : SRL_PLUGIN_URL . "assets/js/{$js_file}";
-            wp_enqueue_script("srl-{$handle}", $js_url, ['jquery'], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . "assets/js/{$js_file}"), true);
-            
-            if ($current_page === 'srl-dzien') {
-                $this->prepareDayData($handle);
-            }
-        }
+		[$js_file, $handle] = $admin_pages[$current_page];
+		
+		$use_minified = !defined('SCRIPT_DEBUG') || !SCRIPT_DEBUG;
+		$css_url = $use_minified ? $this->asset_optimizer->getMinifiedAsset('assets/css/style.css', 'css') : SRL_PLUGIN_URL . 'assets/css/style.css';
+		
+		wp_enqueue_style('srl-admin-style', $css_url, [], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . 'assets/css/style.css'));
+		
+		if ($js_file) {
+			$js_url = $use_minified ? $this->asset_optimizer->getMinifiedAsset("assets/js/{$js_file}", 'js') : SRL_PLUGIN_URL . "assets/js/{$js_file}";
+			wp_enqueue_script("srl-{$handle}", $js_url, ['jquery'], $use_minified ? '1.0' : filemtime(SRL_PLUGIN_DIR . "assets/js/{$js_file}"), true);
+			
+			if ($current_page === 'srl-dzien') {
+				$this->prepareDayData($handle);
+			}
+		}
 
-        if ($current_page !== 'srl-dzien') {
-            wp_localize_script('srl-admin-day', 'srlAdmin', [
-                'ajaxurl' => admin_url('admin-ajax.php'),
-                'adminUrl' => admin_url(),
-                'nonce' => wp_create_nonce('srl_admin_nonce'),
-                'data' => date('Y-m-d'),
-                'istniejaceGodziny' => [],
-                'domyslnaLiczbaPilotow' => 1
-            ]);
-        }
-    }
+		$script_handle = $js_file ? "srl-{$handle}" : 'jquery';
+		wp_localize_script($script_handle, 'srlAdmin', [
+			'ajaxurl' => admin_url('admin-ajax.php'),
+			'adminUrl' => admin_url(),
+			'nonce' => wp_create_nonce('srl_admin_nonce'),
+			'data' => $current_page === 'srl-dzien' ? (isset($_GET['data']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['data']) ? sanitize_text_field($_GET['data']) : date('Y-m-d')) : date('Y-m-d'),
+			'istniejaceGodziny' => $current_page === 'srl-dzien' ? $this->getDayDataForJs() : [],
+			'domyslnaLiczbaPilotow' => 1
+		]);
+	}
+
+	private function getDayDataForJs() {
+		$data = isset($_GET['data']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['data']) ? sanitize_text_field($_GET['data']) : date('Y-m-d');
+		return $this->slot_manager->getDayScheduleOptimized($data);
+	}
 
     public function enqueueFrontendAssets() {
         if (!$this->shouldLoadFrontendAssets()) return;

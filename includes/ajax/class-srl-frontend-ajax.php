@@ -21,15 +21,15 @@ class SRL_Frontend_Ajax {
 
     private function initHooks() {
         $ajax_methods = [
-            'srl_pobierz_dane_klienta', 'srl_zapisz_dane_pasazera', 'srl_pobierz_dostepne_dni',
-            'srl_pobierz_dostepne_godziny', 'srl_dokonaj_rezerwacji', 'srl_anuluj_rezerwacje_klient',
-            'srl_zablokuj_slot_tymczasowo', 'srl_waliduj_wiek', 'srl_waliduj_kategorie_wagowa',
-            'srl_pobierz_dostepne_loty', 'srl_pobierz_dane_dnia'
-        ];
-        
-        foreach ($ajax_methods as $method) {
-            add_action("wp_ajax_{$method}", [$this, 'ajax' . $this->toCamelCase($method)]);
-        }
+			'srl_pobierz_dane_klienta', 'srl_zapisz_dane_pasazera', 'srl_pobierz_dostepne_dni',
+			'srl_pobierz_dostepne_godziny', 'srl_dokonaj_rezerwacji', 'srl_anuluj_rezerwacje_klient',
+			'srl_zablokuj_slot_tymczasowo', 'srl_waliduj_wiek', 'srl_waliduj_kategorie_wagowa',
+			'srl_pobierz_dostepne_loty', 'srl_pobierz_dane_dnia'
+		];
+		
+		foreach ($ajax_methods as $method) {
+			add_action("wp_ajax_{$method}", [$this, 'ajax' . $this->toCamelCase($method)]);
+		}
 
         add_action('wp_ajax_nopriv_srl_ajax_login', [$this, 'ajaxLogin']);
         add_action('wp_ajax_nopriv_srl_ajax_register', [$this, 'ajaxRegister']);
@@ -85,22 +85,26 @@ class SRL_Frontend_Ajax {
         $this->cache_manager->invalidateUserCache($user_id);
     }
 
-    public function ajaxPobierzDaneKlienta() {
-        $this->validateUserAccess();
-        
-        $user_id = get_current_user_id();
-        $flight_data = $this->getUserFlightsOptimized($user_id);
-        $dane_osobowe = $this->cache_manager->getUserData($user_id);
-        
-        $dane_kompletne = !empty($dane_osobowe['imie']) && !empty($dane_osobowe['nazwisko']) 
-                         && !empty($dane_osobowe['rok_urodzenia']) && !empty($dane_osobowe['kategoria_wagowa']) 
-                         && !empty($dane_osobowe['sprawnosc_fizyczna']);
+	public function ajaxPobierzDaneKlienta() {
+		try {
+			$this->validateUserAccess();
+			
+			$user_id = get_current_user_id();
+			$flight_data = $this->getUserFlightsOptimized($user_id);
+			$dane_osobowe = $this->cache_manager->getUserData($user_id);
+			
+			$dane_kompletne = !empty($dane_osobowe['imie']) && !empty($dane_osobowe['nazwisko']) 
+							 && !empty($dane_osobowe['rok_urodzenia']) && !empty($dane_osobowe['kategoria_wagowa']) 
+							 && !empty($dane_osobowe['sprawnosc_fizyczna']);
 
-        wp_send_json_success(array_merge($flight_data, [
-            'dane_osobowe' => $dane_osobowe,
-            'dane_kompletne' => $dane_kompletne
-        ]));
-    }
+			wp_send_json_success(array_merge($flight_data, [
+				'dane_osobowe' => $dane_osobowe,
+				'dane_kompletne' => $dane_kompletne
+			]));
+		} catch (Exception $e) {
+			wp_send_json_error($e->getMessage());
+		}
+	}
 
     public function ajaxZapiszDanePasazera() {
         $this->validateUserAccess();
@@ -452,43 +456,47 @@ class SRL_Frontend_Ajax {
         wp_send_json_success(['html' => $html, 'user_data' => $user_data]);
     }
 
-    private function generateFlightsHtml($loty) {
-        if (empty($loty)) {
-            return '<div class="srl-brak-lotow"><h3>Brak dostępnych lotów</h3><p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p></div>';
-        }
+	private function generateFlightsHtml($loty) {
+		if (empty($loty)) {
+			return '<div class="srl-brak-lotow"><h3>Brak dostępnych lotów</h3><p>Nie masz jeszcze żadnych lotów do zarezerwowania.</p></div>';
+		}
 
-        $html = '';
-        foreach ($loty as $lot) {
-            $html .= '<div class="srl-lot-item" data-lot-id="' . $lot['id'] . '" data-status="' . $lot['status'] . '">';
-            $html .= '<div class="srl-lot-header">';
-            $html .= '<h4>Lot w tandemie (#' . $lot['id'] . ')</h4>';
-            $html .= SRL_Helpers::getInstance()->generateStatusBadge($lot['status'], 'lot');
-            $html .= '</div>';
-            
-            $html .= '<div class="srl-lot-details">';
-            $html .= '<div class="srl-lot-options">' . SRL_Helpers::getInstance()->formatFlightOptionsHtml($lot['ma_filmowanie'], $lot['ma_akrobacje']) . '</div>';
-            
-            if ($lot['status'] === 'zarezerwowany' && !empty($lot['data_lotu'])) {
-                $html .= '<div class="srl-lot-termin">' . SRL_Helpers::getInstance()->formatujDateICzasPolski($lot['data_lotu'], $lot['godzina_start']) . '</div>';
-            }
-            
-            $html .= '<div class="srl-lot-waznosc">' . SRL_Helpers::getInstance()->formatujWaznoscLotu($lot['data_waznosci']) . '</div>';
-            $html .= '</div>';
-            
-            $html .= '<div class="srl-lot-actions">';
-            if ($lot['status'] === 'wolny') {
-                $html .= '<button class="srl-btn srl-btn-primary srl-rezerwuj-lot" data-lot-id="' . $lot['id'] . '">Zarezerwuj lot</button>';
-            } elseif ($lot['status'] === 'zarezerwowany') {
-                if (SRL_Helpers::getInstance()->canCancelReservation($lot['data_lotu'], $lot['godzina_start'])) {
-                    $html .= '<button class="srl-btn srl-btn-secondary srl-anuluj-rezerwacje" data-lot-id="' . $lot['id'] . '">Anuluj rezerwację</button>';
-                }
-                $html .= '<button class="srl-btn srl-btn-primary srl-zmien-termin" data-lot-id="' . $lot['id'] . '">Zmień termin</button>';
-            }
-            $html .= '</div></div>';
-        }
-        
-        return $html;
-    }
+		$html = '';
+		foreach ($loty as $lot) {
+			if (!is_array($lot) || !isset($lot['id'])) continue;
+			
+			$html .= '<div class="srl-lot-item" data-lot-id="' . $lot['id'] . '" data-status="' . ($lot['status'] ?? 'unknown') . '">';
+			$html .= '<div class="srl-lot-header">';
+			$html .= '<h4>Lot w tandemie (#' . $lot['id'] . ')</h4>';
+			$html .= SRL_Helpers::getInstance()->generateStatusBadge($lot['status'] ?? 'unknown', 'lot');
+			$html .= '</div>';
+			
+			$html .= '<div class="srl-lot-details">';
+			$filmowanie = $lot['ma_filmowanie'] ?? 0;
+			$akrobacje = $lot['ma_akrobacje'] ?? 0;
+			$html .= '<div class="srl-lot-options">' . SRL_Helpers::getInstance()->formatFlightOptionsHtml($filmowanie, $akrobacje) . '</div>';
+			
+			if (($lot['status'] ?? '') === 'zarezerwowany' && !empty($lot['data_lotu'])) {
+				$html .= '<div class="srl-lot-termin">' . SRL_Helpers::getInstance()->formatujDateICzasPolski($lot['data_lotu'], $lot['godzina_start'] ?? '') . '</div>';
+			}
+			
+			$html .= '<div class="srl-lot-waznosc">' . SRL_Helpers::getInstance()->formatujWaznoscLotu($lot['data_waznosci'] ?? '') . '</div>';
+			$html .= '</div>';
+			
+			$html .= '<div class="srl-lot-actions">';
+			if (($lot['status'] ?? '') === 'wolny') {
+				$html .= '<button class="srl-btn srl-btn-primary srl-rezerwuj-lot" data-lot-id="' . $lot['id'] . '">Zarezerwuj lot</button>';
+			} elseif (($lot['status'] ?? '') === 'zarezerwowany') {
+				if (SRL_Helpers::getInstance()->canCancelReservation($lot['data_lotu'] ?? '', $lot['godzina_start'] ?? '')) {
+					$html .= '<button class="srl-btn srl-btn-secondary srl-anuluj-rezerwacje" data-lot-id="' . $lot['id'] . '">Anuluj rezerwację</button>';
+				}
+				$html .= '<button class="srl-btn srl-btn-primary srl-zmien-termin" data-lot-id="' . $lot['id'] . '">Zmień termin</button>';
+			}
+			$html .= '</div></div>';
+		}
+		
+		return $html;
+	}
 
     public function ajaxPobierzDaneDnia() {
         check_ajax_referer('srl_frontend_nonce', 'nonce', true);

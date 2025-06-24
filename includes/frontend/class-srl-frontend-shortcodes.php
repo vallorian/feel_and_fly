@@ -16,30 +16,33 @@ class SRL_Frontend_Shortcodes {
         add_shortcode('srl_kalendarz', array($this, 'shortcodeKalendarz'));
     }
 
-    public function shortcodeKalendarz() {
-        if (!is_user_logged_in()) {
-            return $this->komunikatNiezalogowany();
-        }
-        
-        $user_id = get_current_user_id();
-        $loty_dostepne = $this->pobierzDostepneLoty($user_id);
-        
-        if (empty($loty_dostepne)) {
-            return $this->komunikatBrakLotow();
-        }
-        
-		wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', array(), filemtime(SRL_PLUGIN_DIR . 'assets/css/frontend-style.css'));
-
-		wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', array('jquery'), filemtime(SRL_PLUGIN_DIR . 'assets/js/frontend-calendar.js'), true);
-
-		wp_localize_script('srl-frontend-calendar', 'srlFrontend', array(
+	public function shortcodeKalendarz() {
+		if (!is_user_logged_in()) {
+			return $this->komunikatNiezalogowany();
+		}
+		
+		$user_id = get_current_user_id();
+		$loty_dostepne = $this->pobierzDostepneLoty($user_id);
+		
+		if (empty($loty_dostepne)) {
+			return $this->komunikatBrakLotow();
+		}
+		wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', [], filemtime(SRL_PLUGIN_DIR . 'assets/css/frontend-style.css'));
+		wp_enqueue_script('srl-frontend-calendar', SRL_PLUGIN_URL . 'assets/js/frontend-calendar.js', ['jquery'], filemtime(SRL_PLUGIN_DIR . 'assets/js/frontend-calendar.js'), true);
+		wp_enqueue_script('srl-flight-options', SRL_PLUGIN_URL . 'assets/js/flight-options-unified.js', ['jquery'], filemtime(SRL_PLUGIN_DIR . 'assets/js/flight-options-unified.js'), true);
+		wp_localize_script('srl-frontend-calendar', 'srlFrontend', [
 			'ajaxurl' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('srl_frontend_nonce'),
 			'user_id' => $user_id,
 			'productIds' => SRL_Helpers::getInstance()->getFlightOptionProductIds()
-		));
-        
-        ob_start();
+		]);
+		wp_localize_script('srl-flight-options', 'srlFlightOptions', [
+			'ajaxurl' => admin_url('admin-ajax.php'),
+			'nonce' => wp_create_nonce('srl_frontend_nonce'),
+			'productIds' => SRL_Helpers::getInstance()->getFlightOptionProductIds()
+		]);
+    
+		ob_start();
         ?>
         
         <div id="srl-rezerwacja-container">
