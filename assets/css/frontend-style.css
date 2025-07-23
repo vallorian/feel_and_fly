@@ -1,5 +1,5 @@
 :root {
-    --primary-color: #0073aa;
+    --primary-color: #4263be;
     --primary-dark: #005a87;
     --primary-darker: #004570;
     --success-color: #46b450;
@@ -286,6 +286,10 @@
 }
 
 .srl-btn-primary {
+	font-family: Poppins, Helvetica, Arial, Sans-Serif, serif;
+    font-weight: 400;
+    font-size: 1em;
+    line-height: 1.5;
     background: var(--primary-color);
     color: var(--white);
 }

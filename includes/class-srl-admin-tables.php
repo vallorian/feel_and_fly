@@ -157,7 +157,7 @@ class SRL_Admin_Tables {
         }
 
         $is_today = ($date_str === $current_date);
-        $today_border = $is_today ? 'border: 3px solid #0073aa; box-shadow: 0 0 8px rgba(0,115,170,0.3);' : '';
+        $today_border = $is_today ? 'border: 3px solid #4263be; box-shadow: 0 0 8px rgba(0,115,170,0.3);' : '';
 
         $url = add_query_arg(['page' => 'srl-dzien', 'data' => $date_str], admin_url('admin.php'));
 
@@ -165,7 +165,7 @@ class SRL_Admin_Tables {
         echo '<td style="vertical-align: top; padding:8px; border:1px solid #ddd; background:' . $bg_color . '; position: relative; ' . $today_border . ' cursor: pointer; height: 100px;" onclick="window.location.href=\'' . esc_url($url) . '\'" onmouseover="this.style.opacity=\'0.8\'" onmouseout="this.style.opacity=\'1\'" title="Kliknij aby przejść do planowania dnia ' . $day . '">';
 
         if ($is_today) {
-            echo '<div style="position: absolute; top: 2px; right: 2px; background: #0073aa; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; font-weight: bold; pointer-events: none;">DZIŚ</div>';
+            echo '<div style="position: absolute; top: 2px; right: 2px; background: #4263be; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; font-weight: bold; pointer-events: none;">DZIŚ</div>';
         }
 
         echo '<div style="font-weight:bold; margin-bottom: 5px; pointer-events: none;">' . $day . '</div>';
@@ -215,14 +215,14 @@ class SRL_Admin_Tables {
             $html .= '<small style="color:#666;font-style:italic;">dod. ręcznie</small>';
         } else {
             $order_url = admin_url('post.php?post=' . $flight['order_id'] . '&action=edit');
-            $html .= '<small>Nr. zam: ' . SRL_Helpers::getInstance()->generateLink($order_url, '#' . $flight['order_id'], '', ['target' => '_blank', 'style' => 'color:#0073aa;']) . '</small>';
+            $html .= '<small>Nr. zam: ' . SRL_Helpers::getInstance()->generateLink($order_url, '#' . $flight['order_id'], '', ['target' => '_blank', 'style' => 'color:#4263be;']) . '</small>';
         }
         return $html;
     }
 
     private function renderClientCell($flight) {
         $link = admin_url('admin.php?page=wc-orders&customer=' . $flight['user_id']);
-        $html = '<strong>' . SRL_Helpers::getInstance()->generateLink($link, esc_html($flight['user_email']), '', ['target' => '_blank', 'style' => 'color: #0073aa; text-decoration: none;']) . '</strong>';
+        $html = '<strong>' . SRL_Helpers::getInstance()->generateLink($link, esc_html($flight['user_email']), '', ['target' => '_blank', 'style' => 'color: #4263be; text-decoration: none;']) . '</strong>';
         
         $telefon = get_user_meta($flight['user_id'], 'srl_telefon', true);
         if ($telefon) {
@@ -286,7 +286,7 @@ class SRL_Admin_Tables {
 
     private function renderVoucherBuyerCell($voucher) {
         $link = admin_url('admin.php?page=wc-orders&customer=' . $voucher['buyer_user_id']);
-        $html = '<strong>' . SRL_Helpers::getInstance()->generateLink($link, esc_html($voucher['buyer_imie'] . ' ' . $voucher['buyer_nazwisko']), '', ['target' => '_blank', 'style' => 'color: #0073aa; text-decoration: none;']) . '</strong>';
+        $html = '<strong>' . SRL_Helpers::getInstance()->generateLink($link, esc_html($voucher['buyer_imie'] . ' ' . $voucher['buyer_nazwisko']), '', ['target' => '_blank', 'style' => 'color: #4263be; text-decoration: none;']) . '</strong>';
         $html .= '<br><small>' . esc_html($voucher['buyer_email']) . '</small>';
         return $html;
     }
@@ -294,7 +294,7 @@ class SRL_Admin_Tables {
     private function renderVoucherProductCell($voucher) {
         $html = '<strong>' . esc_html($voucher['nazwa_produktu']) . '</strong>';
         if ($voucher['ma_filmowanie'] || $voucher['ma_akrobacje']) {
-            $html .= '<br><small style="color: #0073aa;">' . SRL_Helpers::getInstance()->formatFlightOptionsHtml($voucher['ma_filmowanie'], $voucher['ma_akrobacje']) . '</small>';
+            $html .= '<br><small style="color: #4263be;">' . SRL_Helpers::getInstance()->formatFlightOptionsHtml($voucher['ma_filmowanie'], $voucher['ma_akrobacje']) . '</small>';
         }
         return $html;
     }
@@ -302,7 +302,7 @@ class SRL_Admin_Tables {
     private function renderVoucherUserCell($voucher) {
         if ($voucher['status'] === 'wykorzystany' && $voucher['user_display_name']) {
             $link = admin_url('admin.php?page=wc-orders&customer=' . $voucher['wykorzystany_przez_user_id']);
-            $html = '<strong>' . SRL_Helpers::getInstance()->generateLink($link, esc_html($voucher['user_display_name']), '', ['target' => '_blank', 'style' => 'color: #0073aa; text-decoration: none;']) . '</strong>';
+            $html = '<strong>' . SRL_Helpers::getInstance()->generateLink($link, esc_html($voucher['user_display_name']), '', ['target' => '_blank', 'style' => 'color: #4263be; text-decoration: none;']) . '</strong>';
             $html .= '<br><small>' . esc_html($voucher['user_email']) . '</small>';
             if ($voucher['data_wykorzystania']) {
                 $html .= '<br><small style="color: #666;">Wykorzystano: ' . SRL_Helpers::getInstance()->formatujDate($voucher['data_wykorzystania'], 'd.m.Y H:i') . '</small>';
@@ -314,7 +314,7 @@ class SRL_Admin_Tables {
 
     private function renderVoucherFlightCell($voucher) {
         if ($voucher['lot_id']) {
-            return SRL_Helpers::getInstance()->generateLink(admin_url('admin.php?page=srl-wykupione-loty&s=' . $voucher['lot_id']), '#' . $voucher['lot_id'], '', ['target' => '_blank', 'style' => 'color: #0073aa; font-weight: bold;']);
+            return SRL_Helpers::getInstance()->generateLink(admin_url('admin.php?page=srl-wykupione-loty&s=' . $voucher['lot_id']), '#' . $voucher['lot_id'], '', ['target' => '_blank', 'style' => 'color: #4263be; font-weight: bold;']);
         }
         return '<span style="color: #999;">—</span>';
     }
@@ -408,7 +408,7 @@ class SRL_Admin_Tables {
         foreach ($labels as $status => $label) {
             $count = $stats_array[$status] ?? 0;
             echo '<div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 120px; display: flex; align-items: center; gap: 10px;">';
-            echo '<div style="font-size: 24px; font-weight: bold; color: #0073aa;">' . $count . '</div>';
+            echo '<div style="font-size: 24px; font-weight: bold; color: #4263be;">' . $count . '</div>';
             echo '<div style="font-size: 13px; color: #666;">' . $label . '</div>';
             echo '</div>';
         }

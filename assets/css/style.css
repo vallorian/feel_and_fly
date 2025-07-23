@@ -102,7 +102,7 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
 }
 
 .srl-pilot-container h2 {
-    background: #0073aa;
+    background: #4263be;
     color: white;
     margin: 0;
     padding: 12px 15px;
@@ -122,7 +122,7 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
 }
 
 .srl-klient-info a {
-    color: #0073aa;
+    color: #4263be;
     text-decoration: none;
     font-weight: 500;
 }
@@ -190,8 +190,8 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
 
 .srl-historia-container h3 {
     margin-top: 0;
-    color: #0073aa;
-    border-bottom: 2px solid #0073aa;
+    color: #4263be;
+    border-bottom: 2px solid #4263be;
     padding-bottom: 10px;
     margin-bottom: 20px;
 }
@@ -326,7 +326,7 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
     left: 80px;
     right: 0;
     height: 40px;
-    background: #0073aa;
+    background: #4263be;
     color: white;
     display: flex;
     z-index: 10;
@@ -388,7 +388,7 @@ tr[style*="background-color: rgb(255, 221, 221)"] {
     left: 0;
     right: 0;
     height: 2px;
-    background: #0073aa;
+    background: #4263be;
     z-index: 2;
     opacity: 0.3;
 }

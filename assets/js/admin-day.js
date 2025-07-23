@@ -172,7 +172,7 @@ jQuery(document).ready(function($) {
 
         for (var pid = 1; pid <= liczbaPilotow; pid++) {
             var divaPilota = $(`<div class="srl-pilot-container" style="margin-bottom:30px; border:1px solid #ddd; padding:15px; border-radius:8px;">
-                <h2 style="background:#0073aa; color:white; margin:0 -15px 15px -15px; padding:12px 15px; font-size:16px;">Pilot nr ${pid}</h2>
+                <h2 style="background:#4263be; color:white; margin:0 -15px 15px -15px; padding:12px 15px; font-size:16px;">Pilot nr ${pid}</h2>
                 <div class="srl-grupowe-funkcje">
                     <label><input type="checkbox" class="srl-zaznacz-wszystkie" data-pilot="${pid}"> Zaznacz wszystkie</label>
                     <select class="srl-grupowa-zmiana-statusu" data-pilot="${pid}">
@@ -242,7 +242,7 @@ jQuery(document).ready(function($) {
 
         var lotIdHtml = '—';
         if ((slot.status === 'Zarezerwowany' || slot.status === 'Zrealizowany') && slot.lot_id) {
-            lotIdHtml = `<a href="${srlAdmin.adminUrl}admin.php?page=srl-wykupione-loty&search_field=id_lotu&s=${slot.lot_id}" target="_blank" style="color:#0073aa; font-weight:bold;">#${slot.lot_id}</a>`;
+            lotIdHtml = `<a href="${srlAdmin.adminUrl}admin.php?page=srl-wykupione-loty&search_field=id_lotu&s=${slot.lot_id}" target="_blank" style="color:#4263be; font-weight:bold;">#${slot.lot_id}</a>`;
         } else if (slot.status === 'Odwołany przez organizatora' && slot.notatka) {
             try {
                 var daneOdwolane = JSON.parse(slot.notatka);
@@ -1098,7 +1098,7 @@ jQuery(document).ready(function($) {
                 var html = '<h5>Znalezione loty:</h5>';
                 response.data.forEach(function(lot) {
                     html += `<div class="srl-lot-result" data-termin-id="${terminId}" data-lot-id="${lot.lot_id}" data-klient-nazwa="${lot.klient_nazwa}" style="border:1px solid #ddd; padding:15px; margin:5px 0; cursor:pointer; border-radius:4px;">
-                        <div style="font-weight:bold; color:#0073aa;">Lot #${lot.lot_id} - Zamówienie #${lot.order_id}</div>
+                        <div style="font-weight:bold; color:#4263be;">Lot #${lot.lot_id} - Zamówienie #${lot.order_id}</div>
                         <div style="margin:5px 0;"><strong>${lot.klient_nazwa}</strong> (${lot.email})</div>
                         ${lot.telefon ? `<div style="font-size:12px; color:#666;">📞 ${lot.telefon}</div>` : ''}
                     </div>`;
@@ -1123,7 +1123,7 @@ jQuery(document).ready(function($) {
         var button = modal.find(`.srl-lot-result[data-lot-id="${lotId}"]`);
         if (button.length) {
             button.css('opacity', '0.5');
-            button.prepend('<span style="color: #0073aa; font-weight: bold;">⏳ Przypisywanie...</span><br>');
+            button.prepend('<span style="color: #4263be; font-weight: bold;">⏳ Przypisywanie...</span><br>');
         }
 
         $.post(ajaxurl, {
@@ -1226,7 +1226,7 @@ jQuery(document).ready(function($) {
 
         var modal = $(`<div class="srl-modal-dane-pasazera" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
             <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; max-height: 90%; overflow-y: auto; width: 90%;">
-                <h3 style="margin-top: 0; color: #0073aa; border-bottom: 2px solid #0073aa; padding-bottom: 10px;">${tytul}</h3>
+                <h3 style="margin-top: 0; color: #4263be; border-bottom: 2px solid #4263be; padding-bottom: 10px;">${tytul}</h3>
                 <div id="srl-dane-wyswietl">
                     <div style="line-height: 1.8; font-size: 15px;">
                         <p><strong>Imię i nazwisko:</strong> ${imieNazwisko}</p>
@@ -1507,7 +1507,7 @@ jQuery(document).ready(function($) {
 
             terminy.forEach(function(termin) {
                 html += `<div class="srl-termin-opcja" data-termin-id="${termin.id}" data-oryginalny-termin="${terminId}" style="border:1px solid #ddd; padding:8px; border-radius:6px; cursor:pointer; background:white; transition:all 0.2s; text-align:center;">
-                    <div style="font-weight:600; color:#0073aa;">${termin.godzina_start.substring(0,5)} - ${termin.godzina_koniec.substring(0,5)}</div>
+                    <div style="font-weight:600; color:#4263be;">${termin.godzina_start.substring(0,5)} - ${termin.godzina_koniec.substring(0,5)}</div>
                 </div>`;
             });
 
@@ -1541,7 +1541,7 @@ jQuery(document).ready(function($) {
                 if (!$(this).hasClass('srl-termin-wybrany')) {
                     $(this).css({
                         'background': '#f0f8ff',
-                        'border-color': '#0073aa',
+                        'border-color': '#4263be',
                         'transform': 'scale(1.02)'
                     });
                 }

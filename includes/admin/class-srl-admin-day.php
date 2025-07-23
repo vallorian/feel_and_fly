@@ -142,8 +142,8 @@ class SRL_Admin_Day {
     }
 
     private function renderTimelineSection() {
-        echo '<div id="srl-harmonogram-section" style="margin-top:40px; padding:20px; border:2px solid #0073aa; border-radius:8px; background:#f8f9fa;">';
-        echo '<h2 style="margin-top:0; color:#0073aa; border-bottom:2px solid #0073aa; padding-bottom:10px;">📅 Harmonogram czasowy dnia</h2>';
+        echo '<div id="srl-harmonogram-section" style="margin-top:40px; padding:20px; border:2px solid #4263be; border-radius:8px; background:#f8f9fa;">';
+        echo '<h2 style="margin-top:0; color:#4263be; border-bottom:2px solid #4263be; padding-bottom:10px;">📅 Harmonogram czasowy dnia</h2>';
         echo '<div id="srl-harmonogram-container"></div>';
         echo '</div>';
     }

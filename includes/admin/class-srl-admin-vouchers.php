@@ -334,7 +334,7 @@ class SRL_Admin_Vouchers {
                     let html = "<div style=\"max-height: 400px; overflow-y: auto;\">";
                     data.data.dane_pasazerow.forEach((pasazer, index) => {
                         html += "<div style=\"border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 6px; background: #f9f9f9;\">";
-                        html += "<h4 style=\"margin-top: 0; color: #0073aa;\">Pasażer " + (index + 1) + "</h4>";
+                        html += "<h4 style=\"margin-top: 0; color: #4263be;\">Pasażer " + (index + 1) + "</h4>";
                         html += "<div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 10px;\">";
                         html += "<div><strong>Imię:</strong> " + pasazer.imie + "</div>";
                         html += "<div><strong>Nazwisko:</strong> " + pasazer.nazwisko + "</div>";

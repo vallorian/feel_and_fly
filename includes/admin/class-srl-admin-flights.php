@@ -433,7 +433,7 @@ class SRL_Admin_Flights {
                         var modal = $("<div style=\"position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;\">" +
                             "<div style=\"background: white; padding: 30px; border-radius: 8px; max-width: 90%; max-height: 90%; overflow-y: auto;\">" +
                             content +
-                            "<button style=\"margin-top: 20px; padding: 10px 20px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;\">Zamknij</button>" +
+                            "<button style=\"margin-top: 20px; padding: 10px 20px; background: #4263be; color: white; border: none; border-radius: 4px; cursor: pointer;\">Zamknij</button>" +
                             "</div></div>");
                         
                         $("body").append(modal);
@@ -511,7 +511,7 @@ class SRL_Admin_Flights {
 
             function pokazHistorieLotu(historia) {
                 var content = "<div style=\"max-width: 800px; background: white; border-radius: 8px; padding: 20px;\">";
-                content += "<h3 style=\"margin-top: 0; color: #0073aa; border-bottom: 2px solid #0073aa; padding-bottom: 10px;\">?? Historia lotu #" + historia.lot_id + "</h3>";
+                content += "<h3 style=\"margin-top: 0; color: #4263be; border-bottom: 2px solid #4263be; padding-bottom: 10px;\">?? Historia lotu #" + historia.lot_id + "</h3>";
                 
                 if (historia.events.length === 0) {
                     content += "<p style=\"text-align: center; color: #6c757d; padding: 40px;\">Brak zdarze¨½ w historii tego lotu.</p>";

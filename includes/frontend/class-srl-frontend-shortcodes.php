@@ -89,7 +89,7 @@ class SRL_Frontend_Shortcodes {
                 <h2 style="text-transform: uppercase;">Twoje dane</h2>
                 
                 <div id="srl-wybrany-lot-info" style="margin-bottom:30px;">
-                    <h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Wybrany lot do rezerwacji:</h3>
+                    <h3 style="margin-top:0; color:#4263be; text-transform: uppercase;">Wybrany lot do rezerwacji:</h3>
                     <div id="srl-wybrany-lot-szczegoly"></div>
                 </div>
                 
@@ -148,7 +148,7 @@ class SRL_Frontend_Shortcodes {
                             <div class="srl-form-group srl-full-width">
                                 <label style="display: flex; align-items: center; gap: 8px; font-weight: 500;">
                                     <input type="checkbox" id="srl-akceptacja-regulaminu" name="akceptacja_regulaminu" required>
-                                    Akceptuję <a href="/regulamin/" target="_blank" style="color: #0073aa; text-decoration: none;">Regulamin</a> *
+                                    Akceptuję <a href="/regulamin/" target="_blank" style="color: #4263be; text-decoration: none;">Regulamin</a> *
                                 </label>
                             </div>
                         </div>
@@ -207,7 +207,7 @@ class SRL_Frontend_Shortcodes {
                 
                 <div id="srl-podsumowanie-rezerwacji">
                     <div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">
-                        <h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Podsumowanie rezerwacji</h3>
+                        <h3 style="margin-top:0; color:#4263be; text-transform: uppercase;">Podsumowanie rezerwacji</h3>
                         
                         <div class="srl-podsumowanie-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:20px 0;">
                             <div id="srl-wybrany-lot-podsumowanie"><strong>🎫 Wybrany lot:</strong><br><span id="srl-lot-details">Ładowanie...</span></div>
@@ -215,7 +215,7 @@ class SRL_Frontend_Shortcodes {
                         </div>
                         
                         <div class="srl-dane-pasazera-box" style="background:#f8f9fa; padding-top:30px; border-radius:8px; margin-top:20px;">
-                            <h3 style="margin-top:0; color:#0073aa; text-transform: uppercase;">Dane pasażera</h3>
+                            <h3 style="margin-top:0; color:#4263be; text-transform: uppercase;">Dane pasażera</h3>
                             <div id="srl-dane-pasazera-podsumowanie">
                             </div>
                         </div>
@@ -261,46 +261,28 @@ class SRL_Frontend_Shortcodes {
         <h3>Kup lub dodaj voucher</h3>
         <?php endif; ?>
         
-    <div class="srl-voucher-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
-        
-        <div class="srl-voucher-card">
-            <div class="srl-voucher-header" style="background: linear-gradient(135deg, #46b450, #3ba745); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-                <h4 style="margin: 0; font-size: 18px;">💳 Kup lot</h4>
-                <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Bezpośrednio ze sklepu</p>
-            </div>
-            <div class="srl-voucher-content" style="padding: 20px; border: 2px solid #46b450; border-top: none; border-radius: 0 0 8px 8px; background: white;">
-                <a href="/produkt/lot-w-tandemie/" class="srl-btn srl-btn-success" style="text-decoration: none; display: block; text-align: center;">Przejdź do sklepu</a>
-            </div>
-        </div>
-        
-        <div class="srl-voucher-card" id="srl-voucher-feelfly">
-            <div class="srl-voucher-header" style="background: linear-gradient(135deg, #0073aa, #005a87); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-                <h4 style="margin: 0; font-size: 18px;">🎁 Wykorzystaj Voucher</h4>
-                <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Feel&Fly</p>
-            </div>
-            <div class="srl-voucher-content" style="padding: 22px; border: 2px solid #0073aa; border-top: none; border-radius: 0 0 8px 8px; background: white;">
-                <div id="srl-voucher-form" style="display: none;">
-                    <div class="srl-form-group">
-                        <label for="srl-voucher-code">Kod vouchera:</label>
-                        <input type="text" id="srl-voucher-code" placeholder="Wpisz kod vouchera" style="text-transform: uppercase;">
-                    </div>
-                    <button id="srl-voucher-submit" class="srl-btn srl-btn-primary" style="width: 100%;">Zatwierdź voucher</button>
-                    <button id="srl-voucher-cancel" class="srl-btn srl-btn-secondary" style="width: 100%; margin-top: 10px;">Anuluj</button>
-                </div>
-                <button id="srl-voucher-show" class="srl-btn srl-btn-primary" style="width: 100%;">Mam voucher</button>
-            </div>
-        </div>
-        
-        <div class="srl-voucher-card" id="srl-voucher-partner">
-            <div class="srl-voucher-header" style="background: linear-gradient(135deg, #6c757d, #5a6268); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-                <h4 style="margin: 0; font-size: 18px;">🤝 Voucher partnera</h4>
-                <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">PrezentMarzeń, Groupon</p>
-            </div>
-            <div class="srl-voucher-content" style="padding: 22px; border: 2px solid #6c757d; border-top: none; border-radius: 0 0 8px 8px; background: white;">
-                <button id="srl-partner-voucher-show" class="srl-btn srl-btn-primary" style="width: 100%;">Mam voucher</button>
-            </div>
-        </div>
-    </div>
+	<div class="srl-voucher-options" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 20px;">
+		
+		<div class="srl-voucher-card">
+			<div class="srl-voucher-header" style="background: #46b450; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+				<h4 style="margin: 0; font-size: 18px;">💳 Kup lot</h4>
+				<p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Bezpośrednio ze sklepu</p>
+			</div>
+			<div class="srl-voucher-content" style="padding: 20px; border: 2px solid #46b450; border-top: none; border-radius: 0 0 8px 8px; background: white;">
+				<a href="/produkt/lot-w-tandemie/" class="srl-btn srl-btn-success" style="text-decoration: none; display: block; text-align: center;">Przejdź do sklepu</a>
+			</div>
+		</div>
+		
+		<div class="srl-voucher-card" id="srl-voucher-partner">
+			<div class="srl-voucher-header" style="background: #4263be; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+				<h4 style="margin: 0; font-size: 18px;">🎁 Wykorzystaj voucher</h4>
+				<p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Feel&Fly, PrezentMarzeń, Groupon</p>
+			</div>
+			<div class="srl-voucher-content" style="padding: 22px; border: 2px solid #4263be; border-top: none; border-radius: 0 0 8px 8px; background: white;">
+				<button id="srl-partner-voucher-show" class="srl-btn srl-btn-primary" style="width: 100%;">Mam voucher</button>
+			</div>
+		</div>
+	</div>
 
     <div id="srl-partner-voucher-modal" class="srl-modal" style="display: none;">
         <div class="srl-modal-content">
@@ -309,49 +291,49 @@ class SRL_Frontend_Shortcodes {
                 <span class="srl-modal-close">&times;</span>
             </div>
             <div class="srl-modal-body">
-                <form id="srl-partner-voucher-form">
-                    <div class="srl-form-grid">
-                        <div class="srl-form-group">
-                            <label for="srl-partner-select">Partner *</label>
-                            <select id="srl-partner-select" name="partner" required>
-                                <option value="">Wybierz partnera</option>
-                                <option value="prezent_marzen">PrezentMarzeń</option>
-                                <option value="groupon">Groupon</option>
-                            </select>
-                        </div>
-                        <div class="srl-form-group">
-                            <label for="srl-voucher-type-select">Typ vouchera *</label>
-                            <select id="srl-voucher-type-select" name="typ_vouchera" required disabled>
-                                <option value="">Najpierw wybierz partnera</option>
-                            </select>
-                        </div>
-                        <div class="srl-form-group">
-                            <label for="srl-partner-voucher-code">Kod vouchera *</label>
-                            <input type="text" id="srl-partner-voucher-code" name="kod_vouchera" required placeholder="Wprowadź kod vouchera">
-                        </div>
-                        <div class="srl-form-group">
-                            <label for="srl-security-code">Kod zabezpieczający *</label>
-                            <input type="text" id="srl-security-code" name="kod_zabezpieczajacy" required placeholder="Wprowadź kod zabezpieczający">
-                        </div>
-                        <div class="srl-form-group">
-                            <label for="srl-voucher-validity-date">Data ważności vouchera *</label>
-                            <input type="date" id="srl-voucher-validity-date" name="data_waznosci" 
-                                   min="<?php echo date('Y-m-d'); ?>" 
-                                   max="2050-12-31" 
-                                   required="">
-                        </div>
-                    </div>
-                    
-                    <div id="srl-passengers-container" style="display: none;">
-                        <h4>Dane pasażerów</h4>
-                        <div id="srl-passengers-forms"></div>
-                    </div>
-                    
-                    <div class="srl-modal-actions">
-                        <button type="button" id="srl-partner-voucher-cancel" class="srl-btn srl-btn-secondary">Anuluj</button>
-                        <button type="submit" id="srl-partner-voucher-submit" class="srl-btn srl-btn-primary">Wyślij do akceptacji</button>
-                    </div>
-                </form>
+				<form id="srl-partner-voucher-form">
+					<div class="srl-form-grid">
+						<div class="srl-form-group">
+							<label for="srl-partner-select">Partner / Typ vouchera *</label>
+							<select id="srl-partner-select" name="partner" required>
+								<option value="">Wybierz partnera</option>
+								<option value="feelfly">Feel&Fly - Voucher upominkowy</option>
+								<option value="prezent_marzen">PrezentMarzeń</option>
+								<option value="groupon">Groupon</option>
+							</select>
+						</div>
+						<div class="srl-form-group" id="srl-voucher-type-group" style="display: none;">
+							<label for="srl-voucher-type-select">Typ vouchera *</label>
+							<select id="srl-voucher-type-select" name="typ_vouchera" disabled>
+								<option value="">Najpierw wybierz partnera</option>
+							</select>
+						</div>
+						<div class="srl-form-group" id="srl-voucher-code-group" style="display: none;">
+							<label for="srl-partner-voucher-code">Kod vouchera *</label>
+							<input type="text" id="srl-partner-voucher-code" name="kod_vouchera" placeholder="Wprowadź kod vouchera" style="text-transform: uppercase;">
+						</div>
+						<div class="srl-form-group" id="srl-security-code-group" style="display: none;">
+							<label for="srl-security-code">Kod zabezpieczający *</label>
+							<input type="text" id="srl-security-code" name="kod_zabezpieczajacy" placeholder="Wprowadź kod zabezpieczający">
+						</div>
+						<div class="srl-form-group" id="srl-validity-date-group" style="display: none;">
+							<label for="srl-voucher-validity-date">Data ważności vouchera *</label>
+							<input type="date" id="srl-voucher-validity-date" name="data_waznosci" 
+								   min="<?php echo date('Y-m-d'); ?>" 
+								   max="2050-12-31">
+						</div>
+					</div>
+					
+					<div id="srl-passengers-container" style="display: none;">
+						<h4>Dane pasażerów</h4>
+						<div id="srl-passengers-forms"></div>
+					</div>
+					
+					<div class="srl-modal-actions">
+						<button type="button" id="srl-partner-voucher-cancel" class="srl-btn srl-btn-secondary">Anuluj</button>
+						<button type="submit" id="srl-partner-voucher-submit" class="srl-btn srl-btn-primary">Wyślij do akceptacji</button>
+					</div>
+				</form>
             </div>
         </div>
     </div>
@@ -364,61 +346,6 @@ class SRL_Frontend_Shortcodes {
         ?>
         <script>
         jQuery(document).ready(function($) {
-            $(document).on('click', '#srl-voucher-show', function() {
-                $('#srl-voucher-show').hide();
-                $('#srl-voucher-form').show();
-                $('#srl-voucher-code').focus();
-            });
-            
-            $(document).on('click', '#srl-voucher-cancel', function() {
-                $('#srl-voucher-form').hide();
-                $('#srl-voucher-show').show();
-                $('#srl-voucher-code').val('');
-            });
-            
-            $(document).on('input', '#srl-voucher-code', function() {
-                var value = $(this).val().toUpperCase().replace(/[^A-Z0-9]/g, '');
-                $(this).val(value);
-            });
-            
-            $(document).on('click', '#srl-voucher-submit', function() {
-                var kod = $('#srl-voucher-code').val().trim();
-                
-                if (kod.length < 1) {
-                    alert('Wprowadź kod vouchera.');
-                    return;
-                }
-                
-                var button = $(this);
-                button.prop('disabled', true).text('Sprawdzanie...');
-                
-                $.ajax({
-                    url: srlFrontend.ajaxurl,
-                    method: 'POST',
-                    data: {
-                        action: 'srl_wykorzystaj_voucher',
-                        kod_vouchera: kod,
-                        nonce: srlFrontend.nonce 
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            alert('Voucher został wykorzystany! Lot został dodany do Twojego konta.');
-                            setTimeout(function() {
-                                location.reload();
-                            }, 2000);
-                        } else {
-                            alert('Błąd: ' + response.data);
-                        }
-                    },
-                    error: function() {
-                        alert('Błąd połączenia z serwerem.');
-                    },
-                    complete: function() {
-                        button.prop('disabled', false).text('Zatwierdź voucher');
-                    }
-                });
-            });
-            
             $(document).on('click', '#srl-partner-voucher-show', function() {
                 $('#srl-partner-voucher-modal').show();
             });
@@ -444,38 +371,70 @@ class SRL_Frontend_Shortcodes {
                 srlValidatePassengerWeight(index);
             });
             
-            $(document).on('change', '#srl-partner-select', function() {
-                var partner = $(this).val();
-                var typeSelect = $('#srl-voucher-type-select');
-                
-                if (!partner) {
-                    typeSelect.prop('disabled', true).html('<option value="">Najpierw wybierz partnera</option>');
-                    $('#srl-passengers-container').hide();
-                    return;
-                }
-                
-                $.ajax({
+			$(document).on('change', '#srl-partner-select', function() {
+				var partner = $(this).val();
+				var typeSelect = $('#srl-voucher-type-select');
+				var submitButton = $('#srl-partner-voucher-submit');
+				
+				// Ukryj wszystkie pola na początku
+				$('#srl-voucher-type-group').hide();
+				$('#srl-voucher-code-group').hide();
+				$('#srl-security-code-group').hide();
+				$('#srl-validity-date-group').hide();
+				$('#srl-passengers-container').hide();
+				
+				// Wyczyść pola
+				$('#srl-voucher-type-select').prop('disabled', true).html('<option value="">Najpierw wybierz partnera</option>');
+				$('#srl-partner-voucher-code').val('').prop('required', false);
+				$('#srl-security-code').val('').prop('required', false);
+				$('#srl-voucher-validity-date').val('').prop('required', false);
+				
+				if (!partner) {
+					submitButton.text('Wyślij do akceptacji');
+					return;
+				}
+				
+				// Obsługa Feel&Fly
+				if (partner === 'feelfly') {
+					$('#srl-voucher-code-group').show();
+					$('#srl-partner-voucher-code').prop('required', true);
+					submitButton.text('Wykorzystaj Voucher');
+					return;
+				}
+				
+				// Obsługa innych partnerów
+				submitButton.text('Wyślij do akceptacji');
+				$('#srl-voucher-type-group').show();
+				$('#srl-voucher-code-group').show();
+				$('#srl-security-code-group').show();
+				$('#srl-validity-date-group').show();
+				
+				$('#srl-partner-voucher-code').prop('required', true);
+				$('#srl-security-code').prop('required', true);
+				$('#srl-voucher-validity-date').prop('required', true);
+				
+				$.ajax({
                     url: srlFrontend.ajaxurl,
-                    method: 'POST',
-                    data: {
-                        action: 'srl_get_partner_voucher_types',
-                        partner: partner,
-                        nonce: srlFrontend.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            var options = '<option value="">Wybierz typ vouchera</option>';
-                            $.each(response.data, function(key, type) {
-                                options += '<option value="' + key + '" data-passengers="' + type.liczba_osob + '">' + type.nazwa + '</option>';
-                            });
-                            typeSelect.prop('disabled', false).html(options);
-                        }
-                    },
-                    error: function() {
-                        alert('Błąd ładowania typów voucherów.');
-                    }
-                });
-            });
+					method: 'POST',
+					data: {
+						action: 'srl_get_partner_voucher_types',
+						partner: partner,
+						nonce: srlFrontend.nonce
+					},
+					success: function(response) {
+						if (response.success) {
+							var options = '<option value="">Wybierz typ vouchera</option>';
+							$.each(response.data, function(key, type) {
+								options += '<option value="' + key + '" data-passengers="' + type.liczba_osob + '">' + type.nazwa + '</option>';
+							});
+							typeSelect.prop('disabled', false).html(options);
+						}
+					},
+					error: function() {
+						alert('Błąd ładowania typów voucherów.');
+					}
+				});
+			});
 
             $(document).on('change', '#srl-voucher-type-select', function() {
                 var selectedOption = $(this).find('option:selected');
@@ -488,16 +447,104 @@ class SRL_Frontend_Shortcodes {
                     $('#srl-passengers-container').hide();
                 }
             });
+			
+			$(document).on('input', '#srl-feelfly-voucher-code', function() {
+				var value = $(this).val().toUpperCase().replace(/[^A-Z0-9]/g, '');
+				$(this).val(value);
+			});
 
-            $(document).on('submit', '#srl-partner-voucher-form', function(e) {
-                e.preventDefault();
-                
-                var hasWeightErrors = false;
-                $('.srl-passenger-weight-warning-1, .srl-passenger-weight-warning-2, .srl-passenger-weight-warning-3').each(function() {
-                    if ($(this).is(':visible') && $(this).html().includes('❌')) {
-                        hasWeightErrors = true;
-                    }
-                });
+			$(document).on('click', '#srl-feelfly-submit', function() {
+				var kod = $('#srl-feelfly-voucher-code').val().trim();
+				
+				if (kod.length < 1) {
+					alert('Wprowadź kod vouchera.');
+					return;
+				}
+				
+				var button = $(this);
+				button.prop('disabled', true).text('Sprawdzanie...');
+				
+				$.ajax({
+					url: srlFrontend.ajaxurl,
+					method: 'POST',
+					data: {
+						action: 'srl_wykorzystaj_voucher',
+						kod_vouchera: kod,
+						nonce: srlFrontend.nonce 
+					},
+					success: function(response) {
+						if (response.success) {
+							alert('Voucher został wykorzystany! Lot został dodany do Twojego konta.');
+							setTimeout(function() {
+								location.reload();
+							}, 2000);
+						} else {
+							alert('Błąd: ' + response.data);
+						}
+					},
+					error: function() {
+						alert('Błąd połączenia z serwerem.');
+					},
+					complete: function() {
+						button.prop('disabled', false).text('Wykorzystaj voucher Feel&Fly');
+					}
+				});
+			});
+
+			
+			$(document).on('submit', '#srl-partner-voucher-form', function(e) {
+				e.preventDefault();
+				
+				var partner = $('#srl-partner-select').val();
+				
+				// Obsługa Feel&Fly
+				if (partner === 'feelfly') {
+					var kod = $('#srl-partner-voucher-code').val().trim();
+					
+					if (kod.length < 1) {
+						alert('Wprowadź kod vouchera.');
+						return;
+					}
+					
+					var submitBtn = $('#srl-partner-voucher-submit');
+					submitBtn.prop('disabled', true).text('Sprawdzanie...');
+					
+					$.ajax({
+						url: srlFrontend.ajaxurl,
+						method: 'POST',
+						data: {
+							action: 'srl_wykorzystaj_voucher',
+							kod_vouchera: kod,
+							nonce: srlFrontend.nonce 
+						},
+						success: function(response) {
+							if (response.success) {
+								alert('Voucher został wykorzystany! Lot został dodany do Twojego konta.');
+								setTimeout(function() {
+									location.reload();
+								}, 2000);
+							} else {
+								alert('Błąd: ' + response.data);
+								submitBtn.prop('disabled', false).text('Wykorzystaj Voucher');
+							}
+						},
+						error: function() {
+							alert('Błąd połączenia z serwerem.');
+							submitBtn.prop('disabled', false).text('Wykorzystaj Voucher');
+						}
+					});
+					return;
+				}
+				
+				// Reszta kodu dla innych partnerów pozostaje bez zmian...
+				var hasWeightErrors = false;
+				$('.srl-passenger-weight-warning-1, .srl-passenger-weight-warning-2, .srl-passenger-weight-warning-3').each(function() {
+					if ($(this).is(':visible')) {
+						if ($(this).html().includes('❌')) {
+							hasWeightErrors = true;
+						}
+					}
+				});
                 
                 if (hasWeightErrors) {
                     alert('Nie można wysłać formularza - jeden lub więcej pasażerów ma kategorię wagową 120kg+, która uniemożliwia lot.');
@@ -673,7 +720,7 @@ class SRL_Frontend_Shortcodes {
                 var regulaminHtml = '<div class="srl-regulamin-section" style="border-top: 2px solid #ddd; padding-top: 20px; margin-top: 20px;">';
                 regulaminHtml += '<label style="display: flex; align-items: center; gap: 8px; font-weight: 500;">';
                 regulaminHtml += '<input type="checkbox" id="srl-all-passengers-regulamin" required>';
-                regulaminHtml += 'Akceptuję <a href="/regulamin/" target="_blank" style="color: #0073aa; text-decoration: none;">Regulamin</a> w imieniu wszystkich pasażerów *';
+                regulaminHtml += 'Akceptuję <a href="/regulamin/" target="_blank" style="color: #4263be; text-decoration: none;">Regulamin</a> w imieniu wszystkich pasażerów *';
                 regulaminHtml += '</label>';
                 regulaminHtml += '</div>';
                 

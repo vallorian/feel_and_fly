@@ -214,7 +214,7 @@ class SRL_Admin_Menu_Calendar {
         echo '<div style="display: flex; align-items: center; gap: 8px;"><div style="width: 20px; height: 20px; background: #dfd; border: 1px solid #ccc; border-radius: 3px;"></div><span>Dni z wolnymi slotami</span></div>';
         echo '<div style="display: flex; align-items: center; gap: 8px;"><div style="width: 20px; height: 20px; background: #ffd; border: 1px solid #ccc; border-radius: 3px;"></div><span>Dni pełne (brak wolnych slotów)</span></div>';
         echo '<div style="display: flex; align-items: center; gap: 8px;"><div style="width: 20px; height: 20px; background: #fdd; border: 1px solid #ccc; border-radius: 3px;"></div><span>Dni nielotne (brak slotów)</span></div>';
-        echo '<div style="display: flex; align-items: center; gap: 8px;"><div style="width: 20px; height: 20px; background: white; border: 3px solid #0073aa; border-radius: 3px;"></div><span>Dzisiejszy dzień</span></div>';
+        echo '<div style="display: flex; align-items: center; gap: 8px;"><div style="width: 20px; height: 20px; background: white; border: 3px solid #4263be; border-radius: 3px;"></div><span>Dzisiejszy dzień</span></div>';
         echo '</div>';
         echo '</div>';
     }

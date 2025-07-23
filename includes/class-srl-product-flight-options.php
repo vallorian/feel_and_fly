@@ -91,8 +91,8 @@ class SRL_Product_Flight_Options {
             return;
         }
 
-        echo '<div class="srl-flight-selection" style="margin: 20px 0; padding: 20px; border: 2px solid #0073aa; border-radius: 8px; background: #f8f9fa;">';
-        echo '<h4 style="margin-top: 0; color: #0073aa;">Wybierz lot do modyfikacji:</h4>';
+        echo '<div class="srl-flight-selection" style="margin: 20px 0; padding: 20px; border: 2px solid #4263be; border-radius: 8px; background: #f8f9fa;">';
+        echo '<h4 style="margin-top: 0; color: #4263be;">Wybierz lot do modyfikacji:</h4>';
 
         if (count($dostepne_loty) == 1) {
             $lot = reset($dostepne_loty);

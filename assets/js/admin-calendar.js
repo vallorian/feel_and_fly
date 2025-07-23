@@ -130,7 +130,7 @@ jQuery(document).ready(function($) {
             });
             html += '</select>';
         }
-        html += `</div><p style="margin-top:15px; color:#0073aa; font-weight:500;">🎫 Ilość lotów do zarezerwowania: ${loty.length}</p>`;
+        html += `</div><p style="margin-top:15px; color:#4263be; font-weight:500;">🎫 Ilość lotów do zarezerwowania: ${loty.length}</p>`;
         container.html(html);
     }
 
@@ -362,7 +362,7 @@ jQuery(document).ready(function($) {
 
     function pokazKrok4() {
         var html = '<div class="srl-podsumowanie-box" style="background:#f8f9fa; padding:30px; border-radius:8px; margin:20px 0;">';
-        html += '<h3 style="margin-top:0; color:#0073aa;">📋 Podsumowanie rezerwacji</h3>';
+        html += '<h3 style="margin-top:0; color:#4263be;">📋 Podsumowanie rezerwacji</h3>';
 
         var lot = daneKlienta.dostepne_loty.find(l => l.id == wybranyLot);
         var slotInfo = tymczasowaBlokada?.slot;
