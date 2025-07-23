@@ -70,8 +70,9 @@ class SRL_Frontend_Shortcodes {
             </div>
 
             <div id="srl-krok-1" class="srl-krok srl-krok-active">
-                <h2>👋 Witaj!</h2>
-                
+                <!---
+				<h2>👋 Witaj!</h2>
+                --->
                 <div id="srl-aktualne-rezerwacje">
                     <h3 style="text-transform: uppercase;">Twoje aktualne rezerwacje i wykupione loty</h3>
                     <div id="srl-lista-rezerwacji">
@@ -693,49 +694,57 @@ class SRL_Frontend_Shortcodes {
                 }, 100);
             }	
             
-            function srlValidatePassengerAge(passengerIndex) {
-                var rokInput = $('.srl-passenger-form').eq(passengerIndex - 1).find('.passenger-rok');
-                var rok = rokInput.val();
-                
-                if (!rok) {
-                    $('.srl-passenger-age-warning-' + passengerIndex).hide();
-                    return;
-                }
-                
-                $.post('<?php echo admin_url('admin-ajax.php'); ?>', {
-                    action: 'srl_waliduj_wiek',
-                    rok_urodzenia: rok,
-                    nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
-                }, function(response) {
-                    if (response.success && response.data.html) {
-                        $('.srl-passenger-age-warning-' + passengerIndex).html(response.data.html).show();
-                    } else {
-                        $('.srl-passenger-age-warning-' + passengerIndex).hide();
-                    }
-                });
-            }
+			function srlValidatePassengerAge(passengerIndex) {
+				var rokInput = $('.srl-passenger-form').eq(passengerIndex - 1).find('.passenger-rok');
+				var rok = rokInput.val();
+				
+				if (!rok) {
+					$('.srl-passenger-age-warning-' + passengerIndex).hide();
+					return;
+				}
+				
+				$.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+					action: 'srl_waliduj_wiek',
+					rok_urodzenia: rok,
+					nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+				}, function(response) {
+					if (response.success) {
+						if (response.data) {
+							if (response.data.html) {
+								$('.srl-passenger-age-warning-' + passengerIndex).html(response.data.html).show();
+								return;
+							}
+						}
+					}
+					$('.srl-passenger-age-warning-' + passengerIndex).hide();
+				});
+			}
 
-            function srlValidatePassengerWeight(passengerIndex) {
-                var kategoriaInput = $('.srl-passenger-form').eq(passengerIndex - 1).find('.passenger-kategoria');
-                var kategoria = kategoriaInput.val();
-                
-                if (!kategoria) {
-                    $('.srl-passenger-weight-warning-' + passengerIndex).hide();
-                    return;
-                }
-                
-                $.post('<?php echo admin_url('admin-ajax.php'); ?>', {
-                    action: 'srl_waliduj_kategorie_wagowa',
-                    kategoria_wagowa: kategoria,
-                    nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
-                }, function(response) {
-                    if (response.success && response.data.html) {
-                        $('.srl-passenger-weight-warning-' + passengerIndex).html(response.data.html).show();
-                    } else {
-                        $('.srl-passenger-weight-warning-' + passengerIndex).hide();
-                    }
-                });
-            }
+			function srlValidatePassengerWeight(passengerIndex) {
+				var kategoriaInput = $('.srl-passenger-form').eq(passengerIndex - 1).find('.passenger-kategoria');
+				var kategoria = kategoriaInput.val();
+				
+				if (!kategoria) {
+					$('.srl-passenger-weight-warning-' + passengerIndex).hide();
+					return;
+				}
+				
+				$.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+					action: 'srl_waliduj_kategorie_wagowa',
+					kategoria_wagowa: kategoria,
+					nonce: '<?php echo wp_create_nonce('srl_frontend_nonce'); ?>'
+				}, function(response) {
+					if (response.success) {
+						if (response.data) {
+							if (response.data.html) {
+								$('.srl-passenger-weight-warning-' + passengerIndex).html(response.data.html).show();
+								return;
+							}
+						}
+					}
+					$('.srl-passenger-weight-warning-' + passengerIndex).hide();
+				});
+			}
         });
         </script>
         <?php

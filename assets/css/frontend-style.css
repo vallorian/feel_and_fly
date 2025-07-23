@@ -272,7 +272,7 @@
 
 .srl-btn {
     display: inline-block;
-    padding: 14px 28px;
+    padding: 14px 28px!important;
     border: none;
     border-radius: var(--radius-medium);
     font-size: 16px;
@@ -282,6 +282,7 @@
     cursor: pointer;
     transition: var(--transition);
     min-width: 140px;
+	color:white!important;
 }
 
 .srl-btn-primary {
@@ -755,13 +756,13 @@
 
 .srl-tabela-lotow .srl-akcja-btn {
     width: 100%;
-    padding: var(--spacing-sm) 12px;
+    padding: 14px 28px!important;
     font-weight: bold;
     border-radius: 6px;
     border: none;
     cursor: pointer;
     transition: var(--transition);
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .srl-tabela-lotow .srl-btn-wybierz {
