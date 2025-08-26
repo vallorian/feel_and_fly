@@ -24,7 +24,7 @@ class SRL_Admin_Menu_Calendar {
     }
 
     public function initMenu() {
-        add_menu_page('Kalendarz lotów', 'Rezerwacje Tandem', 'manage_options', 'srl-kalendarz', [$this, 'displayCalendar'], 'dashicons-calendar', 56);
+        add_menu_page('Kalendarz lotów', 'Rezerwacje Tandem', 'manage_woocommerce', 'srl-kalendarz', [$this, 'displayCalendar'], 'dashicons-calendar', 56);
 
         $submenu_pages = [
             ['Planowanie dni', 'srl-dzien', [SRL_Admin_Day::getInstance(), 'wyswietlDzien']],
@@ -33,7 +33,7 @@ class SRL_Admin_Menu_Calendar {
         ];
 
         foreach ($submenu_pages as [$title, $slug, $function]) {
-            add_submenu_page('srl-kalendarz', $title, $title, 'manage_options', $slug, $function);
+            add_submenu_page('srl-kalendarz', $title, $title, 'manage_woocommerce', $slug, $function);
         }
     }
 
@@ -126,7 +126,7 @@ class SRL_Admin_Menu_Calendar {
     }
 
     public function displayCalendar() {
-        if (!current_user_can('manage_options')) return;
+        if (!current_user_can('manage_woocommerce')) return;
         
         $rok = isset($_GET['rok']) && intval($_GET['rok']) > 2000 ? intval($_GET['rok']) : date('Y');
         $miesiac = isset($_GET['miesiac']) && intval($_GET['miesiac']) >= 1 && intval($_GET['miesiac']) <= 12 ? intval($_GET['miesiac']) : date('n');

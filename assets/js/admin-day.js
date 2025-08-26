@@ -255,50 +255,68 @@ jQuery(document).ready(function($) {
         }
         tr.append(`<td>${lotIdHtml}</td>`);
 
-        var danePasazeraHtml = '—';
-        if (['Zarezerwowany', 'Zrealizowany'].includes(slot.status)) {
-            if (slot.lot_id && slot.klient_nazwa) {
-                danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-pasazera" data-lot-id="${slot.lot_id}" data-user-id="${slot.klient_id}">${slot.klient_nazwa}</button>`;
-            } else {
-                danePasazeraHtml = `<button class="button button-small srl-przypisz-klienta" data-termin-id="${slot.id}">Przypisz klienta</button>`;
-            }
-        } else if (slot.status === 'Prywatny' || (slot.status === 'Zrealizowany' && slot.notatka && !slot.lot_id)) {
-            var buttonText = 'Dane prywatne';
-            if (slot.notatka) {
-                try {
-                    var danePrivate = JSON.parse(slot.notatka);
-                    if (danePrivate.imie && danePrivate.nazwisko) {
-                        buttonText = danePrivate.imie + ' ' + danePrivate.nazwisko;
-                        if (slot.status === 'Zrealizowany') buttonText += ' (zrealizowany)';
-                    }
-                } catch (e) {}
-            }
-            danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="${slot.id}">${buttonText}</button>`;
-        } else if (slot.status === 'Odwołany przez organizatora' && slot.notatka) {
-            try {
-                var daneOdwolane = JSON.parse(slot.notatka);
-                if (daneOdwolane.klient_nazwa) {
-                    danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-odwolane" data-termin-id="${slot.id}" style="background:#dc3545; color:white;">${daneOdwolane.klient_nazwa} (odwołany)</button>`;
-                } else {
-                    danePasazeraHtml = '<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>';
-                }
-            } catch (e) {
-                danePasazeraHtml = '<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>';
-            }
-        }
+		var danePasazeraHtml = '—';
+		if (slot.status === 'Zarezerwowany') {
+			// Lot wykupiony zarezerwowany
+			if (slot.lot_id && slot.klient_nazwa) {
+				danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-pasazera" data-lot-id="${slot.lot_id}" data-user-id="${slot.klient_id}">${slot.klient_nazwa}</button>`;
+			} else {
+				danePasazeraHtml = `<button class="button button-small srl-przypisz-klienta" data-termin-id="${slot.id}">Przypisz klienta</button>`;
+			}
+		} else if (slot.status === 'Zrealizowany') {
+			// Sprawdź czy to lot wykupiony czy prywatny
+			if (slot.lot_id && slot.klient_nazwa) {
+				// Lot wykupiony zrealizowany
+				danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-pasazera" data-lot-id="${slot.lot_id}" data-user-id="${slot.klient_id}">${slot.klient_nazwa}</button>`;
+			} else if (slot.notatka) {
+				// Lot prywatny zrealizowany
+				var buttonText = 'Dane prywatne (zrealizowany)';
+				try {
+					var danePrivate = JSON.parse(slot.notatka);
+					if (danePrivate.imie && danePrivate.nazwisko) {
+						buttonText = danePrivate.imie + ' ' + danePrivate.nazwisko;
+					}
+				} catch (e) {}
+				danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="${slot.id}">${buttonText}</button>`;
+			}
+		} else if (slot.status === 'Prywatny') {
+			// Lot prywatny
+			var buttonText = 'Dane prywatne';
+			if (slot.notatka) {
+				try {
+					var danePrivate = JSON.parse(slot.notatka);
+					if (danePrivate.imie && danePrivate.nazwisko) {
+						buttonText = danePrivate.imie + ' ' + danePrivate.nazwisko;
+					}
+				} catch (e) {}
+			}
+			danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-prywatne" data-termin-id="${slot.id}">${buttonText}</button>`;
+		} else if (slot.status === 'Odwołany przez organizatora' && slot.notatka) {
+			try {
+				var daneOdwolane = JSON.parse(slot.notatka);
+				if (daneOdwolane.klient_nazwa) {
+					danePasazeraHtml = `<button class="button button-small srl-pokaz-dane-odwolane" data-termin-id="${slot.id}" style="background:#dc3545; color:white;">${daneOdwolane.klient_nazwa} (odwołany)</button>`;
+				} else {
+					danePasazeraHtml = '<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>';
+				}
+			} catch (e) {
+				danePasazeraHtml = '<span style="color:#dc3545; font-style:italic;">Lot odwołany</span>';
+			}
+		}
         tr.append(`<td>${danePasazeraHtml}</td>`);
 
         var akcjeHtml = '—';
         if (slot.status === 'Wolny') {
             akcjeHtml = `<button class="button button-primary srl-przypisz-slot" data-termin-id="${slot.id}">Przypisz klienta</button>`;
-        } else if (slot.status === 'Zarezerwowany' && slot.klient_id > 0) {
-            akcjeHtml = `<button class="button srl-wypisz-klienta">Wypisz klienta</button>
-                <button class="button srl-zmien-termin" data-termin-id="${slot.id}" style="background:#ff9800; color:white; margin-left:5px;">Zmiana terminu</button>
-                <button class="button srl-zrealizuj-lot" data-termin-id="${slot.id}" style="background:#28a745; color:white; margin-left:5px;">Zrealizuj</button>
-                <button class="button srl-odwolaj-lot" data-termin-id="${slot.id}" style="background:#dc3545; color:white; margin-left:5px;">Odwołaj</button>`;
-        } else if (slot.status === 'Prywatny') {
-            akcjeHtml = `<button class="button srl-zrealizuj-lot-prywatny" data-termin-id="${slot.id}" style="background:#28a745; color:white; margin-right:5px;">Zrealizuj</button>
-                <button class="button srl-wypisz-slot-prywatny" data-termin-id="${slot.id}">Wyczyść slot</button>`;
+		} else if (slot.status === 'Zarezerwowany' && slot.klient_id > 0) {
+			akcjeHtml = `<button class="button srl-zrealizuj-lot" data-termin-id="${slot.id}" style="background:#28a745; color:white; margin-right:5px;">Zrealizuj</button>
+				<button class="button srl-zmien-termin" data-termin-id="${slot.id}" style="background:#ff9800; color:white; margin-right:5px;">Zmiana terminu</button>
+				<button class="button srl-wypisz-klienta" style="margin-right:5px;">Wypisz klienta</button>
+				<button class="button srl-odwolaj-lot" data-termin-id="${slot.id}" style="background:#dc3545; color:white;">Odwołaj</button>`;
+		} else if (slot.status === 'Prywatny') {
+			akcjeHtml = `<button class="button srl-zrealizuj-lot-prywatny" data-termin-id="${slot.id}" style="background:#28a745; color:white; margin-right:5px;">Zrealizuj</button>
+				<button class="button srl-zmien-termin" data-termin-id="${slot.id}" style="background:#ff9800; color:white; margin-right:5px;">Zmiana terminu</button>
+				<button class="button srl-wypisz-slot-prywatny" data-termin-id="${slot.id}">Wypisz klienta</button>`;
         } else if (slot.status === 'Zrealizowany') {
             akcjeHtml = '<span style="color:#28a745; font-weight:bold;">✅ Zrealizowany</span>';
         } else if (slot.status === 'Odwołany przez organizatora') {
@@ -485,35 +503,61 @@ jQuery(document).ready(function($) {
     function bindEventHandlers() {
         var handlers = {
             '.srl-wypisz-slot-prywatny': function() {
-                var terminId = $(this).data('termin-id');
-                if (!confirm('Czy na pewno wyczyścić ten slot prywatny i zmienić status na wolny?')) return;
-                
-                $.post(ajaxurl, {
-                    action: 'srl_zmien_status_godziny',
-                    termin_id: terminId,
-                    status: 'Wolny',
-                    klient_id: 0,
-                    notatka: '',
-                    nonce: srlAdmin.nonce
-                }, function(response) {
-                    if (response.success) {
-                        srlIstniejaceGodziny = response.data.godziny_wg_pilota;
-                        generujTabelePilotow();
-                        pokazKomunikatSukcesu('Slot został wyczyszczony i zmieniony na wolny.');
-                    } else {
-                        alert('Błąd: ' + response.data);
-                    }
-                });
-            },
+				var terminId = $(this).data('termin-id');
+				if (!confirm('Czy na pewno wyczyścić ten slot prywatny i zmienić status na wolny? Klient zostanie powiadomiony o anulowaniu (jeśli podał email).')) return;
+				
+				var button = $(this);
+				button.prop('disabled', true).text('Czyszczenie...');
+				
+				$.post(ajaxurl, {
+					action: 'srl_wypisz_slot_prywatny',
+					termin_id: terminId,
+					nonce: srlAdmin.nonce
+				}, function(response) {
+					if (response.success) {
+						if (response.data && response.data.godziny_wg_pilota) {
+							srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+						}
+						generujTabelePilotow();
+						pokazKomunikatSukcesu('Slot prywatny został wyczyszczony.' + (response.data.email_sent ? ' Klient został powiadomiony.' : ''));
+					} else {
+						alert('Błąd: ' + response.data);
+						button.prop('disabled', false).text('Wyczyść slot');
+					}
+				}).fail(function() {
+					alert('Błąd połączenia z serwerem');
+					button.prop('disabled', false).text('Wyczyść slot');
+				});
+			},
             
             '.srl-wypisz-klienta': function() {
-                var terminId = $(this).closest('tr').data('termin-id');
-                if (!confirm('Czy na pewno wypisać klienta i przywrócić slot jako wolny?')) return;
-                
-                zmienStatusSlotu(terminId, 'Wolny', 0, '', null, function() {
-                    generujTabelePilotow();
-                });
-            },
+				var terminId = $(this).closest('tr').data('termin-id');
+				if (!confirm('Czy na pewno wypisać klienta i przywrócić slot jako wolny? Klient zostanie powiadomiony o anulowaniu.')) return;
+				
+				// Użyj dedykowanej akcji AJAX dla wypisania klienta
+				var button = $(this);
+				button.prop('disabled', true).text('Wypisywanie...');
+				
+				$.post(ajaxurl, {
+					action: 'srl_wypisz_klienta_ze_slotu',
+					termin_id: terminId,
+					nonce: srlAdmin.nonce
+				}, function(response) {
+					if (response.success) {
+						if (response.data && response.data.godziny_wg_pilota) {
+							srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+						}
+						generujTabelePilotow();
+						pokazKomunikatSukcesu('Klient został wypisany i powiadomiony o anulowaniu.');
+					} else {
+						alert('Błąd: ' + response.data);
+						button.prop('disabled', false).text('Wypisz klienta');
+					}
+				}).fail(function() {
+					alert('Błąd połączenia z serwerem');
+					button.prop('disabled', false).text('Wypisz klienta');
+				});
+			},
             
             '.srl-pokaz-dane-pasazera': function() {
                 pokazDanePasazeraModal($(this).data('lot-id'), $(this).data('user-id'));
@@ -996,42 +1040,42 @@ jQuery(document).ready(function($) {
                     </div>
                     <div id="srl-search-results" style="max-height:300px; overflow-y:auto; border:1px solid #ddd; padding:10px; display:none;"></div>
                 </div>
-                <div id="srl-sekcja-prywatny" style="display:none;">
-                    <h4>Dane pasażera (lot prywatny)</h4>
-                    <form id="srl-form-prywatny">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
-                            <div><label>Imię *</label><input type="text" name="imie" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label>Nazwisko *</label><input type="text" name="nazwisko" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label>Rok urodzenia *</label><input type="number" name="rok_urodzenia" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label>Numer telefonu *</label><input type="tel" name="telefon" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label>Sprawność fizyczna *</label>
-                                <select name="sprawnosc_fizyczna" required style="width:100%; padding:8px; margin-top:5px;">
-                                    <option value="">Wybierz poziom sprawności</option>
-                                    <option value="zdolnosc_do_marszu">Zdolność do marszu</option>
-                                    <option value="zdolnosc_do_biegu">Zdolność do biegu</option>
-                                    <option value="sprinter">Sprinter!</option>
-                                </select>
-                            </div>
-                            <div><label>Kategoria wagowa *</label>
-                                <select name="kategoria_wagowa" required style="width:100%; padding:8px; margin-top:5px;">
-                                    <option value="">Wybierz kategorię wagową</option>
-                                    <option value="25-40kg">25-40kg</option>
-                                    <option value="41-60kg">41-60kg</option>
-                                    <option value="61-90kg">61-90kg</option>
-                                    <option value="91-120kg">91-120kg</option>
-                                    <option value="120kg+">120kg+</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div style="grid-column: 1 / -1; margin-bottom:20px;">
-                            <label>Dodatkowe uwagi</label>
-                            <textarea name="uwagi" rows="3" style="width:100%; padding:8px; margin-top:5px;" placeholder="Np. alergie, obawy, specjalne potrzeby..."></textarea>
-                        </div>
-                        <div style="text-align:right;">
-                            <button type="submit" class="button button-primary">Zapisz lot prywatny</button>
-                        </div>
-                    </form>
-                </div>
+				<div id="srl-sekcja-prywatny" style="display:none;">
+					<h4>Dane pasażera (lot prywatny)</h4>
+					<form id="srl-form-prywatny">
+						<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+							<div><label>Imię i nazwisko *</label><input type="text" name="imie_nazwisko" required style="width:100%; padding:8px; margin-top:5px;" placeholder="Jan Kowalski"></div>
+							<div><label>Adres email</label><input type="email" name="email" style="width:100%; padding:8px; margin-top:5px;" placeholder="jan.kowalski@email.com"></div>
+							<div><label>Rok urodzenia *</label><input type="number" name="rok_urodzenia" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px;"></div>
+							<div><label>Numer telefonu *</label><input type="tel" name="telefon" required style="width:100%; padding:8px; margin-top:5px;" placeholder="+48 123 456 789"></div>
+							<div><label>Sprawność fizyczna *</label>
+								<select name="sprawnosc_fizyczna" required style="width:100%; padding:8px; margin-top:5px;">
+									<option value="">Wybierz poziom sprawności</option>
+									<option value="zdolnosc_do_marszu">Zdolność do marszu</option>
+									<option value="zdolnosc_do_biegu">Zdolność do biegu</option>
+									<option value="sprinter">Sprinter!</option>
+								</select>
+							</div>
+							<div><label>Kategoria wagowa *</label>
+								<select name="kategoria_wagowa" required style="width:100%; padding:8px; margin-top:5px;">
+									<option value="">Wybierz kategorię wagową</option>
+									<option value="25-40kg">25-40kg</option>
+									<option value="41-60kg">41-60kg</option>
+									<option value="61-90kg">61-90kg</option>
+									<option value="91-120kg">91-120kg</option>
+									<option value="120kg+">120kg+</option>
+								</select>
+							</div>
+						</div>
+						<div style="grid-column: 1 / -1; margin-bottom:20px;">
+							<label>Dodatkowe uwagi</label>
+							<textarea name="uwagi" rows="3" style="width:100%; padding:8px; margin-top:5px;" placeholder="Np. alergie, obawy, specjalne potrzeby..."></textarea>
+						</div>
+						<div style="text-align:right;">
+							<button type="submit" class="button button-primary">Zapisz lot prywatny</button>
+						</div>
+					</form>
+				</div>
                 <div style="margin-top:20px; text-align:right; border-top:1px solid #ddd; padding-top:15px;">
                     <button class="button srl-modal-anuluj">Anuluj</button>
                 </div>
@@ -1151,39 +1195,66 @@ jQuery(document).ready(function($) {
         });
     }
 
-    function zapiszLotPrywatny(terminId, formData, modal) {
-        var submitBtn = modal.find('#srl-form-prywatny button[type="submit"]');
-        submitBtn.prop('disabled', true).text('Zapisywanie...');
+	function zapiszLotPrywatny(terminId, formData, modal) {
+		var submitBtn = modal.find('#srl-form-prywatny button[type="submit"]');
+		submitBtn.prop('disabled', true).text('Zapisywanie...');
 
-        var formDataObj = {};
-        formData.split('&').forEach(function(pair) {
-            var keyValue = pair.split('=');
-            if (keyValue.length === 2) {
-                formDataObj[decodeURIComponent(keyValue[0])] = decodeURIComponent(keyValue[1]);
-            }
-        });
+		var formDataObj = {};
+		formData.split('&').forEach(function(pair) {
+			var keyValue = pair.split('=');
+			if (keyValue.length === 2) {
+				formDataObj[decodeURIComponent(keyValue[0])] = decodeURIComponent(keyValue[1]);
+			}
+		});
 
-        $.post(ajaxurl, {
-            action: 'srl_zapisz_lot_prywatny',
-            termin_id: terminId,
-            nonce: srlAdmin.nonce,
-            ...formDataObj
-        }, function(response) {
-            if (response.success) {
-                modal.remove();
-                if (response.data && response.data.godziny_wg_pilota) {
-                    srlIstniejaceGodziny = response.data.godziny_wg_pilota;
-                    generujTabelePilotow();
-                } else {
-                    generujTabelePilotow();
-                }
-                pokazKomunikatSukcesu('Lot prywatny został zapisany!');
-            } else {
-                submitBtn.prop('disabled', false).text('Zapisz lot prywatny');
-                alert('Błąd: ' + response.data);
-            }
-        });
-    }
+		// Podziel imię i nazwisko z jednego pola
+		var imieNazwisko = formDataObj['imie_nazwisko'] || '';
+		var czesciImienia = imieNazwisko.trim().split(/\s+/);
+		var imie = czesciImienia[0] || '';
+		var nazwisko = czesciImienia.slice(1).join(' ') || '';
+
+		// Walidacja podstawowa
+		if (!imie || !nazwisko) {
+			submitBtn.prop('disabled', false).text('Zapisz lot prywatny');
+			alert('Podaj pełne imię i nazwisko (minimum dwa słowa).');
+			return;
+		}
+
+		// Walidacja email tylko jeśli został podany
+		if (formDataObj['email'] && formDataObj['email'].trim() && !formDataObj['email'].includes('@')) {
+			submitBtn.prop('disabled', false).text('Zapisz lot prywatny');
+			alert('Jeśli podajesz email, musi być prawidłowy.');
+			return;
+		}
+
+		$.post(ajaxurl, {
+			action: 'srl_zapisz_lot_prywatny',
+			termin_id: terminId,
+			nonce: srlAdmin.nonce,
+			imie: imie,
+			nazwisko: nazwisko,
+			email: formDataObj['email'],
+			rok_urodzenia: formDataObj['rok_urodzenia'],
+			telefon: formDataObj['telefon'],
+			sprawnosc_fizyczna: formDataObj['sprawnosc_fizyczna'],
+			kategoria_wagowa: formDataObj['kategoria_wagowa'],
+			uwagi: formDataObj['uwagi']
+		}, function(response) {
+			if (response.success) {
+				modal.remove();
+				if (response.data && response.data.godziny_wg_pilota) {
+					srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+					generujTabelePilotow();
+				} else {
+					generujTabelePilotow();
+				}
+				pokazKomunikatSukcesu('Lot prywatny został zapisany!');
+			} else {
+				submitBtn.prop('disabled', false).text('Zapisz lot prywatny');
+				alert('Błąd: ' + response.data);
+			}
+		});
+	}
 
     function pokazDanePasazeraModal(lotId, userId) {
         $.post(ajaxurl, {
@@ -1214,69 +1285,70 @@ jQuery(document).ready(function($) {
         });
     }
 
-    function pokazUjednoliconyModalDanych(dane, tytul, moznaEdytowac, terminId) {
-        var imieNazwisko = dane.imie && dane.nazwisko ? `${dane.imie} ${dane.nazwisko}` : dane.imie || dane.nazwisko || 'Brak danych';
-        var rokUrodzeniaText = dane.rok_urodzenia ? `${dane.rok_urodzenia} (${srlFormatujWiek(dane.rok_urodzenia)})` : 'Brak danych';
+	function pokazUjednoliconyModalDanych(dane, tytul, moznaEdytowac, terminId) {
+		var imieNazwisko = dane.imie && dane.nazwisko ? `${dane.imie} ${dane.nazwisko}` : dane.imie || dane.nazwisko || 'Brak danych';
+		var rokUrodzeniaText = dane.rok_urodzenia ? `${dane.rok_urodzenia} (${srlFormatujWiek(dane.rok_urodzenia)})` : 'Brak danych';
 
-        var sprawnoscMap = {
-            'zdolnosc_do_marszu': 'Zdolność do marszu',
-            'zdolnosc_do_biegu': 'Zdolność do biegu',
-            'sprinter': 'Sprinter!'
-        };
+		var sprawnoscMap = {
+			'zdolnosc_do_marszu': 'Zdolność do marszu',
+			'zdolnosc_do_biegu': 'Zdolność do biegu',
+			'sprinter': 'Sprinter!'
+		};
 
-        var modal = $(`<div class="srl-modal-dane-pasazera" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
-            <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; max-height: 90%; overflow-y: auto; width: 90%;">
-                <h3 style="margin-top: 0; color: #4263be; border-bottom: 2px solid #4263be; padding-bottom: 10px;">${tytul}</h3>
-                <div id="srl-dane-wyswietl">
-                    <div style="line-height: 1.8; font-size: 15px;">
-                        <p><strong>Imię i nazwisko:</strong> ${imieNazwisko}</p>
-                        <p><strong>Rok urodzenia:</strong> ${rokUrodzeniaText}</p>
-                        <p><strong>Telefon:</strong> ${dane.telefon || 'Brak danych'}</p>
-                        <p><strong>Sprawność fizyczna:</strong> ${sprawnoscMap[dane.sprawnosc_fizyczna] || dane.sprawnosc_fizyczna || 'Brak danych'}</p>
-                        <p><strong>Kategoria wagowa:</strong> ${dane.kategoria_wagowa || 'Brak danych'}</p>
-                        <p><strong>Uwagi:</strong> ${dane.uwagi && dane.uwagi.trim() ? dane.uwagi : 'Brak uwag'}</p>
-                    </div>
-                </div>
-                ${moznaEdytowac ? `<div id="srl-dane-edytuj" style="display:none;">
-                    <form id="srl-form-edytuj-prywatne">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
-                            <div><label><strong>Imię *</strong></label><input type="text" name="imie" value="${dane.imie || ''}" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label><strong>Nazwisko *</strong></label><input type="text" name="nazwisko" value="${dane.nazwisko || ''}" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label><strong>Rok urodzenia *</strong></label><input type="number" name="rok_urodzenia" value="${dane.rok_urodzenia || ''}" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label><strong>Telefon *</strong></label><input type="tel" name="telefon" value="${dane.telefon || ''}" required style="width:100%; padding:8px; margin-top:5px;"></div>
-                            <div><label><strong>Sprawność fizyczna *</strong></label>
-                                <select name="sprawnosc_fizyczna" required style="width:100%; padding:8px; margin-top:5px;">
-                                    <option value="">Wybierz...</option>
-                                    <option value="zdolnosc_do_marszu" ${dane.sprawnosc_fizyczna === 'zdolnosc_do_marszu' ? 'selected' : ''}>Zdolność do marszu</option>
-                                    <option value="zdolnosc_do_biegu" ${dane.sprawnosc_fizyczna === 'zdolnosc_do_biegu' ? 'selected' : ''}>Zdolność do biegu</option>
-                                    <option value="sprinter" ${dane.sprawnosc_fizyczna === 'sprinter' ? 'selected' : ''}>Sprinter!</option>
-                                </select>
-                            </div>
-                            <div><label><strong>Kategoria wagowa *</strong></label>
-                                <select name="kategoria_wagowa" required style="width:100%; padding:8px; margin-top:5px;">
-                                    <option value="">Wybierz...</option>
-                                    ${['25-40kg', '41-60kg', '61-90kg', '91-120kg', '120kg+'].map(opcja => 
-                                        `<option value="${opcja}" ${dane.kategoria_wagowa === opcja ? 'selected' : ''}>${opcja}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
-                        </div>
-                        <div style="margin-bottom:20px;">
-                            <label><strong>Dodatkowe uwagi</strong></label>
-                            <textarea name="uwagi" rows="3" style="width:100%; padding:8px; margin-top:5px;">${dane.uwagi || ''}</textarea>
-                        </div>
-                    </form>
-                </div>` : ''}
-                <div style="text-align:right; border-top:1px solid #ddd; padding-top:15px; margin-top: 20px;">
-                    ${moznaEdytowac ? `
-                        <button id="srl-btn-edytuj" class="button button-primary" style="margin-right:10px;">Edytuj dane</button>
-                        <button id="srl-btn-zapisz" class="button button-primary" style="display:none; margin-right:10px;">Zapisz zmiany</button>
-                        <button id="srl-btn-anuluj-edycje" class="button" style="display:none; margin-right:10px;">Anuluj</button>
-                    ` : ''}
-                    <button class="button srl-btn-zamknij">Zamknij</button>
-                </div>
-            </div>
-        </div>`);
+		var modal = $(`<div class="srl-modal-dane-pasazera" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+			<div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; max-height: 90%; overflow-y: auto; width: 90%;">
+				<h3 style="margin-top: 0; color: #4263be; border-bottom: 2px solid #4263be; padding-bottom: 10px;">${tytul}</h3>
+				<div id="srl-dane-wyswietl">
+					<div style="line-height: 1.8; font-size: 15px;">
+						<p><strong>Imię i nazwisko:</strong> ${imieNazwisko}</p>
+						${dane.email ? `<p><strong>Email:</strong> ${dane.email}</p>` : ''}
+						<p><strong>Rok urodzenia:</strong> ${rokUrodzeniaText}</p>
+						<p><strong>Telefon:</strong> ${dane.telefon || 'Brak danych'}</p>
+						<p><strong>Sprawność fizyczna:</strong> ${sprawnoscMap[dane.sprawnosc_fizyczna] || dane.sprawnosc_fizyczna || 'Brak danych'}</p>
+						<p><strong>Kategoria wagowa:</strong> ${dane.kategoria_wagowa || 'Brak danych'}</p>
+						<p><strong>Uwagi:</strong> ${dane.uwagi && dane.uwagi.trim() ? dane.uwagi : 'Brak uwag'}</p>
+					</div>
+				</div>
+				${moznaEdytowac ? `<div id="srl-dane-edytuj" style="display:none;">
+					<form id="srl-form-edytuj-prywatne">
+						<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+							<div><label><strong>Imię i nazwisko *</strong></label><input type="text" name="imie_nazwisko" value="${dane.imie && dane.nazwisko ? dane.imie + ' ' + dane.nazwisko : ''}" required style="width:100%; padding:8px; margin-top:5px;" placeholder="Jan Kowalski"></div>
+							<div><label><strong>Email</strong></label><input type="email" name="email" value="${dane.email || ''}" style="width:100%; padding:8px; margin-top:5px;" placeholder="jan.kowalski@email.com"></div>
+							<div><label><strong>Rok urodzenia *</strong></label><input type="number" name="rok_urodzenia" value="${dane.rok_urodzenia || ''}" min="1920" max="2020" required style="width:100%; padding:8px; margin-top:5px;"></div>
+							<div><label><strong>Telefon *</strong></label><input type="tel" name="telefon" value="${dane.telefon || ''}" required style="width:100%; padding:8px; margin-top:5px;"></div>
+							<div><label><strong>Sprawność fizyczna *</strong></label>
+								<select name="sprawnosc_fizyczna" required style="width:100%; padding:8px; margin-top:5px;">
+									<option value="">Wybierz...</option>
+									<option value="zdolnosc_do_marszu" ${dane.sprawnosc_fizyczna === 'zdolnosc_do_marszu' ? 'selected' : ''}>Zdolność do marszu</option>
+									<option value="zdolnosc_do_biegu" ${dane.sprawnosc_fizyczna === 'zdolnosc_do_biegu' ? 'selected' : ''}>Zdolność do biegu</option>
+									<option value="sprinter" ${dane.sprawnosc_fizyczna === 'sprinter' ? 'selected' : ''}>Sprinter!</option>
+								</select>
+							</div>
+							<div><label><strong>Kategoria wagowa *</strong></label>
+								<select name="kategoria_wagowa" required style="width:100%; padding:8px; margin-top:5px;">
+									<option value="">Wybierz...</option>
+									${['25-40kg', '41-60kg', '61-90kg', '91-120kg', '120kg+'].map(opcja => 
+										`<option value="${opcja}" ${dane.kategoria_wagowa === opcja ? 'selected' : ''}>${opcja}</option>`
+									).join('')}
+								</select>
+							</div>
+						</div>
+						<div style="margin-bottom:20px;">
+							<label><strong>Dodatkowe uwagi</strong></label>
+							<textarea name="uwagi" rows="3" style="width:100%; padding:8px; margin-top:5px;">${dane.uwagi || ''}</textarea>
+						</div>
+					</form>
+				</div>` : ''}
+				<div style="text-align:right; border-top:1px solid #ddd; padding-top:15px; margin-top: 20px;">
+					${moznaEdytowac ? `
+						<button id="srl-btn-edytuj" class="button button-primary" style="margin-right:10px;">Edytuj dane</button>
+						<button id="srl-btn-zapisz" class="button button-primary" style="display:none; margin-right:10px;">Zapisz zmiany</button>
+						<button id="srl-btn-anuluj-edycje" class="button" style="display:none; margin-right:10px;">Anuluj</button>
+					` : ''}
+					<button class="button srl-btn-zamknij">Zamknij</button>
+				</div>
+			</div>
+		</div>`);
 
         $('body').append(modal);
 		dodajObslugeEscModal(modal, 'dane-pasazera');
@@ -1558,32 +1630,36 @@ jQuery(document).ready(function($) {
         );
     }
 
-    function wykonajZmianeTerminu(staryTerminId, nowyTerminId, modal) {
-        modal.find('.srl-terminy-tabela-container').css('opacity', '0.5');
-        modal.find('.srl-termin-opcja').css('pointer-events', 'none');
-        
-        var loader = $('<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:20px; border-radius:6px; text-align:center; z-index:1000;">⏳ Zmienianie terminu...</div>');
-        modal.find('#srl-zmiana-terminu-content').css('position', 'relative').append(loader);
+	function wykonajZmianeTerminu(staryTerminId, nowyTerminId, modal) {
+		modal.find('.srl-terminy-tabela-container').css('opacity', '0.5');
+		modal.find('.srl-termin-opcja').css('pointer-events', 'none');
+		
+		var loader = $('<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.9); padding:20px; border-radius:6px; text-align:center; z-index:1000;">⏳ Zmienianie terminu...</div>');
+		modal.find('#srl-zmiana-terminu-content').css('position', 'relative').append(loader);
 
-        $.post(ajaxurl, {
-            action: 'srl_zmien_termin_lotu',
-            stary_termin_id: staryTerminId,
-            nowy_termin_id: nowyTerminId,
-            nonce: srlAdmin.nonce
-        }, function(response) {
-            if (response.success) {
-                modal.remove();
-                generujTabelePilotow();
-                pokazKomunikatSukcesu('Termin lotu został pomyślnie zmieniony!');
-            } else {
-                loader.remove();
-                modal.find('.srl-terminy-tabela-container').css('opacity', '1');
-                modal.find('.srl-termin-opcja').css('pointer-events', 'auto');
-                modal.find('.srl-termin-wybrany').removeClass('srl-termin-wybrany');
-                alert('Błąd zmiany terminu: ' + response.data);
-            }
-        });
-    }
+		$.post(ajaxurl, {
+			action: 'srl_zmien_termin_lotu',
+			stary_termin_id: staryTerminId,
+			nowy_termin_id: nowyTerminId,
+			nonce: srlAdmin.nonce
+		}, function(response) {
+			if (response.success) {
+				modal.remove();
+				// POPRAWKA: Aktualizuj dane i odśwież tabelę
+				if (response.data && response.data.godziny_wg_pilota) {
+					srlIstniejaceGodziny = response.data.godziny_wg_pilota;
+				}
+				generujTabelePilotow(); // DODANE: Odświeżenie tabeli
+				pokazKomunikatSukcesu('Termin lotu został pomyślnie zmieniony!');
+			} else {
+				loader.remove();
+				modal.find('.srl-terminy-tabela-container').css('opacity', '1');
+				modal.find('.srl-termin-opcja').css('pointer-events', 'auto');
+				modal.find('.srl-termin-wybrany').removeClass('srl-termin-wybrany');
+				alert('Błąd zmiany terminu: ' + response.data);
+			}
+		});
+	}
 
     function formatujDatePolski(dataStr) {
         var data = new Date(dataStr);

@@ -331,29 +331,30 @@ class SRL_Admin_Day {
             ['id' => $historical_data['lot_id']]
         );
 
-        $termin_info = sprintf('%s %s-%s',
-            $slot['data'],
-            substr($slot['godzina_start'], 0, 5),
-            substr($slot['godzina_koniec'], 0, 5)
-        );
-
-        wp_mail(
-            $historical_data['klient_email'],
-            'Twój lot tandemowy został odwołany',
-            "Dzień dobry,\n\nTwój lot na {$termin_info} został odwołany przez organizatora.\nStatus lotu został przywrócony.\n\nPozdrawiamy"
-        );
-
-        SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($historical_data['lot_id'], [
-            'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
-            'typ' => 'odwolanie_przez_organizatora',
-            'executor' => 'Admin',
-            'szczegoly' => [
-                'termin_id' => $slot['id'],
-                'odwolany_termin' => $termin_info,
-                'email_wyslany' => true
-            ]
-        ]);
-    }
+        SRL_Email_Functions::getInstance()->wyslijEmailOdwolaniaPrzezOrganizatora(
+			$historical_data['klient_email'],
+			$slot['data'],
+			$slot['godzina_start']
+		);
+		
+		// Zachowaj formatowanie dla historii (jeśli potrzebne)
+		$termin_info = sprintf('%s %s-%s',
+			$slot['data'],
+			substr($slot['godzina_start'], 0, 5),
+			substr($slot['godzina_koniec'], 0, 5)
+		);
+		
+		SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($historical_data['lot_id'], [
+			'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+			'typ' => 'odwolanie_przez_organizatora',
+			'executor' => 'Admin',
+			'szczegoly' => [
+				'termin_id' => $slot['id'],
+				'odwolany_termin' => $termin_info,
+				'email_wyslany' => true
+			]
+		]);
+	}
 
     public function restoreReservation($termin_id) {
         global $wpdb;
@@ -404,25 +405,26 @@ class SRL_Admin_Day {
         $user = get_userdata($dane_historyczne['klient_id']);
         if (!$user) return;
 
-        $szczegoly_terminu = $slot['data'] . ' ' . substr($slot['godzina_start'], 0, 5) . '-' . substr($slot['godzina_koniec'], 0, 5);
-
-        wp_mail(
-            $user->user_email,
-            'Twój lot tandemowy został przywrócony',
-            "Dzień dobry {$user->display_name},\n\nTwój lot na {$szczegoly_terminu} został przywrócony.\n\nPozdrawiamy"
-        );
-
-        SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($dane_historyczne['lot_id'], [
-            'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
-            'typ' => 'przywrocenie_przez_admin',
-            'executor' => 'Admin',
-            'szczegoly' => [
-                'termin_id' => $slot['id'],
-                'przywrocony_termin' => $szczegoly_terminu,
-                'email_wyslany' => true
-            ]
-        ]);
-    }
+        SRL_Email_Functions::getInstance()->wyslijEmailPrzywroceniaLotu(
+			$user->user_email,
+			$slot['data'],
+			$slot['godzina_start']
+		);
+		
+		// Zachowaj formatowanie dla historii (jeśli potrzebne)
+		$szczegoly_terminu = $slot['data'] . ' ' . substr($slot['godzina_start'], 0, 5) . '-' . substr($slot['godzina_koniec'], 0, 5);
+		
+		SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($dane_historyczne['lot_id'], [
+			'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+			'typ' => 'przywrocenie_przez_admin',
+			'executor' => 'Admin',
+			'szczegoly' => [
+				'termin_id' => $slot['id'],
+				'przywrocony_termin' => $szczegoly_terminu,
+				'email_wyslany' => true
+			]
+		]);
+	}
 
     public function __destruct() {
         if (function_exists('wp_cache_flush_group')) {

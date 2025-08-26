@@ -219,7 +219,7 @@ class SRL_Bootstrap {
 	}
 	
 	public function addDebugInfo($wp_admin_bar) {
-		if (!current_user_can('manage_options')) return;
+		if (!current_user_can('manage_woocommerce')) return;
 		
 		$cache_stats = SRL_Cache_Manager::getInstance()->getCacheStats();
 		$memory_mb = round($cache_stats['memory_usage'] / 1024 / 1024, 2);

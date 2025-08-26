@@ -81,22 +81,27 @@ class SRL_Voucher_Gift_Functions {
                 for ($i = 0; $i < $quantity; $i++) {
                     $kod_vouchera = $this->generujKodVouchera();
 
-                    $result = $wpdb->insert(
-                        $tabela,
-                        array(
-                            'order_item_id' => $item_id,
-                            'order_id' => $order_id,
-                            'buyer_user_id' => $user_id,
-                            'buyer_imie' => $imie,
-                            'buyer_nazwisko' => $nazwisko,
-                            'nazwa_produktu' => $nazwa_produktu,
-                            'kod_vouchera' => $kod_vouchera,
-                            'status' => 'do_wykorzystania',
-                            'data_zakupu' => $data_zakupu,
-                            'data_waznosci' => $data_waznosci
-                        ),
-                        array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s')
-                    );
+					// Wykryj opcje z nazwy produktu
+					$opcje = SRL_Helpers::getInstance()->detectFlightOptions($nazwa_produktu);
+
+					$result = $wpdb->insert(
+						$tabela,
+						array(
+							'order_item_id' => $item_id,
+							'order_id' => $order_id,
+							'buyer_user_id' => $user_id,
+							'buyer_imie' => $imie,
+							'buyer_nazwisko' => $nazwisko,
+							'nazwa_produktu' => $nazwa_produktu,
+							'kod_vouchera' => $kod_vouchera,
+							'status' => 'do_wykorzystania',
+							'data_zakupu' => $data_zakupu,
+							'data_waznosci' => $data_waznosci,
+							'ma_filmowanie' => $opcje['ma_filmowanie'],
+							'ma_akrobacje' => $opcje['ma_akrobacje']
+						),
+						array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s','%d','%d')
+					);
 
                     if ($result !== false) {
                         $dodane_vouchery++;
@@ -166,23 +171,34 @@ class SRL_Voucher_Gift_Functions {
         try {
             $opcje_produktu = SRL_Flight_Options::getInstance()->analizaOpcjiProduktu($voucher['nazwa_produktu']);
 
-            $result_lot = $wpdb->insert(
-                $tabela_loty,
-                array(
-                    'order_item_id' => $voucher['order_item_id'],
-                    'order_id' => $voucher['order_id'],
-                    'user_id' => $user_id,
-                    'imie' => $user->first_name ?: 'Voucher',
-                    'nazwisko' => $user->last_name ?: 'User',
-                    'nazwa_produktu' => $voucher['nazwa_produktu'],
-                    'status' => 'wolny',
-                    'data_zakupu' => $data_wykorzystania,
-                    'data_waznosci' => $data_waznosci_lotu,
-                    'ma_filmowanie' => $opcje_produktu['ma_filmowanie'],
-                    'ma_akrobacje' => $opcje_produktu['ma_akrobacje']
-                ),
-                array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%d','%d')
-            );
+			// Sprawdź czy voucher ma bezpośrednio ustawione opcje (ręcznie dodany)
+			$ma_filmowanie = isset($voucher['ma_filmowanie']) ? intval($voucher['ma_filmowanie']) : 0;
+			$ma_akrobacje = isset($voucher['ma_akrobacje']) ? intval($voucher['ma_akrobacje']) : 0;
+
+			// Jeśli nie ma bezpośrednich opcji, spróbuj wykryć z nazwy produktu
+			if (!$ma_filmowanie && !$ma_akrobacje) {
+				$opcje_produktu = SRL_Flight_Options::getInstance()->analizaOpcjiProduktu($voucher['nazwa_produktu']);
+				$ma_filmowanie = $opcje_produktu['ma_filmowanie'];
+				$ma_akrobacje = $opcje_produktu['ma_akrobacje'];
+			}
+
+			$result_lot = $wpdb->insert(
+				$tabela_loty,
+				array(
+					'order_item_id' => $voucher['order_item_id'],
+					'order_id' => $voucher['order_id'],
+					'user_id' => $user_id,
+					'imie' => $user->first_name ?: 'Voucher',
+					'nazwisko' => $user->last_name ?: 'User',
+					'nazwa_produktu' => $voucher['nazwa_produktu'],
+					'status' => 'wolny',
+					'data_zakupu' => $data_wykorzystania,
+					'data_waznosci' => $data_waznosci_lotu,
+					'ma_filmowanie' => $ma_filmowanie,
+					'ma_akrobacje' => $ma_akrobacje
+				),
+				array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%d','%d')
+			);
 
             if ($result_lot === false) {
                 throw new Exception('Błąd dodania lotu.');
@@ -207,33 +223,33 @@ class SRL_Voucher_Gift_Functions {
                 )
             );
 
-            if ($opcje_produktu['ma_filmowanie']) {
-                $historia_poczatkowa[] = array(
-                    'data' => $data_wykorzystania,
-                    'typ' => 'opcja_przy_zakupie',
-                    'executor' => 'System',
-                    'szczegoly' => array(
-                        'opcja' => 'filmowanie',
-                        'dodano_przy_zakupie' => true,
-                        'zrodlo' => 'voucher',
-                        'kod_vouchera' => $kod_vouchera
-                    )
-                );
-            }
+			if ($ma_filmowanie) {
+				$historia_poczatkowa[] = array(
+					'data' => $data_wykorzystania,
+					'typ' => 'opcja_przy_zakupie',
+					'executor' => 'System',
+					'szczegoly' => array(
+						'opcja' => 'filmowanie',
+						'dodano_przy_zakupie' => true,
+						'zrodlo' => 'voucher',
+						'kod_vouchera' => $kod_vouchera
+					)
+				);
+			}
 
-            if ($opcje_produktu['ma_akrobacje']) {
-                $historia_poczatkowa[] = array(
-                    'data' => $data_wykorzystania,
-                    'typ' => 'opcja_przy_zakupie',
-                    'executor' => 'System',
-                    'szczegoly' => array(
-                        'opcja' => 'akrobacje',
-                        'dodano_przy_zakupie' => true,
-                        'zrodlo' => 'voucher',
-                        'kod_vouchera' => $kod_vouchera
-                    )
-                );
-            }
+			if ($ma_akrobacje) {
+				$historia_poczatkowa[] = array(
+					'data' => $data_wykorzystania,
+					'typ' => 'opcja_przy_zakupie',
+					'executor' => 'System',
+					'szczegoly' => array(
+						'opcja' => 'akrobacje',
+						'dodano_przy_zakupie' => true,
+						'zrodlo' => 'voucher',
+						'kod_vouchera' => $kod_vouchera
+					)
+				);
+			}
 
             $wpdb->update(
                 $tabela_loty,
@@ -285,4 +301,5 @@ class SRL_Voucher_Gift_Functions {
              AND data_waznosci < CURDATE()"
         );
     }
+	
 }

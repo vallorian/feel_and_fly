@@ -150,7 +150,7 @@ class SRL_Admin_Vouchers {
         if ($cached !== false) {
             return $cached;
         }
-        
+        global $wpdb;
         $stats = $this->db_helpers->executeQuery("SELECT status, COUNT(*) as count FROM {$wpdb->prefix}srl_vouchery_upominkowe GROUP BY status");
         wp_cache_set($cache_key, $stats, 'srl_cache', 1800);
         

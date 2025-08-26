@@ -343,6 +343,21 @@ class SRL_Database_Helpers {
                 }
             }
             
+            // Cache danych dla lotów prywatnych
+            $dane_pasazera_cache = null;
+            if ($slot['status'] === 'Prywatny' || ($slot['status'] === 'Zrealizowany' && $slot['notatka'] && !$slot['lot_id'])) {
+                if (!empty($slot['notatka'])) {
+                    $dane_prywatne = json_decode($slot['notatka'], true);
+                    if ($dane_prywatne && is_array($dane_prywatne)) {
+                        $dane_pasazera_cache = $dane_prywatne;
+                        // Jeśli nie ma client_name, ustaw go na podstawie danych prywatnych
+                        if (empty($client_name) && isset($dane_prywatne['imie']) && isset($dane_prywatne['nazwisko'])) {
+                            $client_name = $dane_prywatne['imie'] . ' ' . $dane_prywatne['nazwisko'];
+                        }
+                    }
+                }
+            }
+            
             $grouped_by_pilot[$pilot_id][] = [
                 'id' => intval($slot['id']),
                 'start' => substr($slot['godzina_start'], 0, 5),
@@ -352,7 +367,8 @@ class SRL_Database_Helpers {
                 'klient_nazwa' => $client_name,
                 'link_zamowienia' => $order_link,
                 'lot_id' => $slot['lot_id'] ? intval($slot['lot_id']) : null,
-                'notatka' => $slot['notatka']
+                'notatka' => $slot['notatka'],
+                'dane_pasazera_cache' => $dane_pasazera_cache  // DODANE: Cache danych pasażera
             ];
         }
         

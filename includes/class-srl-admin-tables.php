@@ -421,4 +421,30 @@ class SRL_Admin_Tables {
             wp_cache_flush_group('srl_cache');
         }
     }
+	
+	public function formatVoucherOptions($voucher) {
+		$opcje = array();
+		
+		// Sprawdź bezpośrednie opcje z bazy
+		$ma_filmowanie = isset($voucher['ma_filmowanie']) ? intval($voucher['ma_filmowanie']) : 0;
+		$ma_akrobacje = isset($voucher['ma_akrobacje']) ? intval($voucher['ma_akrobacje']) : 0;
+		
+		// Jeśli nie ma bezpośrednich opcji, spróbuj wykryć z nazwy
+		if (!$ma_filmowanie && !$ma_akrobacje && isset($voucher['nazwa_produktu'])) {
+			$detected = SRL_Helpers::getInstance()->detectFlightOptions($voucher['nazwa_produktu']);
+			$ma_filmowanie = $detected['ma_filmowanie'];
+			$ma_akrobacje = $detected['ma_akrobacje'];
+		}
+		
+		$opcje[] = $ma_filmowanie ? 
+			'<span style="color: #46b450; font-weight: bold;">z filmowaniem</span>' : 
+			'<span style="color: #d63638;">bez filmowania</span>';
+			
+		$opcje[] = $ma_akrobacje ? 
+			'<span style="color: #46b450; font-weight: bold;">z akrobacjami</span>' : 
+			'<span style="color: #d63638;">bez akrobacji</span>';
+		
+		return implode(', ', $opcje);
+	}
+	
 }

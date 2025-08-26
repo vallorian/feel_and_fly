@@ -196,13 +196,13 @@ class SRL_Historia_Functions {
     }
 
     public function wyczyscHistorieWszystkichLotow() {
-        if (!current_user_can('manage_options')) return false;
+        if (!current_user_can('manage_woocommerce')) return false;
         global $wpdb;
         return $wpdb->query("UPDATE {$wpdb->prefix}srl_zakupione_loty SET historia_modyfikacji = NULL");
     }
 
     public function przebudujHistorieLotow() {
-        if (!current_user_can('manage_options')) return false;
+        if (!current_user_can('manage_woocommerce')) return false;
 
         global $wpdb;
         $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';

@@ -28,7 +28,7 @@ class SRL_Admin_Ajax {
             'srl_przypisz_wykupiony_lot', 'srl_zapisz_lot_prywatny', 'srl_pobierz_historie_lotu',
             'srl_przywroc_rezerwacje', 'srl_pobierz_dane_odwolanego', 'srl_zrealizuj_lot',
             'srl_zrealizuj_lot_prywatny', 'srl_pobierz_dostepne_terminy_do_zmiany', 'srl_zmien_termin_lotu',
-            'srl_admin_zmien_status_lotu', 'srl_pobierz_szczegoly_lotu'
+            'srl_admin_zmien_status_lotu', 'srl_pobierz_szczegoly_lotu', 'srl_wypisz_klienta_ze_slotu', 'srl_wypisz_slot_prywatny'
         ];
         
         foreach ($ajax_methods as $method) {
@@ -312,11 +312,11 @@ class SRL_Admin_Ajax {
                 substr($slot['godzina_koniec'], 0, 5)
             );
 
-            wp_mail(
-                $historical_data['klient_email'],
-                'Twój lot tandemowy został odwołany',
-                "Dzień dobry,\n\nTwój lot na {$termin_info} został odwołany przez organizatora.\nStatus lotu został przywrócony.\n\nPozdrawiamy"
-            );
+            SRL_Email_Functions::getInstance()->wyslijEmailOdwolaniaPrzezOrganizatora(
+				$historical_data['klient_email'],
+				$slot['data'],
+				$slot['godzina_start']
+			);
 
             SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($historical_data['lot_id'], [
                 'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
@@ -388,35 +388,37 @@ class SRL_Admin_Ajax {
         }
     }
 
-    public function ajaxZrealizujLotPrywatny() {
-        $this->validateAdminAccess();
-        
-        $termin_id = intval($_POST['termin_id']);
-        global $wpdb;
+	public function ajaxZrealizujLotPrywatny() {
+		$this->validateAdminAccess();
+		
+		$termin_id = intval($_POST['termin_id']);
+		global $wpdb;
 
-        try {
-            $slot = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
-                $termin_id
-            ), ARRAY_A);
+		try {
+			$slot = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+				$termin_id
+			), ARRAY_A);
 
-            if (!$slot || $slot['status'] !== 'Prywatny') {
-                throw new Exception('Slot nie istnieje lub nie jest prywatny.');
-            }
+			if (!$slot || $slot['status'] !== 'Prywatny') {
+				throw new Exception('Slot nie istnieje lub nie jest prywatny.');
+			}
 
-            $wpdb->update(
-                $wpdb->prefix . 'srl_terminy',
-                ['status' => 'Zrealizowany'],
-                ['id' => $termin_id]
-            );
+			$wpdb->update(
+				$wpdb->prefix . 'srl_terminy',
+				['status' => 'Zrealizowany'],
+				['id' => $termin_id]
+			);
 
-            $this->invalidateSlotCache($slot['data']);
-            wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
+			$this->invalidateSlotCache($slot['data']);
+			
+			// POPRAWKA: Zwróć zaktualizowane dane
+			wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
 
-        } catch (Exception $e) {
-            wp_send_json_error($e->getMessage());
-        }
-    }
+		} catch (Exception $e) {
+			wp_send_json_error($e->getMessage());
+		}
+	}
 
     public function ajaxAdminZmienStatusLotu() {
         $this->validateAdminAccess();
@@ -720,10 +722,23 @@ class SRL_Admin_Ajax {
                     'nowy_status' => 'zarezerwowany'
                 ]
             ]);
-
+			
             $wpdb->query('COMMIT');
             $this->invalidateSlotCache($slot['data']);
-            wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
+            
+			
+			if ($lot['user_id']) {
+				$user = get_userdata($lot['user_id']);
+				if ($user) {
+					SRL_Email_Functions::getInstance()->wyslijEmailPrzypisaniaLotu(
+						$user->user_email,
+						$slot['data'],
+						$slot['godzina_start']
+					);
+				}
+			}
+			
+			wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
 
         } catch (Exception $e) {
             $wpdb->query('ROLLBACK');
@@ -731,115 +746,162 @@ class SRL_Admin_Ajax {
         }
     }
 
-    public function ajaxZapiszDanePrywatne() {
-        $this->validateAdminAccess();
-        
-        $termin_id = intval($_POST['termin_id']);
-        $imie = sanitize_text_field($_POST['imie']);
-        $nazwisko = sanitize_text_field($_POST['nazwisko']);
-        $rok_urodzenia = intval($_POST['rok_urodzenia']);
-        $telefon = sanitize_text_field($_POST['telefon']);
-        $sprawnosc_fizyczna = sanitize_text_field($_POST['sprawnosc_fizyczna']);
-        $kategoria_wagowa = sanitize_text_field($_POST['kategoria_wagowa']);
-        $uwagi = sanitize_textarea_field($_POST['uwagi']);
+	public function ajaxZapiszDanePrywatne() {
+		$this->validateAdminAccess();
+		
+		$termin_id = intval($_POST['termin_id']);
+		
+		// Obsługa scalonego pola imię+nazwisko
+		$imie_nazwisko = sanitize_text_field($_POST['imie_nazwisko'] ?? '');
+		$czesci_imienia = array_filter(explode(' ', trim($imie_nazwisko)));
+		
+		if (count($czesci_imienia) < 2) {
+			wp_send_json_error('Podaj pełne imię i nazwisko (minimum dwa słowa).');
+		}
+		
+		$imie = $czesci_imienia[0];
+		$nazwisko = implode(' ', array_slice($czesci_imienia, 1));
+		
+		$email = sanitize_email($_POST['email']);
+		$rok_urodzenia = intval($_POST['rok_urodzenia']);
+		$telefon = sanitize_text_field($_POST['telefon']);
+		$sprawnosc_fizyczna = sanitize_text_field($_POST['sprawnosc_fizyczna']);
+		$kategoria_wagowa = sanitize_text_field($_POST['kategoria_wagowa']);
+		$uwagi = sanitize_textarea_field($_POST['uwagi']);
 
-        if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
-            wp_send_json_error('Wypełnij wszystkie wymagane pola.');
-        }
+		// Walidacja
+		if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
+			wp_send_json_error('Wypełnij wszystkie wymagane pola.');
+		}
 
-        $validation = SRL_Helpers::getInstance()->walidujTelefon($telefon);
-        if (!$validation['valid']) {
-            wp_send_json_error($validation['message']);
-        }
+		// Walidacja email tylko jeśli został podany
+		if (!empty($email) && !is_email($email)) {
+			wp_send_json_error('Jeśli podajesz email, musi być prawidłowy.');
+		}
 
-        $dane_pasazera = [
-            'imie' => $imie,
-            'nazwisko' => $nazwisko,
-            'rok_urodzenia' => $rok_urodzenia,
-            'telefon' => $telefon,
-            'sprawnosc_fizyczna' => $sprawnosc_fizyczna,
-            'kategoria_wagowa' => $kategoria_wagowa,
-            'uwagi' => $uwagi,
-            'typ' => 'prywatny'
-        ];
+		$validation = SRL_Helpers::getInstance()->walidujTelefon($telefon);
+		if (!$validation['valid']) {
+			wp_send_json_error($validation['message']);
+		}
 
-        global $wpdb;
-        $slot = $wpdb->get_row($wpdb->prepare(
-            "SELECT data FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
-            $termin_id
-        ), ARRAY_A);
+		$dane_pasazera = [
+			'imie' => $imie,
+			'nazwisko' => $nazwisko,
+			'email' => $email,
+			'rok_urodzenia' => $rok_urodzenia,
+			'telefon' => $telefon,
+			'sprawnosc_fizyczna' => $sprawnosc_fizyczna,
+			'kategoria_wagowa' => $kategoria_wagowa,
+			'uwagi' => $uwagi,
+			'typ' => 'prywatny'
+		];
 
-        $result = $wpdb->update(
-            $wpdb->prefix . 'srl_terminy',
-            [
-                'status' => 'Prywatny',
-                'notatka' => json_encode($dane_pasazera)
-            ],
-            ['id' => $termin_id]
-        );
+		global $wpdb;
+		$slot = $wpdb->get_row($wpdb->prepare(
+			"SELECT data FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+			$termin_id
+		), ARRAY_A);
 
-        if ($result !== false) {
-            $this->invalidateSlotCache($slot['data']);
-            wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
-        } else {
-            wp_send_json_error('Błąd zapisu do bazy danych.');
-        }
-    }
+		$result = $wpdb->update(
+			$wpdb->prefix . 'srl_terminy',
+			[
+				'status' => 'Prywatny',
+				'notatka' => json_encode($dane_pasazera)
+			],
+			['id' => $termin_id]
+		);
 
-    public function ajaxZapiszLotPrywatny() {
-        $this->validateAdminAccess();
-        
-        $termin_id = intval($_POST['termin_id']);
-        $imie = sanitize_text_field($_POST['imie']);
-        $nazwisko = sanitize_text_field($_POST['nazwisko']);
-        $rok_urodzenia = intval($_POST['rok_urodzenia']);
-        $telefon = sanitize_text_field($_POST['telefon']);
-        $sprawnosc_fizyczna = sanitize_text_field($_POST['sprawnosc_fizyczna']);
-        $kategoria_wagowa = sanitize_text_field($_POST['kategoria_wagowa']);
-        $uwagi = sanitize_textarea_field($_POST['uwagi']);
+		if ($result !== false) {
+			$this->invalidateSlotCache($slot['data']);
+			wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
+		} else {
+			wp_send_json_error('Błąd zapisu do bazy danych.');
+		}
+	}
 
-        if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
-            wp_send_json_error('Wypełnij wszystkie wymagane pola.');
-        }
+	public function ajaxZapiszLotPrywatny() {
+		$this->validateAdminAccess();
+		
+		$termin_id = intval($_POST['termin_id']);
+		$imie = sanitize_text_field($_POST['imie']);
+		$nazwisko = sanitize_text_field($_POST['nazwisko']);
+		$email = sanitize_email($_POST['email']);
+		$rok_urodzenia = intval($_POST['rok_urodzenia']);
+		$telefon = sanitize_text_field($_POST['telefon']);
+		$sprawnosc_fizyczna = sanitize_text_field($_POST['sprawnosc_fizyczna']);
+		$kategoria_wagowa = sanitize_text_field($_POST['kategoria_wagowa']);
+		$uwagi = sanitize_textarea_field($_POST['uwagi']);
 
-        $validation = SRL_Helpers::getInstance()->walidujTelefon($telefon);
-        if (!$validation['valid']) {
-            wp_send_json_error($validation['message']);
-        }
+		// Walidacja
+		if (empty($imie) || empty($nazwisko) || empty($telefon) || $rok_urodzenia < 1920) {
+			wp_send_json_error('Wypełnij wszystkie wymagane pola.');
+		}
 
-        $dane_pasazera = [
-            'imie' => $imie,
-            'nazwisko' => $nazwisko,
-            'rok_urodzenia' => $rok_urodzenia,
-            'telefon' => $telefon,
-            'sprawnosc_fizyczna' => $sprawnosc_fizyczna,
-            'kategoria_wagowa' => $kategoria_wagowa,
-            'uwagi' => $uwagi,
-            'typ' => 'prywatny'
-        ];
+		// Walidacja email tylko jeśli został podany
+		if (!empty($email) && !is_email($email)) {
+			wp_send_json_error('Jeśli podajesz email, musi być prawidłowy.');
+		}
 
-        global $wpdb;
-        $slot = $wpdb->get_row($wpdb->prepare(
-            "SELECT data FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
-            $termin_id
-        ), ARRAY_A);
+		$validation = SRL_Helpers::getInstance()->walidujTelefon($telefon);
+		if (!$validation['valid']) {
+			wp_send_json_error($validation['message']);
+		}
 
-        $result = $wpdb->update(
-            $wpdb->prefix . 'srl_terminy',
-            [
-                'status' => 'Prywatny',
-                'notatka' => json_encode($dane_pasazera)
-            ],
-            ['id' => $termin_id]
-        );
+		$dane_pasazera = [
+			'imie' => $imie,
+			'nazwisko' => $nazwisko,
+			'email' => $email,
+			'rok_urodzenia' => $rok_urodzenia,
+			'telefon' => $telefon,
+			'sprawnosc_fizyczna' => $sprawnosc_fizyczna,
+			'kategoria_wagowa' => $kategoria_wagowa,
+			'uwagi' => $uwagi,
+			'typ' => 'prywatny'
+		];
 
-        if ($result !== false) {
-            $this->invalidateSlotCache($slot['data']);
-            wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
-        } else {
-            wp_send_json_error('Błąd zapisu do bazy danych.');
-        }
-    }
+		global $wpdb;
+		$slot = $wpdb->get_row($wpdb->prepare(
+			"SELECT data FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+			$termin_id
+		), ARRAY_A);
+
+		$result = $wpdb->update(
+			$wpdb->prefix . 'srl_terminy',
+			[
+				'status' => 'Prywatny',
+				'notatka' => json_encode($dane_pasazera)
+			],
+			['id' => $termin_id]
+		);
+
+		if ($result !== false) {
+			// Wyślij email powiadomienia tylko jeśli email został podany - używając SRL_Email_Functions
+			if (!empty($email)) {
+				// Pobierz szczegóły godzin z bazy
+				global $wpdb;
+				$termin_szczegoly = $wpdb->get_row($wpdb->prepare(
+					"SELECT godzina_start, godzina_koniec FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+					$termin_id
+				), ARRAY_A);
+				
+				if ($termin_szczegoly) {
+					SRL_Email_Functions::getInstance()->wyslijEmailPotwierdzeniaDlaWszystkichTypowLotow(
+						$email,
+						$slot['data'],
+						$termin_szczegoly['godzina_start'],
+						$termin_szczegoly['godzina_koniec']
+					);
+				}
+			}
+			
+			$this->invalidateSlotCache($slot['data']);
+			wp_send_json_success(['godziny_wg_pilota' => $this->getSlotData($slot['data'])]);
+		} else {
+			wp_send_json_error('Błąd zapisu do bazy danych.');
+		}
+	}
+
+
 
     public function ajaxPobierzDanePrywatne() {
         $this->validateAdminAccess();
@@ -937,11 +999,11 @@ class SRL_Admin_Ajax {
             if ($user) {
                 $szczegoly_terminu = $slot['data'] . ' ' . substr($slot['godzina_start'], 0, 5) . '-' . substr($slot['godzina_koniec'], 0, 5);
 
-                wp_mail(
-                    $user->user_email,
-                    'Twój lot tandemowy został przywrócony',
-                    "Dzień dobry {$user->display_name},\n\nTwój lot na {$szczegoly_terminu} został przywrócony.\n\nPozdrawiamy"
-                );
+                SRL_Email_Functions::getInstance()->wyslijEmailPrzywroceniaLotu(
+					$user->user_email,
+					$slot['data'],
+					$slot['godzina_start']
+				);
 
                 SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, [
                     'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
@@ -989,180 +1051,260 @@ class SRL_Admin_Ajax {
     }
 
     public function ajaxPobierzDostepneTerminyDoZmiany() {
-        $this->validateAdminAccess();
-        
-        $termin_id = intval($_POST['termin_id']);
+		$this->validateAdminAccess();
+		
+		$termin_id = intval($_POST['termin_id']);
 
-        global $wpdb;
-        $aktualny_termin = $wpdb->get_row($wpdb->prepare(
-            "SELECT t.*, zl.id as lot_id, zl.user_id, zl.imie, zl.nazwisko
-             FROM {$wpdb->prefix}srl_terminy t
-             LEFT JOIN {$wpdb->prefix}srl_zakupione_loty zl ON t.id = zl.termin_id
-             WHERE t.id = %d",
-            $termin_id
-        ), ARRAY_A);
+		global $wpdb;
+		$aktualny_termin = $wpdb->get_row($wpdb->prepare(
+			"SELECT t.*, zl.id as lot_id, zl.user_id, zl.imie, zl.nazwisko
+			 FROM {$wpdb->prefix}srl_terminy t
+			 LEFT JOIN {$wpdb->prefix}srl_zakupione_loty zl ON t.id = zl.termin_id
+			 WHERE t.id = %d",
+			$termin_id
+		), ARRAY_A);
 
-        if (!$aktualny_termin || $aktualny_termin['status'] !== 'Zarezerwowany') {
-            wp_send_json_error('Można zmieniać tylko zarezerwowane terminy.');
-        }
+		if (!$aktualny_termin) {
+			wp_send_json_error('Termin nie istnieje.');
+		}
 
-        $data_od = date('Y-m-d');
-        $data_do = date('Y-m-d', strtotime('+90 days'));
+		// Sprawdź czy to lot zarezerwowany lub prywatny
+		if (!in_array($aktualny_termin['status'], ['Zarezerwowany', 'Prywatny'])) {
+			wp_send_json_error('Można zmieniać tylko zarezerwowane lub prywatne terminy.');
+		}
 
-        $dostepne_terminy = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, data, pilot_id, godzina_start, godzina_koniec
-             FROM {$wpdb->prefix}srl_terminy 
-             WHERE status = 'Wolny' AND data BETWEEN %s AND %s
-             AND data >= CURDATE() AND id != %d
-             ORDER BY data ASC, godzina_start ASC",
-            $data_od, $data_do, $termin_id
-        ), ARRAY_A);
+		$data_od = date('Y-m-d');
+		$data_do = date('Y-m-d', strtotime('+90 days'));
 
-        $dostepne_dni = [];
-        foreach ($dostepne_terminy as $termin) {
-            $data = $termin['data'];
-            if (!isset($dostepne_dni[$data])) {
-                $dostepne_dni[$data] = [];
-            }
-            $dostepne_dni[$data][] = $termin;
-        }
+		$dostepne_terminy = $wpdb->get_results($wpdb->prepare(
+			"SELECT id, data, pilot_id, godzina_start, godzina_koniec
+			 FROM {$wpdb->prefix}srl_terminy 
+			 WHERE status = 'Wolny' AND data BETWEEN %s AND %s
+			 AND data >= CURDATE() AND id != %d
+			 ORDER BY data ASC, godzina_start ASC",
+			$data_od, $data_do, $termin_id
+		), ARRAY_A);
 
-        $klient_nazwa = '';
-        if ($aktualny_termin['imie'] && $aktualny_termin['nazwisko']) {
-            $klient_nazwa = $aktualny_termin['imie'] . ' ' . $aktualny_termin['nazwisko'];
-        } elseif ($aktualny_termin['user_id']) {
-            $user = get_userdata($aktualny_termin['user_id']);
-            if ($user) $klient_nazwa = $user->display_name;
-        }
+		$dostepne_dni = [];
+		foreach ($dostepne_terminy as $termin) {
+			$data = $termin['data'];
+			if (!isset($dostepne_dni[$data])) {
+				$dostepne_dni[$data] = [];
+			}
+			$dostepne_dni[$data][] = $termin;
+		}
 
-        wp_send_json_success([
-            'dostepne_dni' => $dostepne_dni,
-            'aktualny_termin' => [
-                'id' => $aktualny_termin['id'],
-                'data' => $aktualny_termin['data'],
-                'godzina_start' => $aktualny_termin['godzina_start'],
-                'godzina_koniec' => $aktualny_termin['godzina_koniec'],
-                'pilot_id' => $aktualny_termin['pilot_id'],
-                'klient_nazwa' => $klient_nazwa,
-                'lot_id' => $aktualny_termin['lot_id']
-            ]
-        ]);
-    }
+		// Określ nazwę klienta w zależności od typu lotu
+		$klient_nazwa = '';
+		if ($aktualny_termin['status'] === 'Zarezerwowany') {
+			// Lot wykupiony
+			if ($aktualny_termin['imie'] && $aktualny_termin['nazwisko']) {
+				$klient_nazwa = $aktualny_termin['imie'] . ' ' . $aktualny_termin['nazwisko'];
+			} elseif ($aktualny_termin['user_id']) {
+				$user = get_userdata($aktualny_termin['user_id']);
+				if ($user) $klient_nazwa = $user->display_name;
+			}
+		} elseif ($aktualny_termin['status'] === 'Prywatny') {
+			// Lot prywatny - pobierz dane z notatki
+			if ($aktualny_termin['notatka']) {
+				$dane_prywatne = json_decode($aktualny_termin['notatka'], true);
+				if ($dane_prywatne && isset($dane_prywatne['imie']) && isset($dane_prywatne['nazwisko'])) {
+					$klient_nazwa = $dane_prywatne['imie'] . ' ' . $dane_prywatne['nazwisko'] . ' (lot prywatny)';
+				}
+			}
+			if (empty($klient_nazwa)) {
+				$klient_nazwa = 'Lot prywatny';
+			}
+		}
+
+		wp_send_json_success([
+			'dostepne_dni' => $dostepne_dni,
+			'aktualny_termin' => [
+				'id' => $aktualny_termin['id'],
+				'data' => $aktualny_termin['data'],
+				'godzina_start' => $aktualny_termin['godzina_start'],
+				'godzina_koniec' => $aktualny_termin['godzina_koniec'],
+				'pilot_id' => $aktualny_termin['pilot_id'],
+				'klient_nazwa' => $klient_nazwa,
+				'lot_id' => $aktualny_termin['lot_id'],
+				'status' => $aktualny_termin['status'] // Dodajemy status do informacji o aktualnym terminie
+			]
+		]);
+	}
 
     public function ajaxZmienTerminLotu() {
-        $this->validateAdminAccess();
-        
-        $stary_termin_id = intval($_POST['stary_termin_id']);
-        $nowy_termin_id = intval($_POST['nowy_termin_id']);
+		$this->validateAdminAccess();
+		
+		$stary_termin_id = intval($_POST['stary_termin_id']);
+		$nowy_termin_id = intval($_POST['nowy_termin_id']);
 
-        if (!$stary_termin_id || !$nowy_termin_id) {
-            wp_send_json_error('Nieprawidłowe parametry.');
-        }
+		if (!$stary_termin_id || !$nowy_termin_id) {
+			wp_send_json_error('Nieprawidłowe parametry.');
+		}
 
-        global $wpdb;
-        $wpdb->query('START TRANSACTION');
+		global $wpdb;
+		$wpdb->query('START TRANSACTION');
 
-        try {
-            $stary_termin = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d AND status = 'Zarezerwowany'",
-                $stary_termin_id
-            ), ARRAY_A);
+		try {
+			$stary_termin = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d AND status IN ('Zarezerwowany', 'Prywatny')",
+				$stary_termin_id
+			), ARRAY_A);
 
-            if (!$stary_termin) throw new Exception('Stary termin nie istnieje lub nie jest zarezerwowany.');
+			if (!$stary_termin) {
+				throw new Exception('Stary termin nie istnieje lub nie jest zarezerwowany/prywatny.');
+			}
 
-            $nowy_termin = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d AND status = 'Wolny'",
-                $nowy_termin_id
-            ), ARRAY_A);
+			$nowy_termin = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d AND status = 'Wolny'",
+				$nowy_termin_id
+			), ARRAY_A);
 
-            if (!$nowy_termin) throw new Exception('Nowy termin nie istnieje lub nie jest dostępny.');
+			if (!$nowy_termin) {
+				throw new Exception('Nowy termin nie istnieje lub nie jest dostępny.');
+			}
 
-            $nowy_datetime = $nowy_termin['data'] . ' ' . $nowy_termin['godzina_start'];
-            if (strtotime($nowy_datetime) <= time()) {
-                throw new Exception('Nowy termin musi być w przyszłości.');
-            }
+			$nowy_datetime = $nowy_termin['data'] . ' ' . $nowy_termin['godzina_start'];
+			if (strtotime($nowy_datetime) <= time()) {
+				throw new Exception('Nowy termin musi być w przyszłości.');
+			}
 
-            $lot = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}srl_zakupione_loty WHERE termin_id = %d",
-                $stary_termin_id
-            ), ARRAY_A);
+			if ($stary_termin['status'] === 'Zarezerwowany') {
+				// Obsługa lotu wykupionego
+				$lot = $wpdb->get_row($wpdb->prepare(
+					"SELECT * FROM {$wpdb->prefix}srl_zakupione_loty WHERE termin_id = %d",
+					$stary_termin_id
+				), ARRAY_A);
 
-            if (!$lot) throw new Exception('Nie znaleziono lotu przypisanego do tego terminu.');
+				if (!$lot) {
+					throw new Exception('Nie znaleziono lotu przypisanego do tego terminu.');
+				}
 
-            $wpdb->update(
-                $wpdb->prefix . 'srl_terminy',
-                ['status' => 'Wolny', 'klient_id' => null],
-                ['id' => $stary_termin_id]
-            );
+				// Zwolnij stary termin
+				$wpdb->update(
+					$wpdb->prefix . 'srl_terminy',
+					['status' => 'Wolny', 'klient_id' => null],
+					['id' => $stary_termin_id]
+				);
 
-            $wpdb->update(
-                $wpdb->prefix . 'srl_terminy',
-                ['status' => 'Zarezerwowany', 'klient_id' => $stary_termin['klient_id']],
-                ['id' => $nowy_termin_id]
-            );
+				// Zarezerwuj nowy termin
+				$wpdb->update(
+					$wpdb->prefix . 'srl_terminy',
+					['status' => 'Zarezerwowany', 'klient_id' => $stary_termin['klient_id']],
+					['id' => $nowy_termin_id]
+				);
 
-            $wpdb->update(
-                $wpdb->prefix . 'srl_zakupione_loty',
-                [
-                    'termin_id' => $nowy_termin_id,
-                    'data_rezerwacji' => SRL_Helpers::getInstance()->getCurrentDatetime()
-                ],
-                ['id' => $lot['id']]
-            );
+				// Aktualizuj lot
+				$wpdb->update(
+					$wpdb->prefix . 'srl_zakupione_loty',
+					[
+						'termin_id' => $nowy_termin_id,
+						'data_rezerwacji' => SRL_Helpers::getInstance()->getCurrentDatetime()
+					],
+					['id' => $lot['id']]
+				);
 
-            $stary_termin_opis = sprintf('%s %s-%s (Pilot %d)',
-                $stary_termin['data'],
-                substr($stary_termin['godzina_start'], 0, 5),
-                substr($stary_termin['godzina_koniec'], 0, 5),
-                $stary_termin['pilot_id']
-            );
+				// Dodaj do historii lotu
+				SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot['id'], [
+					'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+					'typ' => 'zmiana_terminu_admin',
+					'executor' => 'Admin',
+					'szczegoly' => [
+						'stary_termin_id' => $stary_termin_id,
+						'nowy_termin_id' => $nowy_termin_id,
+						'stary_termin' => $this->formatTerminOpis($stary_termin),
+						'nowy_termin' => $this->formatTerminOpis($nowy_termin),
+						'user_id' => $lot['user_id']
+					]
+				]);
 
-            $nowy_termin_opis = sprintf('%s %s-%s (Pilot %d)',
-                $nowy_termin['data'],
-                substr($nowy_termin['godzina_start'], 0, 5),
-                substr($nowy_termin['godzina_koniec'], 0, 5),
-                $nowy_termin['pilot_id']
-            );
+				// Wyślij email do klienta
+				if ($lot['user_id']) {
+					$user = get_userdata($lot['user_id']);
+					if ($user) {
+						SRL_Email_Functions::getInstance()->wyslijEmailZmianyTerminu(
+							$user->user_email,
+							$stary_termin['data'],
+							$stary_termin['godzina_start'],
+							$nowy_termin['data'], 
+							$nowy_termin['godzina_start']
+						);
+					}
+				}
 
-            SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot['id'], [
-                'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
-                'typ' => 'zmiana_terminu_admin',
-                'executor' => 'Admin',
-                'szczegoly' => [
-                    'stary_termin_id' => $stary_termin_id,
-                    'nowy_termin_id' => $nowy_termin_id,
-                    'stary_termin' => $stary_termin_opis,
-                    'nowy_termin' => $nowy_termin_opis,
-                    'user_id' => $lot['user_id']
-                ]
-            ]);
+			} elseif ($stary_termin['status'] === 'Prywatny') {
+				// Obsługa lotu prywatnego
+				
+				// Pobierz dane pasażera z notatki przed zwolnieniem slotu
+				$dane_pasazera = null;
+				$email_klienta = null;
+				if (!empty($stary_termin['notatka'])) {
+					$dane_prywatne = json_decode($stary_termin['notatka'], true);
+					if ($dane_prywatne && is_array($dane_prywatne)) {
+						$dane_pasazera = $dane_prywatne;
+						$email_klienta = $dane_prywatne['email'] ?? null;
+					}
+				}
+				
+				// Zwolnij stary termin
+				$wpdb->update(
+					$wpdb->prefix . 'srl_terminy',
+					['status' => 'Wolny', 'klient_id' => null, 'notatka' => null],
+					['id' => $stary_termin_id]
+				);
 
-            if ($lot['user_id']) {
-                $user = get_userdata($lot['user_id']);
-                if ($user) {
-                    wp_mail(
-                        $user->user_email,
-                        'Zmiana terminu Twojego lotu tandemowego',
-                        "Dzień dobry {$user->display_name},\n\nTwój lot został przeniesiony:\nZ: {$stary_termin_opis}\nNa: {$nowy_termin_opis}\n\nPozdrawiamy"
-                    );
-                }
-            }
+				// Przenieś lot prywatny na nowy termin
+				$wpdb->update(
+					$wpdb->prefix . 'srl_terminy',
+					[
+						'status' => 'Prywatny', 
+						'klient_id' => $stary_termin['klient_id'],
+						'notatka' => $stary_termin['notatka'] // Przenosimy dane pasażera
+					],
+					['id' => $nowy_termin_id]
+				);
+				
+				if (!empty($email_klienta)) {
+					SRL_Email_Functions::getInstance()->wyslijEmailZmianyTerminu(
+						$email_klienta,
+						$stary_termin['data'],
+						$stary_termin['godzina_start'],
+						$nowy_termin['data'],
+						$nowy_termin['godzina_start']
+					);
+				}
+			}
 
-            $wpdb->query('COMMIT');
-            $this->invalidateSlotCache($stary_termin['data']);
-            $this->invalidateSlotCache($nowy_termin['data']);
+			$wpdb->query('COMMIT');
+			$this->invalidateSlotCache($stary_termin['data']);
+			$this->invalidateSlotCache($nowy_termin['data']);
 
-            wp_send_json_success([
-                'message' => 'Termin został pomyślnie zmieniony.',
-                'stary_termin' => $stary_termin_opis,
-                'nowy_termin' => $nowy_termin_opis
-            ]);
+			// Pobierz zaktualizowane dane dla obu dni
+			$aktualny_dzien = $_POST['current_date'] ?? $stary_termin['data'];
+			$aktualne_godziny = $this->getSlotData($aktualny_dzien);
 
-        } catch (Exception $e) {
-            $wpdb->query('ROLLBACK');
-            wp_send_json_error($e->getMessage());
-        }
-    }
+			wp_send_json_success([
+				'message' => 'Termin został pomyślnie zmieniony.',
+				'stary_termin' => $this->formatTerminOpis($stary_termin),
+				'nowy_termin' => $this->formatTerminOpis($nowy_termin),
+				'godziny_wg_pilota' => $aktualne_godziny  // DODANE: Dane do odświeżenia
+			]);
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error($e->getMessage());
+		}
+	}
+
+	// Dodaj nową metodę pomocniczą do formatowania opisu terminu
+	private function formatTerminOpis($termin) {
+		return sprintf('%s %s-%s (Pilot %d)',
+			$termin['data'],
+			substr($termin['godzina_start'], 0, 5),
+			substr($termin['godzina_koniec'], 0, 5),
+			$termin['pilot_id']
+		);
+	}
 
     public function ajaxDodajVoucherRecznie() {
         $this->validateAdminAccess();
@@ -1219,4 +1361,163 @@ class SRL_Admin_Ajax {
             wp_send_json_error('Błąd dodawania vouchera.');
         }
     }
+	
+	public function ajaxWypiszKlientaZeSlotu() {
+		$this->validateAdminAccess();
+		
+		$termin_id = intval($_POST['termin_id']);
+		
+		global $wpdb;
+		$wpdb->query('START TRANSACTION');
+		
+		try {
+			// Pobierz szczegóły slotu i przypisanego lotu
+			$slot = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d",
+				$termin_id
+			), ARRAY_A);
+
+			if (!$slot || $slot['status'] !== 'Zarezerwowany') {
+				throw new Exception('Slot nie istnieje lub nie jest zarezerwowany.');
+			}
+
+			// Pobierz dane lotu
+			$lot = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}srl_zakupione_loty WHERE termin_id = %d",
+				$termin_id
+			), ARRAY_A);
+
+			// Pobierz dane użytkownika (jeśli lot istnieje)
+			$user = null;
+			if ($lot && $lot['user_id']) {
+				$user = get_userdata($lot['user_id']);
+			}
+
+			// Zwolnij slot
+			$wpdb->update(
+				$wpdb->prefix . 'srl_terminy',
+				['status' => 'Wolny', 'klient_id' => null],
+				['id' => $termin_id]
+			);
+
+			// Zwolnij lot (jeśli istnieje)
+			if ($lot) {
+				$wpdb->update(
+					$wpdb->prefix . 'srl_zakupione_loty',
+					['status' => 'wolny', 'termin_id' => null, 'data_rezerwacji' => null],
+					['id' => $lot['id']]
+				);
+
+				// Dodaj do historii lotu
+				SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot['id'], [
+					'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+					'typ' => 'wypisanie_przez_admin',
+					'executor' => 'Admin',
+					'szczegoly' => [
+						'termin_id' => $termin_id,
+						'anulowany_termin' => sprintf('%s %s-%s',
+							$slot['data'],
+							substr($slot['godzina_start'], 0, 5),
+							substr($slot['godzina_koniec'], 0, 5)
+						),
+						'powod' => 'Wypisanie przez administratora',
+						'email_wyslany' => $user ? true : false
+					]
+				]);
+			}
+
+			// Wyślij email powiadomienia (jeśli użytkownik istnieje)
+			if ($user) {
+				SRL_Email_Functions::getInstance()->wyslijEmailOdwolaniaPrzezOrganizatora(
+					$user->user_email,
+					$slot['data'],
+					$slot['godzina_start']
+				);
+			}
+
+			$wpdb->query('COMMIT');
+			$this->invalidateSlotCache($slot['data']);
+			
+			wp_send_json_success([
+				'godziny_wg_pilota' => $this->getSlotData($slot['data']),
+				'message' => 'Klient został wypisany i powiadomiony o anulowaniu.'
+			]);
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error($e->getMessage());
+		}
+	}
+	
+	public function ajaxWypiszSlotPrywatny() {
+		$this->validateAdminAccess();
+		
+		$termin_id = intval($_POST['termin_id']);
+		
+		global $wpdb;
+		$wpdb->query('START TRANSACTION');
+		
+		try {
+			// Pobierz szczegóły slotu prywatnego
+			$slot = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}srl_terminy WHERE id = %d AND status = 'Prywatny'",
+				$termin_id
+			), ARRAY_A);
+
+			if (!$slot) {
+				throw new Exception('Slot nie istnieje lub nie jest prywatny.');
+			}
+
+			// Pobierz dane klienta z notatki (jeśli są)
+			$dane_klienta = null;
+			$email_klienta = null;
+			$nazwa_klienta = '';
+			
+			if (!empty($slot['notatka'])) {
+				$dane_prywatne = json_decode($slot['notatka'], true);
+				if ($dane_prywatne && is_array($dane_prywatne)) {
+					$dane_klienta = $dane_prywatne;
+					$email_klienta = $dane_prywatne['email'] ?? null;
+					$nazwa_klienta = ($dane_prywatne['imie'] ?? '') . ' ' . ($dane_prywatne['nazwisko'] ?? '');
+					$nazwa_klienta = trim($nazwa_klienta);
+				}
+			}
+
+			// Wyczyść slot - przywróć status wolny
+			$wpdb->update(
+				$wpdb->prefix . 'srl_terminy',
+				[
+					'status' => 'Wolny',
+					'klient_id' => null,
+					'notatka' => null
+				],
+				['id' => $termin_id]
+			);
+
+			// Wyślij email powiadomienia (jeśli email został podany)
+			$email_sent = false;
+			if (!empty($email_klienta)) {
+				$email_sent = SRL_Email_Functions::getInstance()->wyslijEmailOdwolaniaPrzezOrganizatora(
+					$email_klienta,
+					$slot['data'],
+					$slot['godzina_start']
+				);
+			}
+
+			$wpdb->query('COMMIT');
+			$this->invalidateSlotCache($slot['data']);
+			
+			wp_send_json_success([
+				'godziny_wg_pilota' => $this->getSlotData($slot['data']),
+				'email_sent' => $email_sent,
+				'client_name' => $nazwa_klienta,
+				'message' => 'Slot prywatny został wyczyszczony' . ($email_sent ? ' i klient został powiadomiony.' : '.')
+			]);
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error($e->getMessage());
+		}
+	}
+	
 }

@@ -29,7 +29,7 @@ class SRL_Helpers {
     }
 
     public function checkAdminPermissions() {
-        if (!current_user_can('manage_options')) wp_die('Brak uprawnień.');
+        if (!current_user_can('manage_woocommerce')) wp_die('Brak uprawnień.');
     }
 
     public function requireLogin($return_data = false) {
