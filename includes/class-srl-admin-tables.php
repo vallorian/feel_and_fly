@@ -82,8 +82,8 @@ class SRL_Admin_Tables {
         } else {
             echo '<thead><tr>';
             echo '<td class="manage-column check-column"><input type="checkbox" id="cb-select-all-1"></td>';
-            echo '<th>ID (nr. zam)</th><th>Kupujący</th><th>Produkt</th><th>Kod</th>';
-            echo '<th>Status</th><th>Data zakupu</th><th>Ważność</th><th>Wykorzystany przez</th><th>ID Lotu</th>';
+			echo '<th>ID (nr. zam)</th><th>Kupujący</th><th>Produkt</th><th>Kod</th>';
+			echo '<th>Status</th><th>Data zakupu</th><th>Ważność</th><th>Wykorzystany przez</th><th>ID Lotu</th><th>Akcje</th>';
             echo '</tr></thead><tbody>';
             
             foreach ($vouchers as $voucher) {
@@ -98,6 +98,7 @@ class SRL_Admin_Tables {
                 echo '<td>' . SRL_Helpers::getInstance()->formatujWaznoscLotu($voucher['data_waznosci']) . '</td>';
                 echo '<td>' . $this->renderVoucherUserCell($voucher) . '</td>';
                 echo '<td>' . $this->renderVoucherFlightCell($voucher) . '</td>';
+				echo '<td>' . $this->renderVoucherActionsCell($voucher) . '</td>';
                 echo '</tr>';
             }
         }
@@ -445,6 +446,119 @@ class SRL_Admin_Tables {
 			'<span style="color: #d63638;">bez akrobacji</span>';
 		
 		return implode(', ', $opcje);
+	}
+	
+	private function renderVoucherActionsCell($voucher) {
+		$nonce = wp_create_nonce('srl_admin_nonce');
+		
+		return '<button type="button" 
+				class="button button-secondary button-small srl-download-voucher" 
+				data-voucher-id="' . $voucher['id'] . '"
+				data-nonce="' . $nonce . '"
+				style="margin-right: 5px;">
+			📥 Pobierz
+		</button>
+		<button type="button" 
+				class="button button-primary button-small srl-send-voucher-email" 
+				data-voucher-id="' . $voucher['id'] . '"
+				data-nonce="' . $nonce . '">
+			📧 Wyślij
+		</button>
+		
+		<script>
+		jQuery(document).ready(function($) {
+			// Istniejący kod pobierania...
+			$(".srl-download-voucher").off("click").on("click", function(e) {
+				e.preventDefault();
+				
+				var voucherId = $(this).data("voucher-id");
+				var nonce = $(this).data("nonce");
+				var button = $(this);
+				
+				if (!voucherId) {
+					alert("Błąd: Nieprawidłowy ID vouchera");
+					return;
+				}
+				
+				button.prop("disabled", true).text("Generowanie...");
+				
+				$.ajax({
+					url: ajaxurl,
+					method: "POST",
+					data: {
+						action: "srl_download_voucher",
+						voucher_id: voucherId,
+						nonce: nonce
+					},
+					xhrFields: {
+						responseType: "blob"
+					},
+					success: function(data, status, xhr) {
+						var blob = new Blob([data], { type: "image/jpeg" });
+						var url = window.URL.createObjectURL(blob);
+						var a = document.createElement("a");
+						a.href = url;
+						a.download = "voucher-" + voucherId + ".jpg";
+						document.body.appendChild(a);
+						a.click();
+						
+						window.URL.revokeObjectURL(url);
+						document.body.removeChild(a);
+						
+						button.prop("disabled", false).text("📥 Pobierz");
+					},
+					error: function(xhr, status, error) {
+						console.error("Błąd pobierania vouchera:", error);
+						alert("Błąd podczas generowania vouchera. Sprawdź logi serwera.");
+						button.prop("disabled", false).text("📥 Pobierz");
+					}
+				});
+			});
+			
+			// Nowy kod wysyłania emailem...
+			$(".srl-send-voucher-email").off("click").on("click", function(e) {
+				e.preventDefault();
+				
+				var voucherId = $(this).data("voucher-id");
+				var nonce = $(this).data("nonce");
+				var button = $(this);
+				
+				if (!voucherId) {
+					alert("Błąd: Nieprawidłowy ID vouchera");
+					return;
+				}
+				
+				if (!confirm("Czy na pewno wysłać voucher emailem do klienta?")) {
+					return;
+				}
+				
+				button.prop("disabled", true).text("Wysyłanie...");
+				
+				$.ajax({
+					url: ajaxurl,
+					method: "POST",
+					data: {
+						action: "srl_send_voucher_email",
+						voucher_id: voucherId,
+						nonce: nonce
+					},
+					success: function(response) {
+						if (response.success) {
+							alert("Voucher został wysłany emailem!");
+						} else {
+							alert("Błąd: " + response.data);
+						}
+						button.prop("disabled", false).text("📧 Wyślij");
+					},
+					error: function(xhr, status, error) {
+						console.error("Błąd wysyłania vouchera:", error);
+						alert("Błąd podczas wysyłania vouchera emailem.");
+						button.prop("disabled", false).text("📧 Wyślij");
+					}
+				});
+			});
+		});
+		</script>';
 	}
 	
 }

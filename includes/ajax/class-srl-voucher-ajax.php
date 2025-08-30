@@ -23,7 +23,8 @@ class SRL_Voucher_Ajax {
         $ajax_methods = [
             'srl_wykorzystaj_voucher', 'srl_get_partner_voucher_types', 'srl_submit_partner_voucher',
             'srl_get_partner_voucher_details', 'srl_approve_partner_voucher', 'srl_reject_partner_voucher',
-            'srl_get_partner_vouchers_list', 'srl_check_partner_voucher_exists', 'srl_get_partner_voucher_stats'
+            'srl_get_partner_vouchers_list', 'srl_check_partner_voucher_exists', 'srl_get_partner_voucher_stats',
+            'srl_dodaj_voucher_recznie'
         ];
 
         foreach ($ajax_methods as $method) {
@@ -417,4 +418,6 @@ class SRL_Voucher_Ajax {
         
         wp_send_json_success($stats);
     }
+	
+
 }

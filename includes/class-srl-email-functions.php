@@ -32,8 +32,8 @@ class SRL_Email_Functions {
     public function sendEmail($to, $subject_key, $template_data = array(), $additional_headers = array()) {
         $templates = array(
 			'flight_confirmation' => array(
-				'subject' => '[ Feel&Fly ] Potwierdzenie rezerwacji lotu tandemowegoo',
-				'body' => "Dzień dobry,\n\nTwoja rezerwacja lotu tandemowego została potwierdzona!\n\nSzczegóły:\n📅 Data: {data_lotu}\n⏰ Godzina: ok. {godzina_lotu}\n\n{wazne_informacje}\n\nW razie pytań, skontaktuj się z nami.\n\nPozdrawiamy,\nZespół Feel&Fly"
+				'subject' => '[ Feel&Fly ] Potwierdzenie rezerwacji lotu tandemowego',
+				'body' => "Dzień dobry,\n\nTwoja rezerwacja lotu tandemowego została potwierdzona!\n\nSzczegóły:\n📅 Data: {data_lotu}\n⏰ Godzina: ok. {godzina_lotu}\n\n{wazne_informacje}\n\n🧭 Jak dojechać na lotnisko (Borowa k. Oleśnicy):\n• Ustaw nawigację na: Paralotnia Borowa (Google Maps)\n  https://www.google.pl/maps/place/Paralotnia+Borowa/@51.188161,17.2892122,983m/data=!3m2!1e3!4b1!4m6!3m5!1s0x470fe471ef66a043:0x837b884330868469!8m2!3d51.188161!4d17.2892122!16s%2Fg%2F11c58kt999\n\n• Alternatywnie: koniec ul. Akacjowej. Na końcu ulicy skręć w lewo w szutrową drogę, dojedź do skrzyżowania i skręć w prawo, dalej jedź szutrem przy granicy lasu. Na łące kieruj się znakami — parking zmienia się w zależności od wiatru.\n• Zatrzymaj się na parkingu i czekaj na ekipę lotniskową (dowóz na start zapewniamy). Nie wchodź za znak zakazu wejścia.\n\nℹ️ Czas dojazdu autem (orientacyjnie):\n• Wrocław – 20 min\n• Oleśnica – 13 min\n• Trzebnica – 32 min\n• Długołęka – 11 min\n• Kiełczów – 18 min\n\n🚆 Bez auta? Do Borowej dojedziesz pociągiem regio z dworców we Wrocławiu lub Oleśnicy.\n\n✈️ Pamiętaj: latamy na paralotniach — najczęściej widzimy z góry, czy pojawiły się nowe auta na parkingu 🙂\n\nW razie pytań, skontaktuj się z nami.\n\nPozdrawiamy,\nZespół Feel&Fly"
 			),
 			'flight_reschedule' => array(
 				'subject' => '[ Feel&Fly ] Zmiana terminu Twojego lotu tandemowego',
@@ -75,6 +75,10 @@ class SRL_Email_Functions {
 			'flight_cancelled_by_organizer' => array(
 				'subject' => '[ Feel&Fly ] Odwołanie lotu przez organizatora',
 				'body' => "Dzień dobry,\n\nInformujemy, że Twój lot tandemowy został odwołany przez organizatora.\n\nSzczegóły odwołanego lotu:\n📅 Data: {data_lotu}\n⏰ Godzina: ok. {godzina_lotu}\n\nStatus Twojego lotu został przywrócony - możesz ponownie dokonać rezerwacji w dogodnym dla Ciebie terminie.\n\nW razie pytań, skontaktuj się z nami.\n\nPozdrawiamy,\nZespół Feel&Fly"
+			),
+			'voucher_attachment' => array(
+				'subject' => '[ Feel&Fly ] Twój voucher na lot tandemowy',
+				'body' => "Dzień dobry {nazwa_odbiorcy},\n\nW załączniku przesyłamy Twój voucher na lot tandemowy!\n\nSzczegóły vouchera:\n🎫 Kod vouchera: {kod_vouchera}\n📅 Ważny do: {data_waznosci}\n\nJak wykorzystać voucher:\n1. Zarejestruj się na naszej stronie internetowej\n2. Przejdź do sekcji rezerwacji lotów\n3. Wprowadź kod vouchera: {kod_vouchera}\n4. Wybierz dogodny termin lotu\n\nVoucher jest ważny do dnia {data_waznosci}.\n\nW razie pytań, skontaktuj się z nami.\n\nŻyczymy wspaniałych wrażeń!\nZespół Feel&Fly"
 			),
 			'admin_notification' => array(
 				'subject' => '[ Feel&Fly ] {temat}',
@@ -255,6 +259,82 @@ class SRL_Email_Functions {
 			'reason' => $reason,
 			'form_link' => home_url('/rezerwuj-lot/')
 		));
+	}
+	
+	public function wyslijEmailZVoucherem($email_odbiorcy, $voucher_data, $image_data, $buyer_name = '') {
+		if (!is_email($email_odbiorcy)) return false;
+		
+		// Stwórz tymczasowy plik
+		$upload_dir = wp_upload_dir();
+		$temp_file = $upload_dir['path'] . '/voucher_' . $voucher_data['kod_vouchera'] . '_' . time() . '.jpg';
+		
+		// Zapisz dane obrazu do pliku
+		if (file_put_contents($temp_file, $image_data) === false) {
+			error_log('SRL: Nie można zapisać tymczasowego pliku vouchera: ' . $temp_file);
+			return false;
+		}
+		
+		$template_data = array(
+			'nazwa_odbiorcy' => !empty($buyer_name) ? $buyer_name : 'Drogi Odbiorco',
+			'kod_vouchera' => $voucher_data['kod_vouchera'],
+			'data_waznosci' => SRL_Helpers::getInstance()->formatujDate($voucher_data['data_waznosci'])
+		);
+		
+		$additional_headers = array(
+			'Content-Type: text/plain; charset=UTF-8',
+			'From: ' . get_option('blogname') . ' <' . get_option('admin_email') . '>'
+		);
+		
+		// Wyślij email z załącznikiem
+		$sent = $this->sendEmailWithAttachment(
+			$email_odbiorcy, 
+			'voucher_attachment', 
+			$template_data, 
+			$additional_headers,
+			$temp_file,
+			'voucher_' . $voucher_data['kod_vouchera'] . '.jpg'
+		);
+		
+		// Usuń tymczasowy plik
+		if (file_exists($temp_file)) {
+			unlink($temp_file);
+		}
+		
+		return $sent;
+	}
+
+	private function sendEmailWithAttachment($to, $subject_key, $template_data, $headers, $attachment_path, $attachment_name) {
+		$templates = array(
+			'voucher_attachment' => array(
+				'subject' => '[ Feel&Fly ] Twój voucher na lot tandemowy',
+				'body' => "Dzień dobry {nazwa_odbiorcy},\n\nW załączniku przesyłamy Twój voucher na lot tandemowy!\n\nSzczegóły vouchera:\n🎫 Kod vouchera: {kod_vouchera}\n📅 Ważny do: {data_waznosci}\n\nJak wykorzystać voucher:\n1. Zarejestruj się na naszej stronie internetowej\n2. Przejdź do sekcji rezerwacji lotów\n3. Wprowadź kod vouchera: {kod_vouchera}\n4. Wybierz dogodny termin lotu\n\nVoucher jest ważny do dnia {data_waznosci}.\n\nW razie pytań, skontaktuj się z nami.\n\nŻyczymy wspaniałych wrażeń!\nZespół Feel&Fly"
+			)
+		);
+		
+		if (!isset($templates[$subject_key])) return false;
+		
+		$template = $templates[$subject_key];
+		$subject = $template['subject'];
+		$body = $template['body'];
+		
+		foreach ($template_data as $key => $value) {
+			$subject = str_replace('{' . $key . '}', $value, $subject);
+			$body = str_replace('{' . $key . '}', $value, $body);
+		}
+		
+		// Przygotuj załącznik
+		$attachments = array();
+		if (file_exists($attachment_path)) {
+			$attachments[] = $attachment_path;
+		}
+		
+		$sent = wp_mail($to, $subject, $body, $headers, $attachments);
+		
+		if (!$sent) {
+			error_log("SRL: Nie udało się wysłać emaila z voucherem ({$subject_key}) do: {$to}");
+		}
+		
+		return $sent;
 	}
 	
 }

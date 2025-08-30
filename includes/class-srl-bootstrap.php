@@ -49,6 +49,7 @@ class SRL_Bootstrap {
         require_once SRL_PLUGIN_DIR . 'includes/class-srl-partner-voucher-functions.php';
         require_once SRL_PLUGIN_DIR . 'includes/class-srl-voucher-functions.php';
         require_once SRL_PLUGIN_DIR . 'includes/class-srl-voucher-gift-functions.php';
+		require_once SRL_PLUGIN_DIR . 'includes/class-srl-voucher-generator.php';
         require_once SRL_PLUGIN_DIR . 'includes/class-srl-flight-options.php';
         require_once SRL_PLUGIN_DIR . 'includes/class-srl-cart-flight-options.php';
         require_once SRL_PLUGIN_DIR . 'includes/class-srl-product-flight-options.php';
@@ -61,6 +62,7 @@ class SRL_Bootstrap {
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-vouchers.php'; 
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-flights.php';
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-day.php';
+
     }
 
     private function initializeClasses() {
@@ -81,6 +83,7 @@ class SRL_Bootstrap {
         SRL_Partner_Voucher_Functions::getInstance();
         SRL_Voucher_Functions::getInstance();
         SRL_Voucher_Gift_Functions::getInstance();
+		SRL_Voucher_Generator::getInstance();
         SRL_Flight_Options::getInstance();
         SRL_Cart_Flight_Options::getInstance();
         SRL_Product_Flight_Options::getInstance();

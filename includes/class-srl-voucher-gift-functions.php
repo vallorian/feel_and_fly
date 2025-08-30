@@ -20,7 +20,7 @@ class SRL_Voucher_Gift_Functions {
 
         do {
             $kod = '';
-            for ($i = 0; $i < 10; $i++) {
+            for ($i = 0; $i < 8; $i++) {
                 $kod .= $znaki[mt_rand(0, strlen($znaki) - 1)];
             }
 
@@ -104,20 +104,54 @@ class SRL_Voucher_Gift_Functions {
 					);
 
                     if ($result !== false) {
-                        $dodane_vouchery++;
+						$dodane_vouchery++;
+						$voucher_id = $wpdb->insert_id;
 
-                        $email_sent = SRL_Email_Functions::getInstance()->wyslijEmailVoucher(
-                            $email_odbiorcy,
-                            $kod_vouchera,
-                            $nazwa_produktu,
-                            $data_waznosci,
-                            $buyer_name
-                        );
+						// Istniejący kod wysyłania zwykłego emaila
+						$email_sent = SRL_Email_Functions::getInstance()->wyslijEmailVoucher(
+							$email_odbiorcy,
+							$kod_vouchera,
+							$nazwa_produktu,
+							$data_waznosci,
+							$buyer_name
+						);
 
-                        if (!$email_sent) {
-                            error_log("SRL: Nie udało się wysłać emaila z voucherem {$kod_vouchera} do {$email_odbiorcy}");
-                        }
-                    }
+						// NOWY KOD - wysłanie vouchera JPG emailem
+						$voucher_data = array(
+							'id' => $voucher_id,
+							'kod_vouchera' => $kod_vouchera,
+							'data_waznosci' => $data_waznosci,
+							'buyer_imie' => $imie,
+							'buyer_nazwisko' => $nazwisko,
+							'buyer_email' => $email_odbiorcy,
+							'nazwa_produktu' => $nazwa_produktu,
+							'ma_filmowanie' => $opcje['ma_filmowanie'],
+							'ma_akrobacje' => $opcje['ma_akrobacje']
+						);
+
+						// Wygeneruj i wyślij voucher JPG emailem
+						$voucher_generator = SRL_Voucher_Generator::getInstance();
+						$image_data = $voucher_generator->generateVoucherImage($voucher_data);
+						
+						if ($image_data) {
+							$voucher_email_sent = SRL_Email_Functions::getInstance()->wyslijEmailZVoucherem(
+								$email_odbiorcy,
+								$voucher_data,
+								$image_data,
+								$buyer_name
+							);
+							
+							if (!$voucher_email_sent) {
+								error_log("SRL: Nie udało się wysłać vouchera JPG emailem {$kod_vouchera} do {$email_odbiorcy}");
+							}
+						} else {
+							error_log("SRL: Nie można wygenerować obrazka vouchera {$kod_vouchera}");
+						}
+
+						if (!$email_sent) {
+							error_log("SRL: Nie udało się wysłać emaila z voucherem {$kod_vouchera} do {$email_odbiorcy}");
+						}
+					}
                 }
             }
         }
