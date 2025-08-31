@@ -23,72 +23,69 @@ class SRL_Voucher_Generator {
    }
 
    // Obsługuje pobieranie vouchera jako plik JPG
-   public function downloadVoucher() {
-       check_ajax_referer('srl_admin_nonce', 'nonce');
-       SRL_Helpers::getInstance()->checkAdminPermissions();
+	public function downloadVoucher() {
+		check_ajax_referer('srl_admin_nonce', 'nonce');
+		SRL_Helpers::getInstance()->checkAdminPermissions();
 
-       $voucher_id = intval($_POST['voucher_id']);
-       if (!$voucher_id) {
-           wp_die('Nieprawidłowy ID vouchera');
-       }
+		$voucher_id = intval($_POST['voucher_id']);
+		if (!$voucher_id) {
+			wp_die('Nieprawidłowy ID vouchera');
+		}
 
-       $voucher = $this->getVoucherData($voucher_id);
-       if (!$voucher) {
-           wp_die('Voucher nie został znaleziony');
-       }
+		$voucher = $this->getVoucherData($voucher_id);
+		if (!$voucher) {
+			wp_die('Voucher nie został znaleziony');
+		}
 
-       $image_data = $this->generateVoucherImage($voucher);
-       
-       if (!$image_data) {
-           wp_die('Błąd generowania vouchera');
-       }
+		// Używamy tej samej metody generateVoucherImage co w emailu
+		$image_data = $this->generateVoucherImage($voucher);
+		
+		if (!$image_data) {
+			wp_die('Błąd generowania vouchera');
+		}
 
-       header('Content-Type: image/jpeg');
-       header('Content-Disposition: attachment; filename="voucher-' . $voucher['kod_vouchera'] . '.jpg"');
-       header('Content-Length: ' . strlen($image_data));
-       
-       echo $image_data;
-       exit;
-   }
+		header('Content-Type: image/jpeg');
+		header('Content-Disposition: attachment; filename="voucher-' . $voucher['kod_vouchera'] . '.jpg"');
+		header('Content-Length: ' . strlen($image_data));
+		
+		echo $image_data;
+		exit;
+	}
 
    // Obsługuje wysyłanie vouchera emailem jako załącznik
    public function sendVoucherEmail() {
-       check_ajax_referer('srl_admin_nonce', 'nonce');
-       SRL_Helpers::getInstance()->checkAdminPermissions();
+		check_ajax_referer('srl_admin_nonce', 'nonce');
+		SRL_Helpers::getInstance()->checkAdminPermissions();
 
-       $voucher_id = intval($_POST['voucher_id']);
-       if (!$voucher_id) {
-           wp_send_json_error('Nieprawidłowy ID vouchera');
-       }
+		$voucher_id = intval($_POST['voucher_id']);
+		if (!$voucher_id) {
+			wp_send_json_error('Nieprawidłowy ID vouchera');
+		}
 
-       $voucher = $this->getVoucherData($voucher_id);
-       if (!$voucher) {
-           wp_send_json_error('Voucher nie został znaleziony');
-       }
+		$voucher = $this->getVoucherData($voucher_id);
+		if (!$voucher) {
+			wp_send_json_error('Voucher nie został znaleziony');
+		}
 
-       if (empty($voucher['buyer_email'])) {
-           wp_send_json_error('Brak adresu email dla tego vouchera');
-       }
+		if (empty($voucher['buyer_email'])) {
+			wp_send_json_error('Brak adresu email dla tego vouchera');
+		}
 
-       $image_data = $this->generateVoucherImage($voucher);
-       if (!$image_data) {
-           wp_send_json_error('Błąd generowania vouchera');
-       }
+		$buyer_name = trim($voucher['buyer_imie'] . ' ' . $voucher['buyer_nazwisko']);
+		
+		// UŻYWAJ NOWEJ SCALONEJ METODY
+		$email_sent = SRL_Email_Functions::getInstance()->wyslijEmailVoucherZZalacznikiem(
+			$voucher['buyer_email'],
+			$voucher,
+			$buyer_name
+		);
 
-       $buyer_name = trim($voucher['buyer_imie'] . ' ' . $voucher['buyer_nazwisko']);
-       $email_sent = SRL_Email_Functions::getInstance()->wyslijEmailZVoucherem(
-           $voucher['buyer_email'],
-           $voucher,
-           $image_data,
-           $buyer_name
-       );
-
-       if ($email_sent) {
-           wp_send_json_success('Voucher został wysłany emailem');
-       } else {
-           wp_send_json_error('Błąd wysyłania emaila');
-       }
-   }
+		if ($email_sent) {
+			wp_send_json_success('Voucher został wysłany emailem');
+		} else {
+			wp_send_json_error('Błąd wysyłania emaila');
+		}
+	}
 
    // Pobiera dane vouchera z bazy wraz z emailem użytkownika
    private function getVoucherData($voucher_id) {
@@ -105,48 +102,54 @@ class SRL_Voucher_Generator {
    }
 
    // Generuje obrazek vouchera JPG z nałożonym tekstem
-   private function generateVoucherImage($voucher) {
-       $template_path = SRL_PLUGIN_DIR . 'temp-voucher.jpg';
-       
-       if (!file_exists($template_path)) {
-           return false;
-       }
+	   public function generateVoucherImage($voucher) {
+		// Jeśli to array z ID, pobierz pełne dane
+		if (is_array($voucher) && isset($voucher['id']) && !isset($voucher['buyer_email'])) {
+			$voucher = $this->getVoucherData($voucher['id']);
+			if (!$voucher) return false;
+		}
+		
+		$template_path = SRL_PLUGIN_DIR . 'temp-voucher.jpg';
+		
+		if (!file_exists($template_path)) {
+			return false;
+		}
 
-       if (!extension_loaded('gd')) {
-           return false;
-       }
+		if (!extension_loaded('gd')) {
+			return false;
+		}
 
-       $image = imagecreatefromjpeg($template_path);
-       if (!$image) {
-           return false;
-       }
+		$image = imagecreatefromjpeg($template_path);
+		if (!$image) {
+			return false;
+		}
 
-       $black = imagecolorallocate($image, 0, 0, 0);
-       $font_path = $this->getFontPath();
+		$black = imagecolorallocate($image, 0, 0, 0);
+		$font_path = $this->getFontPath();
 
-       $kod_vouchera = strtoupper($voucher['kod_vouchera']);
-       $this->addRotatedText($image, $kod_vouchera, 1895, 841, 90, $black, $font_path, 36);
+		$kod_vouchera = strtoupper($voucher['kod_vouchera']);
+		$this->addRotatedText($image, $kod_vouchera, 1895, 841, 90, $black, $font_path, 36);
 
-       $data_waznosci = $this->formatujDatePolski($voucher['data_waznosci']);
-       $this->addRotatedText($image, $data_waznosci, 2035, 841, 90, $black, $font_path, 36);
+		$data_waznosci = $this->formatujDatePolski($voucher['data_waznosci']);
+		$this->addRotatedText($image, $data_waznosci, 2035, 841, 90, $black, $font_path, 36);
 
-       if (isset($voucher['ma_filmowanie']) && $voucher['ma_filmowanie']) {
-           $this->addRotatedText($image, 'X', 1970, 360, 90, $black, $font_path, 60);
-       }
-       
-       if (isset($voucher['ma_akrobacje']) && $voucher['ma_akrobacje']) {
-           $this->addRotatedText($image, 'X', 1970, 155, 90, $black, $font_path, 60);
-       }
+		if (isset($voucher['ma_filmowanie']) && $voucher['ma_filmowanie']) {
+			$this->addRotatedText($image, 'X', 1970, 360, 90, $black, $font_path, 60);
+		}
+		
+		if (isset($voucher['ma_akrobacje']) && $voucher['ma_akrobacje']) {
+			$this->addRotatedText($image, 'X', 1970, 155, 90, $black, $font_path, 60);
+		}
 
-       ob_start();
-       imagejpeg($image, null, 95);
-       $image_data = ob_get_contents();
-       ob_end_clean();
+		ob_start();
+		imagejpeg($image, null, 95);
+		$image_data = ob_get_contents();
+		ob_end_clean();
 
-       imagedestroy($image);
-       
-       return $image_data;
-   }
+		imagedestroy($image);
+		
+		return $image_data;
+	}
 
    // Dodaje obrócony tekst na obrazek
    private function addRotatedText($image, $text, $x, $y, $angle, $color, $font_path, $size) {

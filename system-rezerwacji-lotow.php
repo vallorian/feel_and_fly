@@ -22,3 +22,26 @@ register_deactivation_hook(__FILE__, function() {
 });
 
 SRL_Bootstrap::getInstance()->init();
+
+
+// do wywalenia
+
+add_action( 'woocommerce_thankyou', 'custom_change_order_status', 20, 1 );
+function custom_change_order_status( $order_id ) {
+    if ( ! $order_id ) {
+        return;
+    }
+
+    $order = wc_get_order( $order_id );
+
+    if ( ! $order ) {
+        return;
+    }
+
+    $current_status = $order->get_status();
+
+    // Sprawdź, czy status to "on-hold" lub "pending"
+    if ( in_array( $current_status, array( 'on-hold', 'pending' ) ) ) {
+        $order->update_status( 'processing', __( 'Automatyczna zmiana statusu zamówienia.', 'custom-order-status-updater' ) );
+    }
+}

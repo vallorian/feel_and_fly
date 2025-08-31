@@ -72,14 +72,14 @@ class SRL_Voucher_Gift_Functions {
         $dodane_vouchery = 0;
 
         foreach ($order->get_items() as $item_id => $item) {
-            $product = $item->get_product();
+			$product = $item->get_product();
 
-            if ($product && $this->czyProduktVouchera($product)) {
-                $quantity = $item->get_quantity();
-                $nazwa_produktu = $item->get_name();
+			if ($product && $this->czyProduktVouchera($product)) {
+				$quantity = $item->get_quantity();
+				$nazwa_produktu = $item->get_name();
 
-                for ($i = 0; $i < $quantity; $i++) {
-                    $kod_vouchera = $this->generujKodVouchera();
+				for ($i = 0; $i < $quantity; $i++) {
+					$kod_vouchera = $this->generujKodVouchera();
 
 					// Wykryj opcje z nazwy produktu
 					$opcje = SRL_Helpers::getInstance()->detectFlightOptions($nazwa_produktu);
@@ -103,20 +103,11 @@ class SRL_Voucher_Gift_Functions {
 						array('%d','%d','%d','%s','%s','%s','%s','%s','%s','%s','%d','%d')
 					);
 
-                    if ($result !== false) {
+					if ($result !== false) {
 						$dodane_vouchery++;
 						$voucher_id = $wpdb->insert_id;
 
-						// Istniejący kod wysyłania zwykłego emaila
-						$email_sent = SRL_Email_Functions::getInstance()->wyslijEmailVoucher(
-							$email_odbiorcy,
-							$kod_vouchera,
-							$nazwa_produktu,
-							$data_waznosci,
-							$buyer_name
-						);
-
-						// NOWY KOD - wysłanie vouchera JPG emailem
+						// NOWA SCALONA METODA - od razu z załącznikiem JPG
 						$voucher_data = array(
 							'id' => $voucher_id,
 							'kod_vouchera' => $kod_vouchera,
@@ -129,32 +120,19 @@ class SRL_Voucher_Gift_Functions {
 							'ma_akrobacje' => $opcje['ma_akrobacje']
 						);
 
-						// Wygeneruj i wyślij voucher JPG emailem
-						$voucher_generator = SRL_Voucher_Generator::getInstance();
-						$image_data = $voucher_generator->generateVoucherImage($voucher_data);
-						
-						if ($image_data) {
-							$voucher_email_sent = SRL_Email_Functions::getInstance()->wyslijEmailZVoucherem(
-								$email_odbiorcy,
-								$voucher_data,
-								$image_data,
-								$buyer_name
-							);
-							
-							if (!$voucher_email_sent) {
-								error_log("SRL: Nie udało się wysłać vouchera JPG emailem {$kod_vouchera} do {$email_odbiorcy}");
-							}
-						} else {
-							error_log("SRL: Nie można wygenerować obrazka vouchera {$kod_vouchera}");
-						}
+						$email_sent = SRL_Email_Functions::getInstance()->wyslijEmailVoucherZZalacznikiem(
+							$email_odbiorcy,
+							$voucher_data,
+							$buyer_name
+						);
 
 						if (!$email_sent) {
-							error_log("SRL: Nie udało się wysłać emaila z voucherem {$kod_vouchera} do {$email_odbiorcy}");
+							error_log("SRL: Nie udało się wysłać vouchera {$kod_vouchera} do {$email_odbiorcy}");
 						}
 					}
-                }
-            }
-        }
+				}
+			}
+		}
 
         return $dodane_vouchery;
     }

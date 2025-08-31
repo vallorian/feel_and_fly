@@ -258,59 +258,95 @@ class SRL_Frontend_Ajax {
     }
 
     public function ajaxAnulujRezerwacjeKlient() {
-        $this->validateUserAccess();
-        
-        $user_id = get_current_user_id();
-        $lot_id = intval($_POST['lot_id']);
+		$this->validateUserAccess();
+		
+		$user_id = get_current_user_id();
+		$lot_id = intval($_POST['lot_id']);
+		global $wpdb;
+		$lot = $wpdb->get_row($wpdb->prepare(
+			"SELECT zl.*, t.data, t.godzina_start, t.godzina_koniec, t.pilot_id
+			 FROM {$wpdb->prefix}srl_zakupione_loty zl
+			 LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
+			 WHERE zl.id = %d AND zl.user_id = %d AND zl.status = 'zarezerwowany'",
+			$lot_id, $user_id
+		), ARRAY_A);
+		
+		if (!$lot) {
+			wp_send_json_error('Nie znaleziono rezerwacji.');
+		}
+		
+		$data_lotu = $lot['data'] . ' ' . $lot['godzina_start'];
+		$czas_do_lotu = strtotime($data_lotu) - time();
+		if ($czas_do_lotu < 48 * 3600) {
+			wp_send_json_error('Nie można anulować rezerwacji na mniej niż 48h przed lotem.');
+		}
+		
+		$result = $this->db_helpers->cancelReservation($lot_id);
+		
+		if ($result['success']) {
+			$this->invalidateUserFlightCache($user_id);
+			wp_cache_delete("available_slots_{$lot['data']}", 'srl_cache');
+			
+			$szczegoly_terminu = sprintf('%s %s-%s (Pilot %d)',
+				$lot['data'],
+				substr($lot['godzina_start'], 0, 5),
+				substr($lot['godzina_koniec'], 0, 5),
+				$lot['pilot_id']
+			);
+			
+			SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, [
+				'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+				'typ' => 'anulowanie_klient',
+				'executor' => 'Klient',
+				'szczegoly' => [
+					'anulowany_termin' => $szczegoly_terminu,
+					'czas_do_lotu_godzin' => round($czas_do_lotu / 3600, 1),
+					'email_wyslany' => false // Początkowo false
+				]
+			]);
 
-        global $wpdb;
-        $lot = $wpdb->get_row($wpdb->prepare(
-            "SELECT zl.*, t.data, t.godzina_start, t.godzina_koniec, t.pilot_id
-             FROM {$wpdb->prefix}srl_zakupione_loty zl
-             LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
-             WHERE zl.id = %d AND zl.user_id = %d AND zl.status = 'zarezerwowany'",
-            $lot_id, $user_id
-        ), ARRAY_A);
+			// NOWY KOD - Wyślij email potwierdzający anulowanie
+			$slot_data = array(
+				'data' => $lot['data'],
+				'godzina_start' => $lot['godzina_start'],
+				'godzina_koniec' => $lot['godzina_koniec']
+			);
+			
+			$lot_data = array(
+				'data_waznosci' => $lot['data_waznosci']
+			);
+			
+			$email_sent = SRL_Email_Functions::getInstance()->wyslijEmailAnulowaniaPrzezKlienta(
+				$user_id,
+				$slot_data,
+				$lot_data
+			);
 
-        if (!$lot) {
-            wp_send_json_error('Nie znaleziono rezerwacji.');
-        }
-
-        $data_lotu = $lot['data'] . ' ' . $lot['godzina_start'];
-        $czas_do_lotu = strtotime($data_lotu) - time();
-
-        if ($czas_do_lotu < 48 * 3600) {
-            wp_send_json_error('Nie można anulować rezerwacji na mniej niż 48h przed lotem.');
-        }
-
-        $result = $this->db_helpers->cancelReservation($lot_id);
-        
-        if ($result['success']) {
-            $this->invalidateUserFlightCache($user_id);
-            wp_cache_delete("available_slots_{$lot['data']}", 'srl_cache');
-            
-            $szczegoly_terminu = sprintf('%s %s-%s (Pilot %d)',
-                $lot['data'],
-                substr($lot['godzina_start'], 0, 5),
-                substr($lot['godzina_koniec'], 0, 5),
-                $lot['pilot_id']
-            );
-
-            SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, [
-                'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
-                'typ' => 'anulowanie_klient',
-                'executor' => 'Klient',
-                'szczegoly' => [
-                    'anulowany_termin' => $szczegoly_terminu,
-                    'czas_do_lotu_godzin' => round($czas_do_lotu / 3600, 1)
-                ]
-            ]);
-
-            wp_send_json_success(['message' => 'Rezerwacja została anulowana.']);
-        } else {
-            wp_send_json_error($result['message']);
-        }
-    }
+			// Jeśli email został wysłany, zaktualizuj historię
+			if ($email_sent) {
+				SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, [
+					'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+					'typ' => 'email_anulowanie_klient',
+					'executor' => 'System',
+					'szczegoly' => [
+						'typ_emaila' => 'potwierdzenie_anulowania',
+						'email_odbiorcy' => get_userdata($user_id)->user_email,
+						'email_wyslany' => true
+					]
+				]);
+			} else {
+				error_log("SRL: Nie udało się wysłać emaila anulowania do user_id: {$user_id}, lot_id: {$lot_id}");
+			}
+			
+			wp_send_json_success([
+				'message' => $email_sent 
+					? 'Rezerwacja została anulowana. Na Twój email zostało wysłane potwierdzenie.'
+					: 'Rezerwacja została anulowana.'
+			]);
+		} else {
+			wp_send_json_error($result['message']);
+		}
+	}
 
     public function ajaxLogin() {
         $ip = $_SERVER['REMOTE_ADDR'];
