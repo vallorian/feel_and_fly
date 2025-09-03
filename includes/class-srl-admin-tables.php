@@ -16,40 +16,85 @@ class SRL_Admin_Tables {
         $this->cache_manager = SRL_Cache_Manager::getInstance();
     }
 
-    public function renderFlightsTable($flights, $pagination) {
-        if (empty($flights)) {
-            return $this->renderEmptyTable('Brak lotów do wyświetlenia', $pagination);
-        }
+	public function renderFlightsTable($flights, $pagination) {
+		if (empty($flights)) {
+			return $this->renderEmptyTable('Brak lotów do wyświetlenia', $pagination);
+		}
 
-        ob_start();
-        echo '<table class="wp-list-table widefat striped">';
-        echo '<thead><tr>';
-        echo '<td class="manage-column check-column"><input type="checkbox" id="cb-select-all-1"></td>';
-        echo '<th>ID lotu (zam.)</th><th>Klient</th><th>Produkt</th><th>Status</th>';
-        echo '<th>Data zakupu</th><th>Ważność</th><th>Rezerwacja</th><th>Odwoływanie</th>';
-        echo '<th>Zatwierdzanie</th><th>Szczegóły</th>';
-        echo '</tr></thead><tbody>';
+		ob_start();
+		echo '<table class="wp-list-table widefat striped">';
+		echo '<thead><tr>';
+		echo '<td class="manage-column check-column"><input type="checkbox" id="cb-select-all-1"></td>';
+		echo '<th>ID lotu (zam.)</th><th>Klient</th><th>Produkt</th><th>Status</th>';
+		echo '<th>Data zakupu</th><th>Ważność</th><th>Rezerwacja</th>';
+		echo '<th>Opcje lotu</th><th>Szczegóły</th>';
+		echo '</tr></thead><tbody>';
 
-        foreach ($flights as $flight) {
-            echo '<tr>';
-            echo '<th scope="row" class="check-column"><input type="checkbox" name="loty_ids[]" value="' . $flight['id'] . '"></th>';
-            echo '<td>' . $this->renderFlightIdCell($flight) . '</td>';
-            echo '<td>' . $this->renderClientCell($flight) . '</td>';
-            echo '<td>' . $this->renderProductCell($flight) . '</td>';
-            echo '<td>' . SRL_Helpers::getInstance()->generateStatusBadge($flight['status'], 'lot') . '</td>';
-            echo '<td>' . SRL_Helpers::getInstance()->formatujDate($flight['data_zakupu']) . '</td>';
-            echo '<td>' . SRL_Helpers::getInstance()->formatujWaznoscLotu($flight['data_waznosci']) . '</td>';
-            echo '<td>' . $this->renderReservationCell($flight) . '</td>';
-            echo '<td>' . $this->renderCancelCell($flight) . '</td>';
-            echo '<td>' . $this->renderApprovalCell($flight) . '</td>';
-            echo '<td>' . $this->renderDetailsCell($flight) . '</td>';
-            echo '</tr>';
-        }
+		foreach ($flights as $flight) {
+			echo '<tr>';
+			echo '<th scope="row" class="check-column"><input type="checkbox" name="loty_ids[]" value="' . $flight['id'] . '"></th>';
+			echo '<td>' . $this->renderFlightIdCell($flight) . '</td>';
+			echo '<td>' . $this->renderClientCell($flight) . '</td>';
+			echo '<td>' . $this->renderProductCell($flight) . '</td>';
+			echo '<td>' . SRL_Helpers::getInstance()->generateStatusBadge($flight['status'], 'lot') . '</td>';
+			echo '<td>' . SRL_Helpers::getInstance()->formatujDate($flight['data_zakupu']) . '</td>';
+			echo '<td>' . SRL_Helpers::getInstance()->formatujWaznoscLotu($flight['data_waznosci']) . '</td>';
+			echo '<td>' . $this->renderReservationCell($flight) . '</td>';
+			echo '<td>' . $this->renderFlightOptionsCell($flight) . '</td>';
+			echo '<td>' . $this->renderDetailsCell($flight) . '</td>';
+			echo '</tr>';
+		}
 
-        echo '</tbody></table>';
-        return ob_get_clean();
-    }
-
+		echo '</tbody></table>';
+		return ob_get_clean();
+	}
+	
+	private function renderFlightOptionsCell($flight) {
+		$buttons = [];
+		
+		// Sprawdź czy lot ma opcje dostępne do modyfikacji
+		if (in_array($flight['status'], ['wolny', 'zarezerwowany'])) {
+			
+			// Przycisk filmowania
+			if ($flight['ma_filmowanie']) {
+				$buttons[] = '<button type="button" class="button button-small srl-remove-option" 
+					data-lot-id="' . $flight['id'] . '" 
+					data-option="filmowanie" 
+					style="background:#dc3545; color:white; margin-right:5px;">
+					Usuń filmowanie
+				</button>';
+			} else {
+				$buttons[] = '<button type="button" class="button button-small srl-add-option" 
+					data-lot-id="' . $flight['id'] . '" 
+					data-option="filmowanie" 
+					style="background:#28a745; color:white; margin-right:5px;">
+					Dodaj filmowanie
+				</button>';
+			}
+			
+			// Przycisk akrobacji
+			if ($flight['ma_akrobacje']) {
+				$buttons[] = '<button type="button" class="button button-small srl-remove-option" 
+					data-lot-id="' . $flight['id'] . '" 
+					data-option="akrobacje" 
+					style="background:#dc3545; color:white; margin-right:5px;">
+					Usuń akrobacje
+				</button>';
+			} else {
+				$buttons[] = '<button type="button" class="button button-small srl-add-option" 
+					data-lot-id="' . $flight['id'] . '" 
+					data-option="akrobacje" 
+					style="background:#28a745; color:white; margin-right:5px;">
+					Dodaj akrobacje
+				</button>';
+			}
+			
+			return '<div style="display:flex; flex-direction:column; gap:3px;">' . implode('', $buttons) . '</div>';
+		}
+		
+		return '<span style="color:#999;">—</span>';
+	}
+	
     public function renderVouchersTable($vouchers, $pagination, $type = 'upominkowe') {
         if (empty($vouchers)) {
             return $this->renderEmptyTable('Brak voucherów do wyświetlenia', $pagination);
@@ -254,25 +299,27 @@ class SRL_Admin_Tables {
         return '<span style="color: #999;">—</span>';
     }
 
-    private function renderCancelCell($flight) {
-        if ($flight['status'] !== 'wolny') {
-            return SRL_Helpers::getInstance()->generateButton('Odwołaj', 'button button-small srl-cancel-lot', ['type' => 'button', 'data-lot-id' => $flight['id']]);
-        }
-        return '<span style="color:#999;">—</span>';
-    }
-
-    private function renderApprovalCell($flight) {
-        if ($flight['status'] === 'zarezerwowany') {
-            return SRL_Helpers::getInstance()->generateButton('Zrealizuj', 'button button-primary button-small srl-complete-lot', ['type' => 'button', 'data-lot-id' => $flight['id']]);
-        }
-        return '<span style="color:#999;">—</span>';
-    }
-
-    private function renderDetailsCell($flight) {
-        $html = SRL_Helpers::getInstance()->generateButton('INFO', 'button button-small srl-info-lot', ['type' => 'button', 'data-lot-id' => $flight['id'], 'data-user-id' => $flight['user_id']]);
-        $html .= SRL_Helpers::getInstance()->generateButton('Historia', 'button button-small srl-historia-lot', ['type' => 'button', 'data-lot-id' => $flight['id'], 'style' => 'margin-left: 5px;']);
-        return $html;
-    }
+	private function renderDetailsCell($flight) {
+		$html = SRL_Helpers::getInstance()->generateButton('INFO', 'button button-small srl-info-lot', [
+			'type' => 'button', 
+			'data-lot-id' => $flight['id'], 
+			'data-user-id' => $flight['user_id']
+		]);
+		
+		$html .= SRL_Helpers::getInstance()->generateButton('Historia', 'button button-small srl-historia-lot', [
+			'type' => 'button', 
+			'data-lot-id' => $flight['id'], 
+			'style' => 'margin-left: 5px;'
+		]);
+		
+		// Dodaj przycisk "Zarządzaj" tylko dla zarezerwowanych lotów
+		if ($flight['status'] === 'zarezerwowany' && !empty($flight['data_lotu'])) {
+			$manage_url = admin_url('admin.php?page=srl-dzien&data=' . $flight['data_lotu']);
+			$html .= '<a href="' . esc_url($manage_url) . '" class="button button-primary button-small" style="margin-left: 5px;">Zarządzaj</a>';
+		}
+		
+		return $html;
+	}
 
     private function renderVoucherIdCell($voucher) {
         $html = '<strong>#' . $voucher['id'] . '</strong><br>';

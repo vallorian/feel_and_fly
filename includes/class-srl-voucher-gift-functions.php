@@ -38,7 +38,7 @@ class SRL_Voucher_Gift_Functions {
     public function czyProduktVouchera($product) {
         if (!$product) return false;
 
-        $voucher_product_ids = array(105, 106, 107, 108);
+        $voucher_product_ids = array(105, 106, 107, 108, 426, 427, 429, 430, 432, 433, 435, 436);
         return in_array($product->get_id(), $voucher_product_ids);
     }
 

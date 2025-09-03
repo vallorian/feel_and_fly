@@ -78,7 +78,8 @@ class SRL_Historia_Functions {
                                      'przypisanie_admin', 'zmiana_terminu_admin'),
             'DOKUPIENIE WARIANTU' => array('dokupienie_filmowanie', 'dokupienie_akrobacje', 'przedluzenie_waznosci', 'zmiana_opcji'),
             'SYSTEMOWE' => array('przypisanie_id', 'opcja_przy_zakupie', 'zakup_lotu'),
-            'ZMIANA DANYCH' => array('edycja_danych_pasazera', 'aktualizacja_profilu', 'zapisanie_danych_klienta')
+            'ZMIANA DANYCH' => array('edycja_danych_pasazera', 'aktualizacja_profilu', 'zapisanie_danych_klienta'),
+			'ZMIANA PRZEZ ADMIN' => array('admin_dodanie_opcji', 'admin_usuniecie_opcji')
         );
 
         foreach ($kategorie as $kategoria => $typy) {
@@ -157,7 +158,19 @@ class SRL_Historia_Functions {
                     if (strpos($nazwa, 'akrobacje') !== false || strpos($nazwa, 'akrobacj') !== false) return 'Dokupiono opcję <strong>akrobacji</strong>';
                 }
                 return 'Dokupiono opcję lotu';
+			
+			case 'admin_dodanie_opcji':
+				$opcja = $szczegoly['opcja'] ?? '';
+				if ($opcja === 'filmowanie') return 'Dodano opcję <strong>filmowania</strong> przez administratora';
+				if ($opcja === 'akrobacje') return 'Dodano opcję <strong>akrobacji</strong> przez administratora';
+				return 'Dodano opcję lotu przez administratora';
 
+			case 'admin_usuniecie_opcji':
+				$opcja = $szczegoly['opcja'] ?? '';
+				if ($opcja === 'filmowanie') return 'Usunięto opcję <strong>filmowania</strong> przez administratora';
+				if ($opcja === 'akrobacje') return 'Usunięto opcję <strong>akrobacji</strong> przez administratora';
+				return 'Usunięto opcję lotu przez administratora';
+			
             case 'przypisanie_id':
                 $lot_id = $szczegoly['lot_id'] ?? 'nieznany';
                 $data_waznosci = isset($szczegoly['data_waznosci']) ? date('d.m.Y', strtotime($szczegoly['data_waznosci'])) : '';
@@ -173,27 +186,48 @@ class SRL_Historia_Functions {
             case 'edycja_danych_pasazera':
             case 'zapisanie_danych_klienta':
                 return 'Zaktualizowano dane pasażera';
-
+				
             default:
                 return 'Nieznana akcja';
         }
     }
 
-    public function czyDuplikat($nowy_wpis, $istniejace_wpisy) {
-        if (empty($istniejace_wpisy)) return false;
+public function czyDuplikat($nowy_wpis, $istniejace_wpisy) {
+    if (empty($istniejace_wpisy)) return false;
 
-        $czas_graniczny = strtotime($nowy_wpis['data']) - 300;
-        foreach ($istniejace_wpisy as $wpis) {
-            $czas_wpisu = strtotime($wpis['data']);
-            if ($czas_wpisu < $czas_graniczny) continue;
-            if ($wpis['typ'] === $nowy_wpis['typ'] && 
-                $wpis['executor'] === $nowy_wpis['executor'] &&
-                abs($czas_wpisu - strtotime($nowy_wpis['data'])) < 60) {
-                return true;
-            }
-        }
-        return false;
+    // Dla działań admina z opcjami - zawsze pozwól na zapis (mogą być częste zmiany)
+    if (in_array($nowy_wpis['typ'], ['admin_dodanie_opcji', 'admin_usuniecie_opcji'])) {
+        return false; // Nigdy nie blokuj działań admina z opcjami
     }
+
+    $czas_graniczny = strtotime($nowy_wpis['data']) - 300; // 5 minut
+    foreach ($istniejace_wpisy as $wpis) {
+        $czas_wpisu = strtotime($wpis['data']);
+        if ($czas_wpisu < $czas_graniczny) continue;
+        
+        // Sprawdź czy to dokładnie ten sam typ akcji w krótkim czasie
+        if ($wpis['typ'] === $nowy_wpis['typ'] && 
+            $wpis['executor'] === $nowy_wpis['executor'] &&
+            abs($czas_wpisu - strtotime($nowy_wpis['data'])) < 60) {
+            
+            // Dla działań admina z opcjami sprawdź dodatkowe szczegóły
+            if (in_array($nowy_wpis['typ'], ['admin_dodanie_opcji', 'admin_usuniecie_opcji'])) {
+                $nowe_szczegoly = $nowy_wpis['szczegoly'] ?? [];
+                $stare_szczegoly = $wpis['szczegoly'] ?? [];
+                
+                // Jeśli to ta sama opcja i ta sama akcja - może być duplikat
+                if (($nowe_szczegoly['opcja'] ?? '') === ($stare_szczegoly['opcja'] ?? '') &&
+                    ($nowe_szczegoly['akcja'] ?? '') === ($stare_szczegoly['akcja'] ?? '')) {
+                    return true; // To może być duplikat
+                }
+                return false; // Różne opcje/akcje - nie duplikat
+            }
+            
+            return true; // Inne typy - standardowa logika duplikatów
+        }
+    }
+    return false;
+}
 
     public function wyczyscHistorieWszystkichLotow() {
         if (!current_user_can('manage_woocommerce')) return false;

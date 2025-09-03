@@ -87,9 +87,9 @@ class SRL_Helpers {
         $roznica_dni = floor(($timestamp - $dzisiaj) / (24 * 60 * 60));
         $formatted_date = date('d.m.Y', $timestamp);
 
-        if ($roznica_dni < 0) return $formatted_date . ' (przeterminowany)';
-        if ($roznica_dni == 0) return $formatted_date . ' (wygasa dziś)';
-        if ($roznica_dni <= 30) return $formatted_date . " (zostało {$roznica_dni} dni)";
+        //if ($roznica_dni < 0) return $formatted_date . '<br><small>(przeterminowany)</small>';
+        if ($roznica_dni == 0) return $formatted_date . '<br><small>(wygasa dziś)</small>';
+        if ($roznica_dni > 0 && $roznica_dni <= 30) return $formatted_date . "<br><small>(zostało {$roznica_dni} dni)</small>";
         
         return $formatted_date;
     }

@@ -19,22 +19,23 @@ class SRL_Admin_Ajax {
         $this->initHooks();
     }
 
-    private function initHooks() {
-        $ajax_methods = [
-            'srl_dodaj_godzine', 'srl_zmien_slot', 'srl_usun_godzine', 'srl_zmien_status_godziny',
-            'srl_anuluj_lot_przez_organizatora', 'srl_wyszukaj_klientow_loty', 'srl_dodaj_voucher_recznie',
-            'srl_wyszukaj_dostepnych_klientow', 'srl_przypisz_klienta_do_slotu', 'srl_zapisz_dane_prywatne',
-            'srl_pobierz_dane_prywatne', 'srl_pobierz_aktualne_godziny', 'srl_wyszukaj_wolne_loty',
-            'srl_przypisz_wykupiony_lot', 'srl_zapisz_lot_prywatny', 'srl_pobierz_historie_lotu',
-            'srl_przywroc_rezerwacje', 'srl_pobierz_dane_odwolanego', 'srl_zrealizuj_lot',
-            'srl_zrealizuj_lot_prywatny', 'srl_pobierz_dostepne_terminy_do_zmiany', 'srl_zmien_termin_lotu',
-            'srl_admin_zmien_status_lotu', 'srl_pobierz_szczegoly_lotu', 'srl_wypisz_klienta_ze_slotu', 'srl_wypisz_slot_prywatny'
-        ];
-        
-        foreach ($ajax_methods as $method) {
-            add_action("wp_ajax_{$method}", [$this, 'ajax' . $this->toCamelCase($method)]);
-        }
-    }
+	private function initHooks() {
+		$ajax_methods = [
+			'srl_dodaj_godzine', 'srl_zmien_slot', 'srl_usun_godzine', 'srl_zmien_status_godziny',
+			'srl_anuluj_lot_przez_organizatora', 'srl_wyszukaj_klientow_loty', 'srl_dodaj_voucher_recznie',
+			'srl_wyszukaj_dostepnych_klientow', 'srl_przypisz_klienta_do_slotu', 'srl_zapisz_dane_prywatne',
+			'srl_pobierz_dane_prywatne', 'srl_pobierz_aktualne_godziny', 'srl_wyszukaj_wolne_loty',
+			'srl_przypisz_wykupiony_lot', 'srl_zapisz_lot_prywatny', 'srl_pobierz_historie_lotu',
+			'srl_przywroc_rezerwacje', 'srl_pobierz_dane_odwolanego', 'srl_zrealizuj_lot',
+			'srl_zrealizuj_lot_prywatny', 'srl_pobierz_dostepne_terminy_do_zmiany', 'srl_zmien_termin_lotu',
+			'srl_admin_zmien_status_lotu', 'srl_pobierz_szczegoly_lotu', 'srl_wypisz_klienta_ze_slotu', 
+			'srl_wypisz_slot_prywatny', 'srl_dodaj_opcje_lotu', 'srl_usun_opcje_lotu'
+		];
+		
+		foreach ($ajax_methods as $method) {
+			add_action("wp_ajax_{$method}", [$this, 'ajax' . $this->toCamelCase($method)]);
+		}
+	}
 
     private function toCamelCase($string) {
         return str_replace('_', '', ucwords(str_replace('srl_', '', $string), '_'));
@@ -1517,6 +1518,132 @@ class SRL_Admin_Ajax {
 		} catch (Exception $e) {
 			$wpdb->query('ROLLBACK');
 			wp_send_json_error($e->getMessage());
+		}
+	}
+	
+	public function ajaxDodajOpcjeLotu() {
+		$this->validateAdminAccess();
+		
+		$lot_id = intval($_POST['lot_id']);
+		$opcja = sanitize_text_field($_POST['opcja']);
+		
+		if (!in_array($opcja, ['filmowanie', 'akrobacje'])) {
+			wp_send_json_error('Nieprawidłowa opcja.');
+		}
+		
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		
+		// Pobierz aktualny stan lotu
+		$lot = $wpdb->get_row(
+			"SELECT * FROM $tabela_loty WHERE id = $lot_id",
+			ARRAY_A
+		);
+		
+		if (!$lot) {
+			wp_send_json_error('Lot nie istnieje.');
+		}
+		
+		if (!in_array($lot['status'], ['wolny', 'zarezerwowany'])) {
+			wp_send_json_error('Można modyfikować tylko loty wolne lub zarezerwowane.');
+		}
+		
+		$kolumna = 'ma_' . $opcja;
+		
+		// Sprawdź czy opcja już istnieje
+		if ($lot[$kolumna]) {
+			wp_send_json_error('Ta opcja już istnieje dla tego lotu.');
+		}
+		
+		// Dodaj opcję
+		$result = $wpdb->update(
+			$tabela_loty,
+			[$kolumna => 1],
+			['id' => $lot_id]
+		);
+		
+		if ($result !== false) {
+			// Dodaj do historii z wyraźnym oznaczeniem działania admina
+			SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, [
+				'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+				'typ' => 'admin_dodanie_opcji', // ZMIENIONY TYP
+				'executor' => 'Admin',
+				'szczegoly' => [
+					'opcja' => $opcja,
+					'akcja' => 'dodano',
+					'stary_stan' => 0,
+					'nowy_stan' => 1,
+					'przez_admin' => true,
+					'admin_user_id' => get_current_user_id()
+				]
+			]);
+			
+			wp_send_json_success('Opcja ' . $opcja . ' została dodana do lotu.');
+		} else {
+			wp_send_json_error('Błąd podczas dodawania opcji.');
+		}
+	}
+
+	public function ajaxUsunOpcjeLotu() {
+		$this->validateAdminAccess();
+		
+		$lot_id = intval($_POST['lot_id']);
+		$opcja = sanitize_text_field($_POST['opcja']);
+		
+		if (!in_array($opcja, ['filmowanie', 'akrobacje'])) {
+			wp_send_json_error('Nieprawidłowa opcja.');
+		}
+		
+		global $wpdb;
+		$tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
+		
+		// Pobierz aktualny stan lotu
+		$lot = $wpdb->get_row(
+			"SELECT * FROM $tabela_loty WHERE id = $lot_id",
+			ARRAY_A
+		);
+		
+		if (!$lot) {
+			wp_send_json_error('Lot nie istnieje.');
+		}
+		
+		if (!in_array($lot['status'], ['wolny', 'zarezerwowany'])) {
+			wp_send_json_error('Można modyfikować tylko loty wolne lub zarezerwowane.');
+		}
+		
+		$kolumna = 'ma_' . $opcja;
+		
+		// Sprawdź czy opcja istnieje
+		if (!$lot[$kolumna]) {
+			wp_send_json_error('Ta opcja nie istnieje dla tego lotu.');
+		}
+		
+		// Usuń opcję
+		$result = $wpdb->update(
+			$tabela_loty,
+			[$kolumna => 0],
+			['id' => $lot_id]
+		);
+		
+		if ($result !== false) {
+			// Dodaj do historii z wyraźnym oznaczeniem działania admina
+			SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($lot_id, [
+				'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+				'typ' => 'admin_usuniecie_opcji', // ZMIENIONY TYP
+				'executor' => 'Admin',
+				'szczegoly' => [
+					'opcja' => $opcja,
+					'akcja' => 'usunieto',
+					'stary_stan' => 1,
+					'nowy_stan' => 0,
+					'przez_admin' => true,
+					'admin_user_id' => get_current_user_id()
+				]
+			]);
+			
+			wp_send_json_success('Opcja ' . $opcja . ' została usunięta z lotu.');
+		} else {
+			wp_send_json_error('Błąd podczas usuwania opcji.');
 		}
 	}
 	

@@ -31,22 +31,105 @@ class SRL_Admin_Flights {
         $stats = $instance->getFlightStatsWithCache();
         
         echo '<div class="wrap">';
-        echo '<h1 class="wp-heading-inline">?? Wykupione loty tandemowe</h1>';
+        echo '<h1 class="wp-heading-inline">Wykupione loty tandemowe</h1>';
         
         $status_labels = [
-            'wolny' => '?? Wolne',
-            'zarezerwowany' => '?? Zarezerwowane', 
-            'zrealizowany' => '?? Zrealizowane',
-            'przedawniony' => '?? Przedawnione'
+            'wolny' => 'Wolne',
+            'zarezerwowany' => 'Zarezerwowane', 
+            'zrealizowany' => 'Zrealizowane',
+            'przedawniony' => 'Przedawnione'
         ];
         
         echo $instance->tables->renderStats($stats, $status_labels);
         $instance->renderFilters($pagination);
         
         echo '<form method="post" id="bulk-action-form">';
-        $instance->renderBulkActions();
         echo $instance->tables->renderFlightsTable($flights, $pagination);
         echo '</form>';
+		
+		echo '<script>
+		jQuery(document).ready(function($) {
+			
+			// Obs艂uga dodawania opcji
+			$(document).on("click", ".srl-add-option", function(e) {
+				e.preventDefault();
+				
+				var lotId = $(this).data("lot-id");
+				var opcja = $(this).data("option");
+				var button = $(this);
+				
+				if (!confirm("Czy na pewno doda膰 opcj臋 " + opcja + " do tego lotu?")) {
+					return;
+				}
+				
+				button.prop("disabled", true).text("Dodawanie...");
+				
+				$.ajax({
+					url: ajaxurl,
+					method: "POST",
+					data: {
+						action: "srl_dodaj_opcje_lotu",
+						lot_id: lotId,
+						opcja: opcja,
+						nonce: "' . wp_create_nonce('srl_admin_nonce') . '"
+					},
+					success: function(response) {
+						if (response.success) {
+							alert("Opcja zosta艂a dodana!");
+							location.reload();
+						} else {
+							alert("B艂膮d: " + response.data);
+							button.prop("disabled", false).text("Dodaj " + opcja);
+						}
+					},
+					error: function() {
+						alert("B艂膮d po艂膮czenia z serwerem");
+						button.prop("disabled", false).text("Dodaj " + opcja);
+					}
+				});
+			});
+			
+			// Obs艂uga usuwania opcji
+			$(document).on("click", ".srl-remove-option", function(e) {
+				e.preventDefault();
+				
+				var lotId = $(this).data("lot-id");
+				var opcja = $(this).data("option");
+				var button = $(this);
+				
+				if (!confirm("Czy na pewno usun膮膰 opcj臋 " + opcja + " z tego lotu?")) {
+					return;
+				}
+				
+				button.prop("disabled", true).text("Usuwanie...");
+				
+				$.ajax({
+					url: ajaxurl,
+					method: "POST",
+					data: {
+						action: "srl_usun_opcje_lotu",
+						lot_id: lotId,
+						opcja: opcja,
+						nonce: "' . wp_create_nonce('srl_admin_nonce') . '"
+					},
+					success: function(response) {
+						if (response.success) {
+							alert("Opcja zosta艂a usuni臋ta!");
+							location.reload();
+						} else {
+							alert("B艂膮d: " + response.data);
+							button.prop("disabled", false).text("Usu艅 " + opcja);
+						}
+					},
+					error: function() {
+						alert("B艂膮d po艂膮czenia z serwerem");
+						button.prop("disabled", false).text("Usu艅 " + opcja);
+					}
+				});
+			});
+		});
+		</script>';
+		
         echo '</div>';
         
         $instance->renderScripts();
@@ -60,11 +143,11 @@ class SRL_Admin_Flights {
         
         if ($action === 'bulk_delete') {
             $this->batchDeleteFlights($ids);
-            echo SRL_Helpers::getInstance()->generateMessage('Usuni?to ' . count($ids) . ' lotów.', 'success');
+            echo SRL_Helpers::getInstance()->generateMessage('Usuni臋to ' . count($ids) . ' lot贸w.', 'success');
         } elseif (strpos($action, 'bulk_status_') === 0) {
             $new_status = str_replace('bulk_status_', '', $action);
             $this->batchUpdateFlightStatus($ids, $new_status);
-            echo SRL_Helpers::getInstance()->generateMessage('Zmieniono status ' . count($ids) . ' lotów na "' . $new_status . '".', 'success');
+            echo SRL_Helpers::getInstance()->generateMessage('Zmieniono status ' . count($ids) . ' lot贸w na "' . $new_status . '".', 'success');
         }
     }
 
@@ -275,18 +358,18 @@ class SRL_Admin_Flights {
         
         echo SRL_Helpers::getInstance()->generateSelect('status_filter', [
             '' => 'Wszystkie statusy',
-            'wolny' => '?? Wolne',
-            'zarezerwowany' => '?? Zarezerwowane', 
-            'zrealizowany' => '?? Zrealizowane',
-            'przedawniony' => '?? Przedawnione'
+            'wolny' => 'Wolne',
+            'zarezerwowany' => 'Zarezerwowane', 
+            'zrealizowany' => 'Zrealizowane',
+            'przedawniony' => 'Przedawnione'
         ], $pagination['status_filter']);
         
         echo SRL_Helpers::getInstance()->generateSelect('search_field', [
-            'wszedzie' => 'Wsz?dzie',
+            'wszedzie' => 'Wsz臋dzie',
             'email' => 'Email',
             'id_lotu' => 'ID lotu',
-            'id_zamowienia' => 'ID zamówienia',
-            'imie_nazwisko' => 'Imi? i nazwisko',
+            'id_zamowienia' => 'ID zamowienia',
+            'imie_nazwisko' => 'Imi臋 i nazwisko',
             'login' => 'Login',
             'telefon' => 'Telefon'
         ], $pagination['search_field']);
@@ -297,17 +380,17 @@ class SRL_Admin_Flights {
                  (($pagination['date_from'] && $pagination['date_to']) ? ' - ' : '') . 
                  ($pagination['date_to'] ? SRL_Helpers::getInstance()->formatujDate($pagination['date_to']) : '');
         } else {
-            echo '?? Wybierz zakres daty lotu';
+            echo 'Wybierz zakres daty lotu';
         }
         echo '</button>';
 
         $this->renderDateRangePanel($pagination);
 
-        echo '<input type="search" name="s" value="' . esc_attr($pagination['search']) . '" placeholder="Wprowad? szukan? fraz?...">';
+        echo '<input type="search" name="s" value="' . esc_attr($pagination['search']) . '" placeholder="Wprowad藕 szukan膮 fraz臋...">';
         echo SRL_Helpers::getInstance()->generateButton('Filtruj', 'button', ['type' => 'submit']);
         
         if ($pagination['status_filter'] || $pagination['search'] || $pagination['date_from'] || $pagination['date_to']) {
-            echo SRL_Helpers::getInstance()->generateLink(admin_url('admin.php?page=srl-wykupione-loty'), 'Wyczy?? filtry', 'button');
+            echo SRL_Helpers::getInstance()->generateLink(admin_url('admin.php?page=srl-wykupione-loty'), 'Wyczy艣膰 filtry', 'button');
         }
         echo '</form></div>';
     }
@@ -323,29 +406,12 @@ class SRL_Admin_Flights {
         echo '<input type="date" name="date_to" value="' . esc_attr($pagination['date_to']) . '" style="width: 150px;">';
         echo '</div>';
         echo '<div>';
-        echo SRL_Helpers::getInstance()->generateButton('Wyczy??', 'button', ['type' => 'button', 'id' => 'srl-clear-dates', 'style' => 'margin-right: 10px;']);
+        echo SRL_Helpers::getInstance()->generateButton('Wyczy艣膰', 'button', ['type' => 'button', 'id' => 'srl-clear-dates', 'style' => 'margin-right: 10px;']);
         echo SRL_Helpers::getInstance()->generateButton('OK', 'button button-primary', ['type' => 'button', 'id' => 'srl-close-panel']);
         echo '</div>';
         echo '</div>';
     }
 
-    private function renderBulkActions() {
-        echo '<div class="tablenav top">';
-        echo '<div class="alignleft actions bulkactions">';
-        echo SRL_Helpers::getInstance()->generateSelect('action', [
-            '' => 'Akcje grupowe',
-            'bulk_delete' => 'Usuń zaznaczone',
-            'bulk_status_wolny' => 'Zmień status na: Wolny',
-            'bulk_status_zarezerwowany' => 'Zmień status na: Zarezerwowany',
-            'bulk_status_zrealizowany' => 'Zmień status na: Zrealizowany',
-            'bulk_status_przedawniony' => 'Zmień status na: Przedawniony'
-        ], '');
-        echo SRL_Helpers::getInstance()->generateButton('Zastosuj', 'button action', [
-            'type' => 'submit',
-            'onclick' => "return confirm('Czy na pewno chcesz wykona? wybran? akcj??')"
-        ]);
-        echo '</div></div>';
-    }
 
     private function renderScripts() {
         $nonce = wp_create_nonce('srl_admin_nonce');
@@ -357,7 +423,7 @@ class SRL_Admin_Flights {
             });
             
             $(".srl-cancel-lot").on("click", function() {
-                if (!confirm("Czy na pewno chcesz odwo?a? ten lot?")) return;
+                if (!confirm("Czy na pewno chcesz odwo艂a膰 ten lot?")) return;
                 
                 var lotId = $(this).data("lot-id");
                 var button = $(this);
@@ -373,14 +439,14 @@ class SRL_Admin_Flights {
                     if (response.success) {
                         location.reload();
                     } else {
-                        alert("B??d: " + response.data);
-                        button.prop("disabled", false).text("Odwo?aj");
+                        alert("B艂膮d: " + response.data);
+                        button.prop("disabled", false).text("Odwo艂aj");
                     }
                 });
             });
             
             $(".srl-complete-lot").on("click", function() {
-                if (!confirm("Czy na pewno chcesz oznaczy? ten lot jako zrealizowany?")) return;
+                if (!confirm("Czy na pewno chcesz oznaczy膰 ten lot jako zrealizowany?")) return;
                 
                 var lotId = $(this).data("lot-id");
                 var button = $(this);
@@ -396,7 +462,7 @@ class SRL_Admin_Flights {
                     if (response.success) {
                         location.reload();
                     } else {
-                        alert("B??d: " + response.data);
+                        alert("B艂膮d: " + response.data);
                         button.prop("disabled", false).text("Zrealizuj");
                     }
                 });
@@ -415,15 +481,15 @@ class SRL_Admin_Flights {
                     if (response.success) {
                         var info = response.data;
                         var content = "<div style=\"max-width: 500px;\">";
-                        content += "<h3>Szczegó?y lotu #" + lotId + "</h3>";
-                        content += "<p><strong>Imi?:</strong> " + (info.imie || "Brak danych") + "</p>";
+                        content += "<h3>Szczeg贸艂y lotu #" + lotId + "</h3>";
+                        content += "<p><strong>Imi臋:</strong> " + (info.imie || "Brak danych") + "</p>";
                         content += "<p><strong>Nazwisko:</strong> " + (info.nazwisko || "Brak danych") + "</p>";
                         content += "<p><strong>Rok urodzenia:</strong> " + (info.rok_urodzenia || "Brak danych") + "</p>";
                         if (info.wiek) {
                             content += "<p><strong>Wiek:</strong> " + info.wiek + " lat</p>";
                         }
                         content += "<p><strong>Telefon:</strong> " + (info.telefon || "Brak danych") + "</p>";
-                        content += "<p><strong>Sprawno?? fizyczna:</strong> " + (info.sprawnosc_fizyczna || "Brak danych") + "</p>";
+                        content += "<p><strong>Sprawno艣膰 fizyczna:</strong> " + (info.sprawnosc_fizyczna || "Brak danych") + "</p>";
                         content += "<p><strong>Kategoria wagowa:</strong> " + (info.kategoria_wagowa || "Brak danych") + "</p>";
                         if (info.uwagi) {
                             content += "<p><strong>Uwagi:</strong> " + info.uwagi + "</p>";
@@ -442,7 +508,7 @@ class SRL_Admin_Flights {
                             modal.remove();
                         });
                     } else {
-                        alert("B??d: " + response.data);
+                        alert("B艂膮d: " + response.data);
                     }
                 });
             });
@@ -504,20 +570,20 @@ class SRL_Admin_Flights {
                     if (response.success) {
                         pokazHistorieLotu(response.data);
                     } else {
-                        alert("B??d: " + response.data);
+                        alert("B艂膮d: " + response.data);
                     }
                 });
             });
 
             function pokazHistorieLotu(historia) {
                 var content = "<div style=\"max-width: 800px; background: white; border-radius: 8px; padding: 20px;\">";
-                content += "<h3 style=\"margin-top: 0; color: #4263be; border-bottom: 2px solid #4263be; padding-bottom: 10px;\">?? Historia lotu #" + historia.lot_id + "</h3>";
+                content += "<h3 style=\"margin-top: 0; color: #4263be; border-bottom: 2px solid #4263be; padding-bottom: 10px;\">Historia lotu #" + historia.lot_id + "</h3>";
                 
                 if (historia.events.length === 0) {
-                    content += "<p style=\"text-align: center; color: #6c757d; padding: 40px;\">Brak zdarzeń w historii tego lotu.</p>";
+                    content += "<p style=\"text-align: center; color: #6c757d; padding: 40px;\">Brak zdarze艅 w historii tego lotu.</p>";
                 } else {
                     content += "<table style=\"width: 100%; border-collapse: collapse; margin-top: 15px;\">";
-                    content += "<thead><tr style=\"background: #f8f9fa;\"><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Data</th><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Akcja</th><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Wykonawca</th><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Szczegó?y</th></tr></thead>";
+                    content += "<thead><tr style=\"background: #f8f9fa;\"><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Data</th><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Akcja</th><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Wykonawca</th><th style=\"padding: 12px 8px; text-align: left; border-bottom: 1px solid #e1e5e9;\">Szczeg贸艂y</th></tr></thead>";
                     content += "<tbody>";
                     
                     historia.events.forEach(function(event) {
