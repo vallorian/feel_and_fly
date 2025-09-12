@@ -21,8 +21,9 @@ class SRL_Database_Setup {
         $this->createProductCategories();
         $this->createReservationPage();
         $this->addEndpoints();
-        flush_rewrite_rules();
-
+  
+		SRL_Flight_View::getInstance()->addRewriteRule();
+		flush_rewrite_rules();	
         update_option('srl_db_version', '1.0');
 
         if (!get_option('users_can_register')) {

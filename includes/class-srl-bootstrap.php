@@ -62,6 +62,7 @@ class SRL_Bootstrap {
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-vouchers.php'; 
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-flights.php';
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-day.php';
+		require_once SRL_PLUGIN_DIR . 'includes/class-srl-flight-view.php';
 
     }
 
@@ -96,6 +97,7 @@ class SRL_Bootstrap {
 		SRL_Admin_Vouchers::getInstance();
 		SRL_Admin_Flights::getInstance();
 		SRL_Admin_Day::getInstance();
+		SRL_Flight_View::getInstance();
     }
 
     private function initHooks() {

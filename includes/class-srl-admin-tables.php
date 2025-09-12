@@ -255,16 +255,21 @@ class SRL_Admin_Tables {
         return ob_get_clean();
     }
 
-    private function renderFlightIdCell($flight) {
-        $html = '<strong>ID lotu: #' . $flight['id'] . '</strong><br>';
-        if ($flight['order_id'] == 0) {
-            $html .= '<small style="color:#666;font-style:italic;">dod. ręcznie</small>';
-        } else {
-            $order_url = admin_url('post.php?post=' . $flight['order_id'] . '&action=edit');
-            $html .= '<small>Nr. zam: ' . SRL_Helpers::getInstance()->generateLink($order_url, '#' . $flight['order_id'], '', ['target' => '_blank', 'style' => 'color:#4263be;']) . '</small>';
-        }
-        return $html;
-    }
+	private function renderFlightIdCell($flight) {
+		$html = '<strong>ID lotu: #' . $flight['id'] . '</strong><br>';
+		if ($flight['order_id'] == 0) {
+			$html .= '<small style="color:#666;font-style:italic;">dod. ręcznie</small>';
+		} else {
+			$order_url = admin_url('post.php?post=' . $flight['order_id'] . '&action=edit');
+			$html .= '<small>Nr. zam: ' . SRL_Helpers::getInstance()->generateLink($order_url, '#' . $flight['order_id'], '', ['target' => '_blank', 'style' => 'color:#4263be;']) . '</small>';
+		}
+		
+		$flight_view = SRL_Flight_View::getInstance();
+		$view_url = $flight_view->generateFlightViewUrl($flight['id'], $flight['data_zakupu']);
+		$html .= '<br><small>' . SRL_Helpers::getInstance()->generateLink($view_url, '🔗 Link do podglądu', '', ['target' => '_blank', 'style' => 'color:#4263be;']) . '</small>';
+		
+		return $html;
+	}
 
     private function renderClientCell($flight) {
         $link = admin_url('admin.php?page=wc-orders&customer=' . $flight['user_id']);

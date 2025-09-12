@@ -35,6 +35,7 @@ class SRL_Frontend_Ajax {
         add_action('wp_ajax_nopriv_srl_ajax_register', [$this, 'ajaxRegister']);
         add_action('wp_ajax_nopriv_srl_waliduj_wiek', [$this, 'ajaxWalidujWiek']);
         add_action('wp_ajax_nopriv_srl_waliduj_kategorie_wagowa', [$this, 'ajaxWalidujKategorieWagowa']);
+		add_action('wp_ajax_nopriv_srl_ajax_login', [$this, 'ajaxLogin']);
     }
 
     private function toCamelCase($string) {
