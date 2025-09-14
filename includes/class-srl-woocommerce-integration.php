@@ -23,6 +23,8 @@ class SRL_WooCommerce_Integration {
 		add_action('wp', [$this, 'scheduleDailyCheck']);
 		add_action('srl_sprawdz_przeterminowane_loty', [SRL_Historia_Functions::getInstance(), 'oznaczPrzeterminowaneLoty']);
 		add_action('srl_sprawdz_przeterminowane_loty', [SRL_Voucher_Gift_Functions::getInstance(), 'oznaczPrzeterminowaneVouchery']);
+		add_action('woocommerce_thankyou', [$this, 'customThankYouMessage'], 5, 1);
+		add_filter('woocommerce_thankyou_order_received_text', [$this, 'customThankYouText'], 10, 2);
 	}
 
 	public function orderStatusChanged($order_id, $old_status, $new_status) {
@@ -561,5 +563,141 @@ class SRL_WooCommerce_Integration {
 		}
 
 		return $result !== false;
+	}
+	
+	public function customThankYouText($text, $order) {
+    if (!$order) return $text;
+    
+    // Sprawdź czy zamówienie zawiera loty tandemowe
+    $has_flights = false;
+    foreach ($order->get_items() as $item) {
+        $product = $item->get_product();
+        if ($product && $this->czyProduktLotu($product)) {
+            $has_flights = true;
+            break;
+        }
+    }
+    
+    // Jeśli nie ma lotów, zwróć oryginalny tekst
+    if (!$has_flights) {
+        return $text;
+    }
+    
+    // Ukryj oryginalny tekst - zastąpimy go własnym
+    return '';
+}
+
+	// NOWA METODA - niestandardowa wiadomość dla lotów
+	public function customThankYouMessage($order_id) {
+		if (!$order_id) return;
+		
+		$order = wc_get_order($order_id);
+		if (!$order) return;
+		
+		// Sprawdź czy zamówienie zawiera loty tandemowe
+		$flight_items = [];
+		$has_flights = false;
+		
+		foreach ($order->get_items() as $item) {
+			$product = $item->get_product();
+			if ($product && $this->czyProduktLotu($product)) {
+				$has_flights = true;
+				$flight_items[] = [
+					'name' => $item->get_name(),
+					'quantity' => $item->get_quantity()
+				];
+			}
+		}
+		
+		if (!$has_flights) return;
+		
+		// Sprawdź status płatności
+		$payment_status = $order->get_status();
+		$is_paid = in_array($payment_status, ['processing', 'completed']);
+		
+		// Enqueue istniejący style
+		wp_enqueue_style('srl-frontend-style', SRL_PLUGIN_URL . 'assets/css/frontend-style.css', [], '1.0');
+		
+		// Wygeneruj niestandardową wiadomość używając istniejących klas
+		echo $this->generateThankYouContent($order, $flight_items, $is_paid);
+	}
+
+	// NOWA METODA - generuje treść używając istniejących klas CSS
+	private function generateThankYouContent($order, $flight_items, $is_paid) {
+		ob_start();
+		?>
+		
+		<div class="srl-komunikat srl-komunikat-success" style="text-align: center; padding: 40px; margin: 20px 0;">
+			<h2 style="color: #46b450; margin-bottom: 20px; text-transform: uppercase; font-size: 32px; font-weight: 700;">
+				🎉 Dziękujemy za zakup!
+			</h2>
+			<p style="font-size: 18px; margin-bottom: 30px; font-weight: 500;">
+				Po zaksięgowaniu Twojej płatności Twój zakupiony lot zostanie dodany do Twojego konta. Otrzymasz również e-mail z instrukcją.
+			</p>
+
+			<?php if ($is_paid): ?>
+				<div class="srl-komunikat srl-komunikat-info" style="margin: 30px 0; padding: 25px;">
+					<h4 style="margin: 0 0 15px 0; color: #004085; font-size: 20px;">
+						Możesz już rezerwować termin!
+					</h4>
+					<p style="margin-bottom: 20px;">
+						Twoja płatność została potwierdzona. Przejdź do rezerwacji terminu lotu.
+					</p>
+					<a href="<?php echo home_url('/rezerwuj-lot/'); ?>" class="srl-btn srl-btn-success" style="font-size: 18px; padding: 15px 30px;">
+						Zarezerwuj termin lotu
+					</a>
+				</div>
+			<?php else: ?>
+				<div class="srl-komunikat srl-komunikat-warning" style="margin: 30px 0; padding: 25px;">
+					<h4 style="margin: 0 0 15px 0; color: #856404;">💡 Ważne:</h4>
+					<p style="margin-bottom: 20px;">Po potwierdzeniu płatności będziesz mógł przejść do rezerwacji terminu. Otrzymasz również email z instrukcjami.</p>
+					<button onclick="location.reload()" class="srl-btn srl-btn-secondary" style="font-size: 16px; padding: 12px 25px;">
+						🔄 Sprawdź status płatności
+					</button>
+				</div>
+			<?php endif; ?>
+		</div>
+
+		<div class="srl-komunikat srl-komunikat-info" style="text-align: left; padding: 30px; margin: 20px 0;">
+			<h3 style="margin-top: 0; color: #004085; text-transform: uppercase;">
+				Jak zarezerwować termin lotu:
+			</h3>
+			
+			<div style="margin: 20px 0;">
+				<div style="background: rgba(255, 255, 255, 0.7); padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #004085;">
+					<strong>1. Wejdź na stronę rezerwacji i się zaloguj</strong>
+					<p style="margin: 10px 0;">
+						Przejdź na <a href="<?php echo home_url('/rezerwuj-lot/'); ?>" style="color: #004085; font-weight: bold;"><?php echo home_url('/rezerwuj-lot/'); ?></a>
+					</p>
+				</div>
+				
+				<div style="background: rgba(255, 255, 255, 0.7); padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #004085;">
+					<strong>2. Podążaj za krokami na stronie:</strong>
+					<ul style="margin: 10px 0; padding-left: 20px;">
+						<li style="margin: 8px 0;">Wybierz wykupiony lot i kliknij "Wybierz termin". Tutaj również możesz dokupić dodatkowe opcje</li>
+						<li style="margin: 8px 0;">Wpisz swoje dane i zapoznaj się z regulaminem</li>
+						<li style="margin: 8px 0;">Wybierz dzień lotu - tutaj monitorujemy warunki pogodowe i na bieżąco wstawiamy nowe terminy</li>
+						<li style="margin: 8px 0;">Wybierz godzinę lotu z dostępnej puli</li>
+						<li style="margin: 8px 0;">Zweryfikuj poprawność danych i zatwierdź rezerwację</li>
+					</ul>
+				</div>
+				
+				<div style="background: rgba(255, 255, 255, 0.7); padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #004085;">
+					<strong>3. Otrzymaj potwierdzenie</strong>
+					<p style="margin: 10px 0;">
+						Po dokonaniu rezerwacji otrzymasz kolejny email z szczegółami terminu i instrukcjami dojazdu.
+					</p>
+				</div>
+			</div>
+		</div>
+		
+		<div class="srl-komunikat srl-komunikat-success" style="text-align: center; padding: 25px; margin: 20px 0;">
+			<p style="margin: 0; font-size: 18px; font-weight: 600; color: #155724;">
+				🌤️ Cieszymy się, że wybrałeś Feel&Fly! Przygotuj się na niezapomniane wrażenia!
+			</p>
+		</div>
+		
+		<?php
+		return ob_get_clean();
 	}
 }
