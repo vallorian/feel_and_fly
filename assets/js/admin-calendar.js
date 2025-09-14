@@ -392,7 +392,7 @@ jQuery(document).ready(function($) {
         html += '<div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:20px;">';
         html += '<h4 style="margin-top:0; color:#f57c00;">⚠️ Ważne informacje:</h4>';
         html += '<ul style="margin:0; padding-left:20px;">';
-        html += '<li>Zgłoś się 30 minut przed godziną lotu</li>';
+        html += '<li>Zgłoś się 10 minut przed godziną lotu</li>';
         html += '<li>Weź ze sobą dokument tożsamości</li>';
         html += '<li>Ubierz się stosownie do warunków pogodowych</li>';
         html += '<li>Rezerwację można anulować do 48h przed lotem</li>';

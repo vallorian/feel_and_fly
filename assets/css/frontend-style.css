@@ -802,7 +802,7 @@
     align-items: center;
     gap: var(--spacing-sm);
     background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    color: var(--white);
+    color: white!important;
     padding: 16px 32px;
     text-decoration: none;
     border-radius: var(--radius-large);
@@ -818,7 +818,7 @@
     background: linear-gradient(135deg, var(--primary-dark), var(--primary-darker));
     transform: translateY(-3px);
     box-shadow: 0 8px 24px rgba(0, 115, 170, 0.4);
-    color: var(--white);
+    color: #46b450!important;
     text-decoration: none;
 }
 
@@ -876,7 +876,7 @@
 .srl-cart-notification {
     display: none;
     position: fixed;
-    top: var(--spacing-lg);
+    bottom: var(--spacing-lg);
     right: var(--spacing-lg);
     background: var(--success-color);
     color: var(--white);
@@ -884,6 +884,7 @@
     border-radius: var(--radius-medium);
     z-index: 9999;
     box-shadow: var(--shadow-heavy);
+	max-width: 320px;
 }
 
 .srl-cart-button {
@@ -1473,7 +1474,7 @@
     }
     
     .srl-cart-notification {
-        top: 10px;
+        bottom: 10px;
         right: 10px;
         left: 10px;
         padding: 12px var(--spacing-md);

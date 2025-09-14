@@ -72,21 +72,21 @@ class SRL_Historia_Functions {
     }
 
     public function kategoryzujAkcje($typ) {
-        $kategorie = array(
-            'ZMIANA STATUSU' => array('rezerwacja_klient', 'anulowanie_klient', 'zmiana_statusu_admin', 'realizacja_admin', 
-                                     'odwolanie_przez_organizatora', 'przywrocenie_przez_admin', 'anulowanie_przez_organizatora',
-                                     'przypisanie_admin', 'zmiana_terminu_admin'),
-            'DOKUPIENIE WARIANTU' => array('dokupienie_filmowanie', 'dokupienie_akrobacje', 'przedluzenie_waznosci', 'zmiana_opcji'),
-            'SYSTEMOWE' => array('przypisanie_id', 'opcja_przy_zakupie', 'zakup_lotu'),
-            'ZMIANA DANYCH' => array('edycja_danych_pasazera', 'aktualizacja_profilu', 'zapisanie_danych_klienta'),
+		$kategorie = array(
+			'ZMIANA STATUSU' => array('rezerwacja_klient', 'anulowanie_klient', 'zmiana_statusu_admin', 'zmiana_statusu_public_admin', 'realizacja_admin', 
+									 'odwolanie_przez_organizatora', 'przywrocenie_przez_admin', 'anulowanie_przez_organizatora',
+									 'przypisanie_admin', 'zmiana_terminu_admin'),
+			'DOKUPIENIE WARIANTU' => array('dokupienie_filmowanie', 'dokupienie_akrobacje', 'przedluzenie_waznosci', 'zmiana_opcji'),
+			'SYSTEMOWE' => array('przypisanie_id', 'opcja_przy_zakupie', 'zakup_lotu'),
+			'ZMIANA DANYCH' => array('edycja_danych_pasazera', 'aktualizacja_profilu', 'zapisanie_danych_klienta'),
 			'ZMIANA PRZEZ ADMIN' => array('admin_dodanie_opcji', 'admin_usuniecie_opcji')
-        );
+		);
 
-        foreach ($kategorie as $kategoria => $typy) {
-            if (in_array($typ, $typy)) return $kategoria;
-        }
-        return 'INNE';
-    }
+		foreach ($kategorie as $kategoria => $typy) {
+			if (in_array($typ, $typy)) return $kategoria;
+		}
+		return 'INNE';
+	}
 
     public function uproszczonyOpisAkcji($typ, $szczegoly) {
         $status_badge = function($status) {
@@ -129,6 +129,7 @@ class SRL_Historia_Functions {
                 return '🔄 Zmiana terminu przez administratora';
 
             case 'zmiana_statusu_admin':
+			case 'zmiana_statusu_public_admin':
                 $stary = $szczegoly['stary_status'] ?? '';
                 $nowy = $szczegoly['nowy_status'] ?? '';
                 return ($stary && $nowy) ? $status_badge($stary) . ' → ' . $status_badge($nowy) : 'Zmiana statusu przez administratora';

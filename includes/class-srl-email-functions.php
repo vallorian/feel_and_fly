@@ -20,7 +20,7 @@ class SRL_Email_Functions {
     }
 
 	private function getWazneInformacje() {
-		return "Ważne informacje:\n- Zgłoś się 30 minut przed godziną lotu\n- Weź ze sobą dokument tożsamości\n- Ubierz się stosownie do warunków pogodowych\n";
+		return "Ważne informacje:\n- Zgłoś się 10 minut przed godziną lotu\n- Weź ze sobą dokument tożsamości\n- Ubierz się stosownie do warunków pogodowych\n";
 	}
 	
 	private function formatujTerminEmail($data, $godzina_start) {
@@ -29,7 +29,7 @@ class SRL_Email_Functions {
 		return "{$formatted_date} ok. godz. {$godzina}";
 	}
 	
-    public function sendEmail($to, $subject_key, $template_data = array(), $additional_headers = array()) {
+    public function sendEmail($to, $subject_key, $template_data = array(), $additional_headers = array(), $attachments = array()) {
 		$templates = array(
 			'flight_purchase_welcome' => array(
 				'subject' => '[Feel and Fly] Dziękujemy za zakup lotu tandemowego!',
@@ -37,7 +37,7 @@ class SRL_Email_Functions {
 			),
 			'flight_confirmation' => array(
 				'subject' => '[Feel and Fly] Potwierdzenie rezerwacji lotu tandemowego',
-				'body' => "Dzień dobry,\n\nTwoja rezerwacja lotu tandemowego została potwierdzona!\n\nSzczegóły:\n📅 Data: {data_lotu}\n⏰ Godzina: ok. {godzina_lotu}\n\n{wazne_informacje}\n\n🧭 Jak dojechać na lotnisko (Borowa k. Oleśnicy):\n• Ustaw nawigację na: Paralotnia Borowa (Google Maps)\n  https://www.google.pl/maps/place/Paralotnia+Borowa/@51.188161,17.2892122,983m/data=!3m2!1e3!4b1!4m6!3m5!1s0x470fe471ef66a043:0x837b884330868469!8m2!3d51.188161!4d17.2892122!16s%2Fg%2F11c58kt999\n\n• Alternatywnie: koniec ul. Akacjowej. Na końcu ulicy skręć w lewo w szutrową drogę, dojedź do skrzyżowania i skręć w prawo, dalej jedź szutrem przy granicy lasu. Na łące kieruj się znakami — parking zmienia się w zależności od wiatru.\n• Zatrzymaj się na parkingu i czekaj na ekipę lotniskową (dowóz na start zapewniamy). Nie wchodź za znak zakazu wejścia.\n\nℹ️ Czas dojazdu autem (orientacyjnie):\n• Wrocław – 20 min\n• Oleśnica – 13 min\n• Trzebnica – 32 min\n• Długołęka – 11 min\n• Kiełczów – 18 min\n\n🚆 Bez auta? Do Borowej dojedziesz pociągiem regio z dworców we Wrocławiu lub Oleśnicy.\n\n✈️ Pamiętaj: latamy na paralotniach — najczęściej widzimy z góry, czy pojawiły się nowe auta na parkingu 🙂\n\nW razie pytań, skontaktuj się z nami.\n\nPozdrawiamy,\nZespół Feel&Fly"
+				'body' => "Dzień dobry,\n\nTwoja rezerwacja lotu tandemowego została potwierdzona!\n\nSzczegóły:\n📅 Data: {data_lotu}\n⏰ Godzina: ok. {godzina_lotu}\n\n{wazne_informacje}\n\n{qr_section}\n\n🧭 Jak dojechać na lotnisko (Borowa k. Oleśnicy):\n• Ustaw nawigację na: Paralotnia Borowa (Google Maps)\n  https://www.google.pl/maps/place/Paralotnia+Borowa/@51.188161,17.2892122,983m/data=!3m2!1e3!4b1!4m6!3m5!1s0x470fe471ef66a043:0x837b884330868469!8m2!3d51.188161!4d17.2892122!16s%2Fg%2F11c58kt999\n\n• Alternatywnie: koniec ul. Akacjowej. Na końcu ulicy skręć w lewo w szutrową drogę, dojedź do skrzyżowania i skręć w prawo, dalej jedź szutrem przy granicy lasu. Na łące kieruj się znakami — parking zmienia się w zależności od wiatru.\n• Zatrzymaj się na parkingu i czekaj na ekipę lotniskową (dowóz na start zapewniamy). Nie wchodź za znak zakazu wejścia.\n\nℹ️ Czas dojazdu autem (orientacyjnie):\n• Wrocław – 20 min\n• Oleśnica – 13 min\n• Trzebnica – 32 min\n• Długołęka – 11 min\n• Kiełczów – 18 min\n\n🚆 Bez auta? Do Borowej dojedziesz pociągiem regio z dworców we Wrocławiu lub Oleśnicy.\n\n✈️ Pamiętaj: latamy na paralotniach — najczęściej widzimy z góry, czy pojawiły się nowe auta na parkingu 🙂\n\nW razie pytań, skontaktuj się z nami.\n\nPozdrawiamy,\nZespół Feel&Fly"
 			),
 			'flight_reschedule' => array(
 				'subject' => '[Feel and Fly] Zmiana terminu Twojego lotu tandemowego',
@@ -116,7 +116,7 @@ class SRL_Email_Functions {
 		);
 		
 		$headers = array_merge($default_headers, $additional_headers);
-		$sent = wp_mail($to, $subject, $body, $headers);
+		$sent = wp_mail($to, $subject, $body, $headers, $attachments);
 		
 		if (!$sent) {
 			error_log("SRL: Nie udało się wysłać emaila ({$subject_key}) do: {$to}");
@@ -212,11 +212,29 @@ class SRL_Email_Functions {
 		$user = get_userdata($user_id);
 		if (!$user) return false;
 
-		return $this->sendEmail($user->user_email, 'flight_confirmation', array(
+		// Wygeneruj QR kod jako załącznik
+		$qr_generator = SRL_QR_Code_Generator::getInstance();
+		$qr_attachment = $qr_generator->generateQRAttachment($lot['id'], "qr-kod-lot-{$lot['id']}.png");
+		
+		$attachments = [];
+		if ($qr_attachment) {
+			$attachments[] = $qr_attachment['path'];
+		}
+
+		$template_data = [
 			'data_lotu' => SRL_Helpers::getInstance()->formatujDate($slot['data']),
 			'godzina_lotu' => substr($slot['godzina_start'], 0, 5),
 			'wazne_informacje' => $this->getWazneInformacje()
-		));
+		];
+
+		$result = $this->sendEmail($user->user_email, 'flight_confirmation', $template_data, [], $attachments);
+		
+		// Usuń tymczasowy plik QR
+		if ($qr_attachment && $qr_attachment['cleanup'] && file_exists($qr_attachment['path'])) {
+			unlink($qr_attachment['path']);
+		}
+		
+		return $result;
 	}
 
 	public function wyslijEmailAnulowania($user_id, $slot, $lot, $powod = '') {
@@ -256,16 +274,35 @@ class SRL_Email_Functions {
 		));
 	}
 
-	// NOWE METODY - jednolite dla wszystkich typów lotów:
-
-	public function wyslijEmailPotwierdzeniaDlaWszystkichTypowLotow($email, $data_lotu, $godzina_start, $godzina_koniec) {
+	public function wyslijEmailPotwierdzeniaDlaWszystkichTypowLotow($email, $data_lotu, $godzina_start, $godzina_koniec, $flight_id = null) {
 		if (!is_email($email)) return false;
 		
-		return $this->sendEmail($email, 'flight_confirmation', array(
+		$attachments = [];
+		
+		// Dodaj QR kod jako załącznik jeśli mamy ID lotu
+		if ($flight_id) {
+			$qr_generator = SRL_QR_Code_Generator::getInstance();
+			$qr_attachment = $qr_generator->generateQRAttachment($flight_id, "qr-kod-lot-{$flight_id}.png");
+			
+			if ($qr_attachment) {
+				$attachments[] = $qr_attachment['path'];
+			}
+		}
+		
+		$template_data = [
 			'data_lotu' => SRL_Helpers::getInstance()->formatujDate($data_lotu),
 			'godzina_lotu' => substr($godzina_start, 0, 5),
 			'wazne_informacje' => $this->getWazneInformacje()
-		));
+		];
+
+		$result = $this->sendEmail($email, 'flight_confirmation', $template_data, [], $attachments);
+		
+		// Usuń tymczasowy plik QR
+		if (isset($qr_attachment) && $qr_attachment['cleanup'] && file_exists($qr_attachment['path'])) {
+			unlink($qr_attachment['path']);
+		}
+		
+		return $result;
 	}
 
 	public function wyslijEmailZmianyTerminu($email, $stary_termin_data, $stary_termin_start, $nowy_termin_data, $nowy_termin_start) {

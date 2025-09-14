@@ -890,7 +890,8 @@ class SRL_Admin_Ajax {
 						$email,
 						$slot['data'],
 						$termin_szczegoly['godzina_start'],
-						$termin_szczegoly['godzina_koniec']
+						$termin_szczegoly['godzina_koniec'],
+						null // Dla lotów prywatnych nie ma ID lotu z tabeli
 					);
 				}
 			}

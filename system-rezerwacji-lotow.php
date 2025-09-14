@@ -24,6 +24,13 @@ register_deactivation_hook(__FILE__, function() {
 SRL_Bootstrap::getInstance()->init();
 
 
+// functions.php w motywie potomnym
+add_action( 'woocommerce_login_form', 'custom_nextend_login_button' );
+
+function custom_nextend_login_button() {
+    echo do_shortcode('[nextend_social_login]');
+}
+
 // do wywalenia
 
 add_action( 'woocommerce_thankyou', 'custom_change_order_status', 20, 1 );

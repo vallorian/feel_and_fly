@@ -63,7 +63,7 @@ class SRL_Bootstrap {
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-flights.php';
 		require_once SRL_PLUGIN_DIR . 'includes/admin/class-srl-admin-day.php';
 		require_once SRL_PLUGIN_DIR . 'includes/class-srl-flight-view.php';
-
+		require_once SRL_PLUGIN_DIR . 'includes/class-srl-qr-code-generator.php';
     }
 
     private function initializeClasses() {
@@ -98,6 +98,7 @@ class SRL_Bootstrap {
 		SRL_Admin_Flights::getInstance();
 		SRL_Admin_Day::getInstance();
 		SRL_Flight_View::getInstance();
+		SRL_QR_Code_Generator::getInstance();
     }
 
     private function initHooks() {

@@ -21,11 +21,13 @@ class SRL_Flight_View {
     }
 
     private function initHooks() {
-        add_action('init', [$this, 'addRewriteRule']);
-        add_action('template_redirect', [$this, 'handleFlightView']);
-        add_action('wp_ajax_srl_change_flight_status_public', [$this, 'ajaxChangeFlightStatus']);
-        add_action('wp_ajax_srl_cancel_flight_admin', [$this, 'ajaxCancelFlight']);
-    }
+		add_action('init', [$this, 'addRewriteRule']);
+		add_action('template_redirect', [$this, 'handleFlightView']);
+		add_action('wp_ajax_srl_change_flight_status_public', [$this, 'ajaxChangeFlightStatus']);
+		add_action('wp_ajax_srl_cancel_flight_admin', [$this, 'ajaxCancelFlight']);
+		add_action('wp_ajax_srl_ajax_login', [$this, 'ajaxLogin']);
+		add_action('wp_ajax_nopriv_srl_ajax_login', [$this, 'ajaxLogin']);
+	}
 
     public function addRewriteRule() {
         add_rewrite_rule('^lot/([0-9]+)_([a-zA-Z0-9]{16})/?$', 'index.php?srl_flight_view=1&flight_id=$matches[1]&security_code=$matches[2]', 'top');
@@ -58,32 +60,56 @@ class SRL_Flight_View {
         exit;
     }
 
-    private function getFlightWithSecurity($flight_id, $security_code) {
-        global $wpdb;
-        
-        $flight = $wpdb->get_row($wpdb->prepare(
-            "SELECT zl.*, t.data, t.godzina_start, t.godzina_koniec, t.pilot_id, t.status as slot_status,
-                    u.user_email, u.display_name
-             FROM {$wpdb->prefix}srl_zakupione_loty zl
-             LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
-             LEFT JOIN {$wpdb->users} u ON zl.user_id = u.ID
-             WHERE zl.id = %d",
-            $flight_id
-        ), ARRAY_A);
+	private function getFlightWithSecurity($flight_id, $security_code) {
+		global $wpdb;
+		
+		$flight = $wpdb->get_row($wpdb->prepare(
+			"SELECT zl.*, t.data, t.godzina_start, t.godzina_koniec, t.pilot_id, t.status as slot_status,
+					u.user_email, u.display_name, u.user_login
+			 FROM {$wpdb->prefix}srl_zakupione_loty zl
+			 LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
+			 LEFT JOIN {$wpdb->users} u ON zl.user_id = u.ID
+			 WHERE zl.id = %d",
+			$flight_id
+		), ARRAY_A);
 
-        if (!$flight) return false;
+		if (!$flight) return false;
 
-        $expected_code = $this->generateSecurityCode($flight_id, $flight['data_zakupu']);
-        if (!hash_equals($expected_code, $security_code)) return false;
+		$expected_code = $this->generateSecurityCode($flight_id, $flight['data_zakupu']);
+		if (!hash_equals($expected_code, $security_code)) return false;
 
-        // Pobierz dane użytkownika z cache managera
-        $user_data = SRL_Cache_Manager::getInstance()->getUserData($flight['user_id']);
-        if ($user_data) {
-            $flight = array_merge($flight, $user_data);
-        }
-
-        return $flight;
-    }
+		// Pobierz dane użytkownika z cache managera
+		$user_data = SRL_Cache_Manager::getInstance()->getUserData($flight['user_id']);
+		if ($user_data) {
+			// Rozpocznij z danymi z tabeli lotów
+			$merged_flight = $flight;
+			
+			// Dodaj/nadpisz danymi użytkownika z cache (prawdziwe dane)
+			$merged_flight = array_merge($merged_flight, $user_data);
+			
+			// WAŻNE: Użyj prawdziwych danych użytkownika zamiast danych z tabeli lotów
+			// Dane z tabeli lotów (imie/nazwisko) mogą być nieprawidłowe (np. "Voucher User")
+			if (!empty($user_data['imie'])) {
+				$merged_flight['imie'] = $user_data['imie'];
+			}
+			if (!empty($user_data['nazwisko'])) {
+				$merged_flight['nazwisko'] = $user_data['nazwisko'];
+			}
+			
+			// Zachowaj oryginalne ID lotu i inne ważne dane z tabeli
+			$merged_flight['id'] = $flight['id'];
+			$merged_flight['status'] = $flight['status'];
+			$merged_flight['data_zakupu'] = $flight['data_zakupu'];
+			$merged_flight['data_waznosci'] = $flight['data_waznosci'];
+			$merged_flight['termin_id'] = $flight['termin_id'];
+			$merged_flight['ma_filmowanie'] = $flight['ma_filmowanie'];
+			$merged_flight['ma_akrobacje'] = $flight['ma_akrobacje'];
+			
+			$flight = $merged_flight;
+		}
+		
+		return $flight;
+	}
 
     private function displayFlightView($flight) {
         $is_logged_in = is_user_logged_in();
@@ -96,7 +122,6 @@ class SRL_Flight_View {
         <head>
             <meta charset="<?php bloginfo('charset'); ?>">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Lot #<?php echo $flight['id']; ?> - <?php bloginfo('name'); ?></title>
             <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; margin: 0; padding: 20px; line-height: 1.6; color: #333; }
             .flight-container { max-width: 480px; margin: 0 auto; }
@@ -120,11 +145,11 @@ class SRL_Flight_View {
             .status-przedawniony { background: #f8d7da; color: #721c24; }
             .details-section { margin-top: 25px; }
             .details-title { font-size: 18px; font-weight: 600; margin-bottom: 15px; color: #333; }
-            .details-table { width: 100%; border-collapse: collapse; }
-            .details-table tr { border-bottom: 1px solid #eee; }
-            .details-table td { padding: 12px 8px; vertical-align: top; }
-            .details-table td:first-child { font-weight: 600; color: #666; width: 40%; }
-            .details-table td:last-child { color: #333; }
+            .details-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+			.details-table tr { border-bottom: 1px solid #eee; }
+			.details-table td { padding: 12px 8px; vertical-align: top; word-wrap: break-word; }
+			.details-table td:first-child { font-weight: 600; color: #666; width: 40%; }
+			.details-table td:last-child { color: #333; }
             .phone-link { color: #4263be; text-decoration: none; }
             .admin-controls { background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px; padding: 20px; margin-top: 20px; }
             .admin-controls h4 { margin: 0 0 15px; color: #f57c00; }
@@ -159,12 +184,15 @@ class SRL_Flight_View {
 
                 <div class="flight-header">
                     <div class="flight-id">
-                        Lot #<?php echo $flight['id']; ?> - 
-                        <?php 
-                        $full_name = trim($flight['imie'] . ' ' . $flight['nazwisko']);
-                        echo $is_logged_in ? esc_html($full_name) : $this->maskText($full_name);
-                        ?>
-                    </div>
+						Lot #<?php echo esc_html($flight['id']); ?> - 
+						<?php 
+						$full_name = trim(($flight['imie'] ?? '') . ' ' . ($flight['nazwisko'] ?? ''));
+						if (empty($full_name)) {
+							$full_name = $flight['display_name'] ?? 'Nieznany klient';
+						}
+						echo $is_logged_in ? esc_html($full_name) : $this->maskText($full_name);
+						?>
+					</div>
                     
                     <?php if ($flight['data']): ?>
                     <div class="flight-date <?php echo (date('Y-m-d') === $flight['data']) ? 'today' : ''; ?>">
@@ -193,11 +221,17 @@ class SRL_Flight_View {
                     <div class="details-title">Szczegóły lotu</div>
                     <table class="details-table">
                         <tr>
-                            <td>Imię i nazwisko:</td>
-                            <td class="<?php echo !$is_logged_in ? 'masked' : ''; ?>">
-                                <?php echo $is_logged_in ? esc_html($full_name) : $this->maskText($full_name); ?>
-                            </td>
-                        </tr>
+							<td>Imię i nazwisko:</td>
+							<td class="<?php echo !$is_logged_in ? 'masked' : ''; ?>">
+								<?php 
+								$display_name = trim(($flight['imie'] ?? '') . ' ' . ($flight['nazwisko'] ?? ''));
+								if (empty($display_name) || $display_name === 'Voucher User') {
+									$display_name = $flight['display_name'] ?? 'Brak danych';
+								}
+								echo $is_logged_in ? esc_html($display_name) : $this->maskText($display_name); 
+								?>
+							</td>
+						</tr>
                         <?php if (isset($flight['rok_urodzenia']) && $flight['rok_urodzenia']): ?>
                         <tr>
                             <td>Wiek:</td>
@@ -269,20 +303,27 @@ class SRL_Flight_View {
                     </table>
                 </div>
 
+                <?php 
+                // DODAJ TEN FRAGMENT - QR kod dla wszystkich
+                echo SRL_QR_Code_Generator::getInstance()->renderQRForFlightView($flight['id'], 180);
+                ?>
+
                 <?php if ($is_admin && $flight['status'] === 'zarezerwowany'): ?>
                 <div class="admin-controls">
-                    <h4>⚙️ Panel administratora</h4>
-                    <div class="admin-actions">
-                        <button class="admin-btn btn-complete" onclick="changeFlightStatus(<?php echo $flight['id']; ?>, 'zrealizowany')">
-                            ✅ Oznacz jako zrealizowany
-                        </button>
-                        <button class="admin-btn btn-cancel" onclick="cancelFlight(<?php echo $flight['id']; ?>, <?php echo $flight['termin_id'] ?: 'null'; ?>)">
-                            ❌ Odwołaj lot
-                        </button>
-                    </div>
-                    <div id="admin-message" style="margin-top: 15px; padding: 10px; border-radius: 4px; display: none;"></div>
-                </div>
-                <?php endif; ?>
+					<h4>⚙️ Panel administratora</h4>
+					<div class="admin-actions">
+						<button class="admin-btn btn-complete" onclick="changeFlightStatus(<?php echo $flight['id']; ?>, 'zrealizowany')">
+							✅ Oznacz jako zrealizowany
+						</button>
+						<button class="admin-btn btn-cancel" onclick="cancelFlight(<?php echo $flight['id']; ?>, <?php echo $flight['termin_id'] ?: 'null'; ?>)">
+							❌ Odwołaj lot
+						</button>
+						<!-- DODAJ TEN FRAGMENT -->
+						<?php echo SRL_QR_Code_Generator::getInstance()->renderQRButton($flight['id'], 'Pokaż QR kod'); ?>
+					</div>
+					<div id="admin-message" style="margin-top: 15px; padding: 10px; border-radius: 4px; display: none;"></div>
+				</div>
+				<?php endif; ?>
             </div>
 
             <script>
@@ -440,55 +481,90 @@ class SRL_Flight_View {
     }
 
     public function generateFlightViewUrl($flight_id, $date_created) {
-        $security_code = $this->generateSecurityCode($flight_id, $date_created);
-        return home_url("/lot/{$flight_id}_{$security_code}");
-    }
+		$security_code = $this->generateSecurityCode($flight_id, $date_created);
+		$url = home_url("/lot/{$flight_id}_{$security_code}");
+		return $url;
+	}
 
     public function ajaxChangeFlightStatus() {
-        SRL_Helpers::getInstance()->checkAdminPermissions();
-        check_ajax_referer('srl_admin_nonce', 'nonce');
+		SRL_Helpers::getInstance()->checkAdminPermissions();
+		check_ajax_referer('srl_admin_nonce', 'nonce');
 
-        $flight_id = intval($_POST['flight_id']);
-        $new_status = sanitize_text_field($_POST['new_status']);
+		$flight_id = intval($_POST['flight_id']);
+		$new_status = sanitize_text_field($_POST['new_status']);
 
-        if (!in_array($new_status, ['wolny', 'zarezerwowany', 'zrealizowany'])) {
-            wp_send_json_error('Nieprawidłowy status.');
-        }
+		if (!in_array($new_status, ['wolny', 'zarezerwowany', 'zrealizowany'])) {
+			wp_send_json_error('Nieprawidłowy status.');
+		}
 
-        global $wpdb;
-        
-        // Pobierz dane lotu
-        $flight = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}srl_zakupione_loty WHERE id = %d", $flight_id
-        ), ARRAY_A);
-        
-        if (!$flight) {
-            wp_send_json_error('Lot nie istnieje.');
-        }
-        
-        $result = $wpdb->update(
-            $wpdb->prefix . 'srl_zakupione_loty',
-            ['status' => $new_status],
-            ['id' => $flight_id],
-            ['%s'], ['%d']
-        );
+		global $wpdb;
+		$wpdb->query('START TRANSACTION');
+		
+		try {
+			// Pobierz dane lotu wraz z terminem
+			$flight = $wpdb->get_row($wpdb->prepare(
+				"SELECT zl.*, t.id as termin_id, t.status as termin_status 
+				 FROM {$wpdb->prefix}srl_zakupione_loty zl
+				 LEFT JOIN {$wpdb->prefix}srl_terminy t ON zl.termin_id = t.id
+				 WHERE zl.id = %d", 
+				$flight_id
+			), ARRAY_A);
+			
+			if (!$flight) {
+				throw new Exception('Lot nie istnieje.');
+			}
+			
+			// Aktualizuj status lotu
+			$result = $wpdb->update(
+				$wpdb->prefix . 'srl_zakupione_loty',
+				['status' => $new_status],
+				['id' => $flight_id],
+				['%s'], ['%d']
+			);
 
-        if ($result !== false) {
-            SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($flight_id, [
-                'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
-                'typ' => 'zmiana_statusu_public_admin',
-                'executor' => 'Admin (public view)',
-                'szczegoly' => [
-                    'nowy_status' => $new_status,
-                    'user_id' => get_current_user_id()
-                ]
-            ]);
+			if ($result === false) {
+				throw new Exception('Błąd podczas aktualizacji statusu lotu.');
+			}
+			
+			// Jeśli lot ma przypisany termin, zaktualizuj również termin
+			if ($flight['termin_id']) {
+				$termin_status_map = [
+					'wolny' => 'Wolny',
+					'zarezerwowany' => 'Zarezerwowany', 
+					'zrealizowany' => 'Zrealizowany'
+				];
+				
+				if (isset($termin_status_map[$new_status])) {
+					$wpdb->update(
+						$wpdb->prefix . 'srl_terminy',
+						['status' => $termin_status_map[$new_status]],
+						['id' => $flight['termin_id']],
+						['%s'], ['%d']
+					);
+				}
+			}
 
-            wp_send_json_success('Status został zmieniony.');
-        } else {
-            wp_send_json_error('Błąd podczas zmiany statusu.');
-        }
-    }
+			// Dodaj do historii
+			SRL_Historia_Functions::getInstance()->dopiszDoHistoriiLotu($flight_id, [
+				'data' => SRL_Helpers::getInstance()->getCurrentDatetime(),
+				'typ' => 'zmiana_statusu_public_admin',
+				'executor' => 'Admin (public view)',
+				'szczegoly' => [
+					'stary_status' => $flight['status'],
+					'nowy_status' => $new_status,
+					'user_id' => get_current_user_id(),
+					'termin_id' => $flight['termin_id']
+				]
+			]);
+
+			$wpdb->query('COMMIT');
+			wp_send_json_success('Status został zmieniony pomyślnie.');
+
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			wp_send_json_error($e->getMessage());
+		}
+	}
 
     public function ajaxCancelFlight() {
         SRL_Helpers::getInstance()->checkAdminPermissions();
@@ -594,4 +670,26 @@ class SRL_Flight_View {
             ]
         ]);
     }
+	
+	public function ajaxLogin() {
+		check_ajax_referer('srl_frontend_nonce', 'nonce');
+		
+		$username = sanitize_text_field($_POST['username']);
+		$password = $_POST['password'];
+		
+		if (empty($username) || empty($password)) {
+			wp_send_json_error('Wprowadź login i hasło.');
+		}
+		
+		$user = wp_authenticate($username, $password);
+		
+		if (is_wp_error($user)) {
+			wp_send_json_error('Nieprawidłowy login lub hasło.');
+		}
+		
+		wp_set_current_user($user->ID);
+		wp_set_auth_cookie($user->ID, true);
+		
+		wp_send_json_success('Zalogowano pomyślnie.');
+	}
 }

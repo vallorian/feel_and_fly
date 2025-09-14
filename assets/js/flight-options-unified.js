@@ -94,7 +94,7 @@ jQuery(document).ready(function($) {
             if ($('#srl-cart-notification').length) {
                 const bgColor = typ === 'success' ? '#46b450' : '#d63638';
                 $('#srl-cart-message').html(tekst);
-                $('#srl-cart-notification').css('background', bgColor).fadeIn().delay(3000).fadeOut();
+                $('#srl-cart-notification').css('background', bgColor).fadeIn().delay(10000).fadeOut();
             } else if (typeof pokazKomunikat === 'function') {
                 pokazKomunikat(tekst, typ);
             } else {
@@ -257,7 +257,7 @@ jQuery(document).ready(function($) {
                     onSuccess: (response) => {
                         if (response.success) {
                             this.przywrocPrzyciskDoOryginalnegoStanu(button, lotId, productId);
-                            this.pokazKomunikatOpcji('✅ Opcja usunięta z koszyka', 'success');
+                            this.pokazKomunikatOpcji('Opcja usunięta z koszyka', 'success');
                             
                             this.cache.clear();
                             $(document).trigger('srl_opcje_zmienione');
@@ -301,7 +301,7 @@ jQuery(document).ready(function($) {
             useCache: false,
             onSuccess: (response) => {
                 if (response && !response.error) {
-                    SRLOpcje.pokazKomunikatOpcji(`✅ Dodano "${optionName}" do koszyka!`, 'success');
+                    SRLOpcje.pokazKomunikatOpcji(`Dodano "${optionName}" do koszyka!`, 'success');
                     SRLOpcje.przemieniPrzyciskNaWKoszyku(button, lotId, productId, optionName);
                     SRLOpcje.clearCache();
                     $(document).trigger('srl_opcje_zmienione');

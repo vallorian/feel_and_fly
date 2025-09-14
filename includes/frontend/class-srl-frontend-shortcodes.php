@@ -223,7 +223,7 @@ class SRL_Frontend_Shortcodes {
                         <div class="srl-uwaga" style="background:#fff3e0; border:2px solid #ff9800; border-radius:8px; padding:20px; margin-top:20px;">
                             <h4 style="margin-top:0; color:#f57c00;">⚠️ Ważne informacje:</h4>
                             <ul style="margin:0; padding-left:20px;">
-                                <li>Zgłoś się 30 minut przed godziną lotu</li>
+                                <li>Zgłoś się 10 minut przed godziną lotu</li>
                                 <li>Weź ze sobą dokument tożsamości</li>
                                 <li>Ubierz się stosownie do warunków pogodowych</li>
                                 <li>Rezerwację można anulować do 48h przed lotem</li>
@@ -242,7 +242,7 @@ class SRL_Frontend_Shortcodes {
             
             <div id="srl-komunikaty"></div>
             
-            <div id="srl-cart-notification" style="display:none; position:fixed; top:20px; right:20px; background:#46b450; color:white; padding:15px 20px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+            <div id="srl-cart-notification" style="display:none; position:fixed; bottom:10px; right:10px; background:#46b450; color:white; padding:15px 20px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:320px;">
                 <div id="srl-cart-message"></div>
                 <a href="<?php echo function_exists('wc_get_cart_url') ? wc_get_cart_url() : '/koszyk/'; ?>" class="button" style="margin-top:10px; background:white; color:#46b450; text-decoration:none; display:inline-block; padding:8px 15px; border-radius:4px; font-weight:600;">Przejdź do koszyka</a>
             </div>

@@ -54,9 +54,9 @@ class SRL_Client_Account {
         $tabela_loty = $wpdb->prefix . 'srl_zakupione_loty';
         $tabela_terminy = $wpdb->prefix . 'srl_terminy';
 
-        echo '<h2>Twoje loty tandemowe</h2>';
-        echo '<div style="margin-bottom: 30px;">';
-        echo SRL_Helpers::getInstance()->generateLink('/rezerwuj-lot/', '🎯 Zarządzaj lotami', 'srl-zarzadzaj-btn');
+        echo '<h2 style="text-align: center;">Twoje loty tandemowe</h2>';
+        echo '<div style="margin-bottom: 30px;text-align: center;">';
+        echo SRL_Helpers::getInstance()->generateLink('/rezerwuj-lot/', 'Zarządzaj lotami', 'srl-zarzadzaj-btn');
         echo '</div>';
 
         $wszystkie_loty = $wpdb->get_results($wpdb->prepare(

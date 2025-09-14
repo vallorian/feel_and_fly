@@ -317,6 +317,9 @@ class SRL_Admin_Tables {
 			'style' => 'margin-left: 5px;'
 		]);
 		
+		// DODAJ TEN FRAGMENT - przycisk QR
+		$html .= SRL_QR_Code_Generator::getInstance()->renderQRButton($flight['id'], 'QR kod');
+		
 		// Dodaj przycisk "Zarządzaj" tylko dla zarezerwowanych lotów
 		if ($flight['status'] === 'zarezerwowany' && !empty($flight['data_lotu'])) {
 			$manage_url = admin_url('admin.php?page=srl-dzien&data=' . $flight['data_lotu']);
